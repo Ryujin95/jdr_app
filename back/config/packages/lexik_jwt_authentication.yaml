@@ -1,0 +1,9 @@
+lexik_jwt_authentication:
+  secret_key: '%kernel.project_dir%/config/jwt/private.pem'
+  public_key: '%kernel.project_dir%/config/jwt/public.pem'
+  pass_phrase: '%env(JWT_PASSPHRASE)%'
+  token_ttl: 86400
+
+  # Ta version supporte ça (tu le vois dans la liste des options)
+  # Ça change le claim utilisé dans le JWT (au lieu de "username")
+  user_id_claim: email

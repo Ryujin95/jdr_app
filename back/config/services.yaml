@@ -1,0 +1,21 @@
+parameters:
+  app.mail_from: '%env(string:MAIL_FROM)%'
+  app.front_base_url: '%env(string:FRONT_BASE_URL)%'
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  App\:
+    resource: '../src/'
+    exclude:
+      - '../src/DependencyInjection/'
+      - '../src/Entity/'
+      - '../src/Kernel.php'
+
+  App\Service\ResetPasswordTokenService:
+    arguments:
+      $fromEmail: '%app.mail_from%'
+      $frontBaseUrl: '%app.front_base_url%'
+      $ttlMinutes: 240

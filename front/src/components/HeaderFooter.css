@@ -1,0 +1,72 @@
+.header {
+  background: #1e1e1e;
+  color: white;
+  padding: 15px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 6.5rem;
+}
+
+.logo {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.nav a {
+  color: #ccc;
+  margin-left: 20px;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.nav a:hover {
+  color: white;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 1rem;
+  margin: 0;
+  text-decoration: none;
+}
+
+.logout-btn:hover {
+  color: white;
+}
+
+.footer {
+  margin-top: 50px;
+  padding: 15px;
+  background: #1e1e1e;
+  color: #aaa;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* dropdown hover avatar */
+.profile-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.profile-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar {
+  width: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.35);
+}

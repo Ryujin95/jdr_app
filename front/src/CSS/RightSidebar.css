@@ -1,0 +1,74 @@
+/* src/CSS/RightSidebar.css */
+/* c'est un dropdown sous l'avatar, pas une sidebar fixed */
+
+.right-dropdown {
+  position: absolute;
+  top: 56px;
+  right: 0;
+  width: 260px;
+  background: #1f1f1f;
+  color: white;
+  padding: 14px;
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  z-index: 999;
+}
+
+.rs-block + .rs-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rs-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.rs-empty {
+  margin: 10px 0 0;
+  opacity: 0.75;
+  font-size: 14px;
+}
+
+.rs-user {
+  margin-top: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.rs-user--online {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rs-user--offline {
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rs-offline-toggle {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.rs-arrow {
+  display: inline-block;
+  transition: transform 0.25s ease;
+}
+
+.rs-arrow.open {
+  transform: rotate(180deg);
+}
+
+.rs-list {
+  margin-top: 6px;
+}
+
