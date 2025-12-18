@@ -13,36 +13,55 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api')]
 class MeController extends AbstractController
 {
-    #[Route('/me', methods: ['GET'])]
+    public function __construct(private MeService $meService)
+    {
+    }
+
+    #[Route('/me', name: 'api_me_get', methods: ['GET'])]
     public function me(): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], 401);
+            return $this->json(['error' => 'Non authentifié'], 401);
         }
 
-        return new JsonResponse([
-            'id' => $user->getId(),
+        return $this->json([
+            'id'       => $user->getId(),
             'username' => $user->getUsername(),
-            'email' => $user->getEmail(),
+            'email'    => $user->getEmail(),
         ]);
     }
 
-    #[Route('/me', methods: ['PUT'])]
-    public function update(Request $request, MeService $service): JsonResponse
+    #[Route('/me', name: 'api_me_update', methods: ['PUT'])]
+    public function update(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            return new JsonResponse(['error' => 'Non authentifié'], 401);
+            return $this->json(['error' => 'Non authentifié'], 401);
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $user = $service->update($user, $data);
 
-        return new JsonResponse([
-            'message' => 'Profil mis à jour',
+        $user = $this->meService->update($user, $data);
+
+        return $this->json([
+            'message'  => 'Profil mis à jour',
             'username' => $user->getUsername(),
-            'email' => $user->getEmail(),
+            'email'    => $user->getEmail(),
         ]);
+    }
+
+    #[Route('/me', name: 'api_me_delete', methods: ['DELETE'])]
+    public function delete(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $this->meService->delete($user);
+
+        // 204 = No Content
+        return new JsonResponse(null, 204);
     }
 }

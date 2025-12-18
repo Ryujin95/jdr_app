@@ -1,3 +1,4 @@
+// front/src/components/Layout.jsx
 import RightSidebar from "./RightSidebar";
 import Header from "./Header";
 import Footer from "./Footer";

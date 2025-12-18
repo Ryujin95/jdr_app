@@ -1,11 +1,13 @@
-// src/pages/LoginPage.jsx
+// front/src/pages/LoginPage.jsx
 import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
 import "../CSS/Login.css";
 
 function LoginPage() {
   const { login } = useContext(AuthContext);
+  const { addNotification } = useNotification();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -19,9 +21,27 @@ function LoginPage() {
 
     try {
       await login(email, password);
+
+      addNotification({
+        type: "success",
+        message: "Connexion réussie, bienvenue !",
+      });
+
       navigate("/");
     } catch (err) {
-      setError(err.message || "Erreur de connexion");
+      const raw = err?.message || "";
+      let msg = raw || "Erreur de connexion";
+
+      if (raw.includes("Invalid credentials")) {
+        msg = "Email ou mot de passe incorrect.";
+      }
+
+      setError(msg);
+
+      addNotification({
+        type: "error",
+        message: msg,
+      });
     }
   };
 
@@ -29,7 +49,8 @@ function LoginPage() {
     <main className="login-container">
       <h2 className="login-title">Se connecter</h2>
 
-      {error && <p className="login-error">{error}</p>}
+      {/* tu gardes l’erreur en JS (pour les notifs) mais tu ne l’affiches plus ici */}
+      {/* {error && <p className="login-error">{error}</p>} */}
 
       <form className="login-form" onSubmit={handleLogin}>
         <input
@@ -53,14 +74,26 @@ function LoginPage() {
             autoComplete="current-password"
           />
 
-          <button
-            type="button"
+          <span
+            role="button"
+            tabIndex={0}
             className="password-toggle"
             onClick={() => setShowPassword((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setShowPassword((v) => !v);
+              }
+            }}
+            title={
+              showPassword
+                ? "Masquer le mot de passe"
+                : "Afficher le mot de passe"
+            }
             aria-label="Afficher ou masquer le mot de passe"
           >
-            {showPassword ? "🙈" : "👁️"}
-          </button>
+            {showPassword ? "⚫" : "👁"}
+          </span>
         </div>
 
         <div className="login-actions">

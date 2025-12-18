@@ -3,20 +3,18 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import "../CSS/Login.css";
 import { API_URL } from "../config";
+import { useNotification } from "../context/NotificationContext";
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ok, setOk] = useState("");
-  const [error, setError] = useState("");
 
-  // Si API_URL finit par /api, on l'enlève pour appeler /auth/...
+  const { addNotification } = useNotification();
+
   const BASE_URL = API_URL.replace(/\/api\/?$/, "");
 
   const handleSend = async (e) => {
     e.preventDefault();
-    setError("");
-    setOk("");
     setLoading(true);
 
     try {
@@ -24,7 +22,6 @@ function ForgotPasswordPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
         },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
@@ -32,13 +29,20 @@ function ForgotPasswordPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.message || data?.detail || "Impossible d’envoyer le mail");
+        throw new Error(data?.message || data?.detail || "Erreur d’envoi");
       }
 
-      setOk("Si l’email existe, un lien de réinitialisation a été envoyé.");
+      addNotification({
+        type: "success",
+        message: "Si l’email existe, tu recevras un lien.",
+      });
+
       setEmail("");
     } catch (err) {
-      setError(err.message || "Erreur");
+      addNotification({
+        type: "error",
+        message: err.message || "Erreur réseau",
+      });
     } finally {
       setLoading(false);
     }
@@ -47,9 +51,6 @@ function ForgotPasswordPage() {
   return (
     <main className="login-container">
       <h2 className="login-title">Mot de passe oublié</h2>
-
-      {error && <p className="login-error">{error}</p>}
-      {ok && <p className="login-success">{ok}</p>}
 
       <form className="login-form" onSubmit={handleSend}>
         <input

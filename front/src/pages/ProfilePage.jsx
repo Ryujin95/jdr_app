@@ -2,22 +2,20 @@
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
 import { API_URL } from "../config";
 import "../CSS/Profile.css";
 import defaultAvatar from "../assets/kenichi.png";
 
-function ProfilePage() {
+export default function ProfilePage() {
   const { user, token, isAuthenticated, logout, updateUser } = useContext(AuthContext);
+  const { addNotification } = useNotification();
   const navigate = useNavigate();
 
   const [profileImagePreview, setProfileImagePreview] = useState(defaultAvatar);
-
   const [newUsername, setNewUsername] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
-
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/login");
@@ -27,16 +25,8 @@ function ProfilePage() {
     if (user?.avatar) setProfileImagePreview(user.avatar);
   }, [user]);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  const callUpdateApi = async (body) => {
-    if (!user) throw new Error("Pas d'utilisateur connecté");
-    if (!token) throw new Error("Token manquant (pas connecté)");
-
-    const res = await fetch(`${API_URL}/users/${user.id}`, {
+  const callUpdateApi = async (body, successMessage) => {
+    const res = await fetch(`${API_URL}/me`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -45,71 +35,50 @@ function ProfilePage() {
       body: JSON.stringify(body),
     });
 
-    const text = await res.text();
-    let data = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      throw new Error(`Réponse non JSON (${res.status}). Extrait: ${text.slice(0, 120)}`);
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || data.message);
 
-    if (!res.ok) {
-      throw new Error(data?.error || data?.message || "Erreur lors de la mise à jour");
-    }
-
-    updateUser?.({
+    updateUser({
       username: data.username ?? user.username,
       email: data.email ?? user.email,
     });
 
-    return data;
+    addNotification({ type: "success", message: successMessage });
   };
 
   const handleUsernameSave = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
-    const value = newUsername.trim();
-    if (!value) return;
+    if (!newUsername.trim()) return;
 
     try {
-      await callUpdateApi({ username: value });
+      await callUpdateApi({ username: newUsername }, "Nom d'utilisateur mis à jour !");
       setNewUsername("");
-      setMessage("Nom d'utilisateur mis à jour.");
     } catch (err) {
-      setError(err.message);
+      addNotification({ type: "error", message: err.message });
     }
   };
 
   const handleEmailSave = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
-    const value = newEmail.trim();
-    if (!value) return;
+    if (!newEmail.trim()) return;
 
     try {
-      await callUpdateApi({ email: value });
+      await callUpdateApi({ email: newEmail }, "Email mis à jour !");
       setNewEmail("");
-      setMessage("Email mis à jour.");
     } catch (err) {
-      setError(err.message);
+      addNotification({ type: "error", message: err.message });
     }
   };
 
   const handlePasswordSave = async (e) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
-    const value = newPassword.trim();
-    if (!value) return;
+    if (!newPassword.trim()) return;
 
     try {
-      await callUpdateApi({ password: value });
+      await callUpdateApi({ password: newPassword }, "Mot de passe mis à jour !");
       setNewPassword("");
-      setMessage("Mot de passe mis à jour.");
     } catch (err) {
-      setError(err.message);
+      addNotification({ type: "error", message: err.message });
     }
   };
 
@@ -119,11 +88,51 @@ function ProfilePage() {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64 = reader.result;
-      setProfileImagePreview(base64);
-      setMessage("Avatar mis à jour (front uniquement pour l'instant).");
+      setProfileImagePreview(reader.result);
+      addNotification({
+        type: "info",
+        message: "Avatar modifié côté front (non sauvegardé en back).",
+      });
     };
     reader.readAsDataURL(file);
+  };
+
+  // ------------------- Delete account ---------------------
+
+  const deleteAccount = async () => {
+    try {
+      const res = await fetch(`${API_URL}/me`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Suppression impossible");
+
+      addNotification({
+        type: "success",
+        message: "Compte supprimé avec succès !",
+      });
+
+      logout();
+      navigate("/");
+    } catch (err) {
+      addNotification({
+        type: "error",
+        message: err.message,
+      });
+    }
+  };
+
+  const handleDeleteRequest = () => {
+    if (
+      window.confirm(
+        "Es-tu sûr ? Cela supprimera définitivement ton compte et toutes tes données."
+      )
+    ) {
+      deleteAccount();
+    }
   };
 
   if (!user) return null;
@@ -132,7 +141,11 @@ function ProfilePage() {
     <main className="profile-container">
       <div className="profile-header-line">
         <div className="profile-header-left">
-          <img src={profileImagePreview} alt="Avatar" className="profile-avatar-big" />
+          <img
+            src={profileImagePreview}
+            alt="Avatar"
+            className="profile-avatar-big"
+          />
           <div>
             <h2>Mon profil</h2>
             <p className="profile-username">@{user.username}</p>
@@ -140,13 +153,10 @@ function ProfilePage() {
           </div>
         </div>
 
-        <button className="logout-btn" onClick={handleLogout}>
+        <button className="logout-btn" onClick={logout}>
           Se déconnecter
         </button>
       </div>
-
-      {error && <p className="profile-error">{error}</p>}
-      {message && <p className="profile-success">{message}</p>}
 
       <section className="profile-section">
         <h3>Nom d'utilisateur</h3>
@@ -189,6 +199,7 @@ function ProfilePage() {
       <section className="profile-section">
         <h3>Mot de passe</h3>
         <form className="profile-form-inline" onSubmit={handlePasswordSave}>
+          
           <input
             type="password"
             className="profile-input"
@@ -216,8 +227,19 @@ function ProfilePage() {
           </label>
         </form>
       </section>
+
+      {/* ---------- delete section ---------- */}
+      <section className="profile-section delete-section">
+        <h3>Supprimer mon compte</h3>
+
+        <button
+          type="button"
+          className="profile-delete-btn"
+          onClick={handleDeleteRequest}
+        >
+          Supprimer mon compte
+        </button>
+      </section>
     </main>
   );
 }
-
-export default ProfilePage;
