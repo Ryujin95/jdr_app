@@ -13,6 +13,7 @@ import NotificationBox from "./components/NotificationBox.jsx";
 import TestApiPage from "./pages/TestApiPage.jsx";
 import CharactersPage from "./pages/CharactersPage.jsx";
 import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
+import TransitionVideo from "./pages/TransitionVideo.jsx";
 function App() {
   return (
     <div className="app">
@@ -31,6 +32,7 @@ function App() {
         <Route path="/test-api" element={<TestApiPage />} />
         <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
+        <Route path="/transition-video/:id" element={<TransitionVideo />} />
       </Routes>
 
       <Footer />

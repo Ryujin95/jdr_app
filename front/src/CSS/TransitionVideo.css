@@ -1,0 +1,35 @@
+/* src/CSS/TransitionVideo.css */
+
+.transition-video-container {
+    position: fixed;
+    inset: 0;
+    background: black;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    opacity: 0;
+    animation: fadeIn 1.8s ease-out forwards;
+  }
+  
+  .transition-video-container.leaving {
+    animation: fadeOut 1.8s ease-in forwards;
+  }
+  
+  .transition-video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+  

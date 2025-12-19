@@ -40,8 +40,9 @@ function CharactersPage() {
   }, [token]);
 
   const handleCardClick = (id) => {
-    navigate(`/characters/${id}`);
+    navigate(`/transition-video/${id}`);
   };
+  
 
   if (!token) {
     return <p style={{ padding: "2rem" }}>Connecte-toi pour voir les personnages.</p>;

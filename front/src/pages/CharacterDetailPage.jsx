@@ -65,6 +65,7 @@ function CharacterDetailPage() {
   return (
     <div
       className="character-detail-page"
+      
       style={
         character.avatarUrl
           ? { backgroundImage: `url(${character.avatarUrl})` }
