@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -64,6 +66,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $resetPasswordTokenExpiresAt = null;
+
+    /**
+     * @var Collection<int, CharacterKnowledge>
+     */
+    #[ORM\OneToMany(targetEntity: CharacterKnowledge::class, mappedBy: 'viewer')]
+    private Collection $characterKnowledge;
+
+    public function __construct()
+    {
+        $this->characterKnowledge = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -154,6 +167,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setResetPasswordTokenExpiresAt(?\DateTimeImmutable $expiresAt): static
     {
         $this->resetPasswordTokenExpiresAt = $expiresAt;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, CharacterKnowledge>
+     */
+    public function getCharacterKnowledge(): Collection
+    {
+        return $this->characterKnowledge;
+    }
+
+    public function addCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
+    {
+        if (!$this->characterKnowledge->contains($characterKnowledge)) {
+            $this->characterKnowledge->add($characterKnowledge);
+            $characterKnowledge->setViewer($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
+    {
+        if ($this->characterKnowledge->removeElement($characterKnowledge)) {
+            // set the owning side to null (unless already changed)
+            if ($characterKnowledge->getViewer() === $this) {
+                $characterKnowledge->setViewer(null);
+            }
+        }
+
         return $this;
     }
 }

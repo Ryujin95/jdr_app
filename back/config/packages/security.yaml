@@ -42,3 +42,7 @@ security:
   - { path: ^/api/users, roles: PUBLIC_ACCESS } # si tu veux vraiment laisser ça public
 
   - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+
+  role_hierarchy:
+        ROLE_MJ:    [ROLE_USER]
+        ROLE_ADMIN: [ROLE_MJ, ROLE_USER]

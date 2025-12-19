@@ -1,0 +1,101 @@
+.characters-page {
+    padding: 2rem;
+    background: #0f172a;
+    min-height: 100vh;
+    color: #e5e7eb;
+  }
+  
+  .characters-page h1 {
+    margin-bottom: 1.5rem;
+  }
+  
+  .characters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .character-card {
+    background: #111827;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    cursor: pointer;
+    display: flex;
+    gap: 1rem;
+    border: 1px solid #1f2937;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  
+  .character-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    border-color: #4b5563;
+  }
+  
+  .character-avatar-wrapper {
+    flex-shrink: 0;
+  }
+  
+  .character-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid #4b5563;
+  }
+  
+  .character-avatar.placeholder {
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1f2937;
+    border: 2px solid #374151;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  .character-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .character-nickname {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+  
+  .character-name {
+    margin: 0.25rem 0;
+    color: #9ca3af;
+  }
+  
+  .character-age {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #d1d5db;
+  }
+  
+  .character-badge {
+    margin-top: 0.5rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    display: inline-block;
+  }
+  
+  .player-badge {
+    background: #10b98122;
+    color: #6ee7b7;
+    border: 1px solid #10b981;
+  }
+  
+  .npc-badge {
+    background: #3b82f622;
+    color: #93c5fd;
+    border: 1px solid #3b82f6;
+  }
+  

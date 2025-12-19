@@ -19,6 +19,10 @@ function Header() {
           Accueil
         </Link>
 
+        <Link to="/characters" className="nav-link">
+          Personnages
+        </Link>
+
         {!isAuthenticated && (
           <Link to="/login" className="nav-link">
             Se connecter
