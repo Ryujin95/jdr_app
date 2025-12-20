@@ -62,7 +62,8 @@ class CharacterWriteService
             ->setStrengths($data['strengths'] ?? $character->getStrengths())
             ->setWeaknesses($data['weaknesses'] ?? $character->getWeaknesses())
             ->setAvatarUrl($data['avatarUrl'] ?? $character->getAvatarUrl())
-            ->setIsPlayer(isset($data['isPlayer']) ? (bool) $data['isPlayer'] : ($character->isPlayer() ?? false));
+            ->setIsPlayer(isset($data['isPlayer']) ? (bool) $data['isPlayer'] : ($character->isPlayer() ?? false))
+            ->setClan($data['clan'] ?? $character->getClan()); // nouveau: clan
 
         $isPlayer = $character->isPlayer() === true;
 

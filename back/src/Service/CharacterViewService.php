@@ -19,15 +19,9 @@ class CharacterViewService
         private CharacterSkillValueRepository $skillValueRepository,
         private CharacterKnowledgeRepository $knowledgeRepository,
         private Security $security,
-    ) {
-    }
+    ) {}
 
-    /**
-     * Liste de personnages sous forme de "cards".
-     * Pour l'instant : tout le monde connecté voit tous les personnages.
-     * (On affinera plus tard avec CharacterKnowledge si tu veux.)
-     */
-    public function getCharacterCardsForCurrentUser(): array
+    public function getCharacterCardsForCurrentUser(?int $locationId = null): array
     {
         /** @var User|null $user */
         $user = $this->security->getUser();
@@ -36,7 +30,11 @@ class CharacterViewService
             return [];
         }
 
-        $characters = $this->characterRepository->findAll();
+        if ($locationId !== null) {
+            $characters = $this->characterRepository->findByLocationIdActive($locationId);
+        } else {
+            $characters = $this->characterRepository->findAllActive();
+        }
 
         $cards = [];
 
@@ -49,16 +47,13 @@ class CharacterViewService
                 'age'       => $character->getAge(),
                 'avatarUrl' => $character->getAvatarUrl(),
                 'isPlayer'  => $character->isPlayer(),
+                'clan'      => $character->getClan(),
             ];
         }
 
         return $cards;
     }
 
-    /**
-     * Détail d’un personnage adapté à l'utilisateur connecté
-     * en fonction de CharacterKnowledge + rôle (MJ/Admin).
-     */
     public function getCharacterDetailForCurrentUser(Character $character): array
     {
         /** @var User|null $user */
@@ -71,7 +66,6 @@ class CharacterViewService
         $isAdminOrMj = $this->security->isGranted('ROLE_ADMIN')
             || $this->security->isGranted('ROLE_MJ');
 
-        // Base : identité toujours visible pour celui qui a accès à la fiche
         $data = [
             'id'        => $character->getId(),
             'nickname'  => $character->getNickname(),
@@ -80,15 +74,14 @@ class CharacterViewService
             'age'       => $character->getAge(),
             'avatarUrl' => $character->getAvatarUrl(),
             'isPlayer'  => $character->isPlayer(),
+            'clan'      => $character->getClan(),
         ];
 
-        // MJ / Admin : voient tout le narratif d’office
         if ($isAdminOrMj) {
             $data['biography'] = $character->getBiography();
             $data['strengths'] = $character->getStrengths();
             $data['weaknesses'] = $character->getWeaknesses();
         } else {
-            // Joueur normal : on regarde CharacterKnowledge
             $knowledgeList = $this->knowledgeRepository->findBy([
                 'viewer' => $user,
                 'target' => $character,
@@ -96,34 +89,22 @@ class CharacterViewService
 
             $allowedFields = [];
             foreach ($knowledgeList as $knowledge) {
-                // key = field (ex: 'biography', 'strengths', 'weaknesses', 'relationships', 'secret:1', etc.)
                 $allowedFields[$knowledge->getField()] = $knowledge->getKnowledgeLevel();
             }
 
-            // Bio visible seulement si le MJ l’a validée
             if (isset($allowedFields['biography'])) {
                 $data['biography'] = $character->getBiography();
             }
 
-            // Qualités visibles seulement si validées
             if (isset($allowedFields['strengths'])) {
                 $data['strengths'] = $character->getStrengths();
             }
 
-            // Défauts visibles seulement si validés
             if (isset($allowedFields['weaknesses'])) {
                 $data['weaknesses'] = $character->getWeaknesses();
             }
-
-            // Plus tard, on pourra gérer aussi ici:
-            // - relationships
-            // - secret:X
-            // selon ce qu'on aura mis dans CharacterKnowledge.
         }
 
-        // 🔒 Gameplay (attributs + skills)
-        // Pour l'instant : MJ / Admin seulement.
-        // Quand on aura ajouté un owner sur Character, on ajoutera le cas "propriétaire".
         if ($isAdminOrMj) {
             $attributes = $this->attributesRepository->findOneBy(['character' => $character]);
 

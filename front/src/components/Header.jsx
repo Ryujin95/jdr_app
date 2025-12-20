@@ -23,6 +23,11 @@ function Header() {
           Personnages
         </Link>
 
+        {/* Lien vers la carte */}
+        <Link to="/map" className="nav-link">
+          Carte
+        </Link>
+
         {!isAuthenticated && (
           <Link to="/login" className="nav-link">
             Se connecter

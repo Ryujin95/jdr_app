@@ -14,12 +14,14 @@ import TestApiPage from "./pages/TestApiPage.jsx";
 import CharactersPage from "./pages/CharactersPage.jsx";
 import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
 import TransitionVideo from "./pages/TransitionVideo.jsx";
+import MapPage from "./pages/MapPage.jsx";
+import TrashPanel from "./components/TrashPanel.jsx";
+
 function App() {
   return (
     <div className="app">
       <Header />
 
-      {/* Boîte de notifications globale, visible sur toutes les pages */}
       <NotificationBox />
 
       <Routes>
@@ -33,7 +35,10 @@ function App() {
         <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
+        <Route path="/map" element={<MapPage />} />
       </Routes>
+
+      <TrashPanel />
 
       <Footer />
     </div>

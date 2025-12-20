@@ -60,7 +60,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255)]
     private ?string $username = null;
 
-    // ✅ AJOUT: token reset password (mdp oublié)
+    // ✅ Soft delete : utilisateur envoyé à la corbeille
+    #[ORM\Column(type: 'boolean')]
+    private bool $deleted = false;
+
+    // ✅ token reset password (mdp oublié)
     #[ORM\Column(length: 128, nullable: true)]
     private ?string $resetPasswordToken = null;
 
@@ -76,6 +80,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __construct()
     {
         $this->characterKnowledge = new ArrayCollection();
+        $this->deleted = false;
     }
 
     public function getId(): ?int
@@ -147,7 +152,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    // ✅ AJOUT: getters/setters reset password
+    // ✅ Soft delete : getters/setters
+    public function isDeleted(): bool
+    {
+        return $this->deleted;
+    }
+
+    public function setDeleted(bool $deleted): static
+    {
+        $this->deleted = $deleted;
+        return $this;
+    }
+
+    // ✅ reset password
     public function getResetPasswordToken(): ?string
     {
         return $this->resetPasswordToken;
@@ -191,7 +208,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function removeCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
     {
         if ($this->characterKnowledge->removeElement($characterKnowledge)) {
-            // set the owning side to null (unless already changed)
             if ($characterKnowledge->getViewer() === $this) {
                 $characterKnowledge->setViewer(null);
             }

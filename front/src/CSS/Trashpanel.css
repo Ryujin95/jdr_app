@@ -1,0 +1,128 @@
+/* src/components/TrashPanel.css */
+
+.trash-footer-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+  
+  /* bouton principal dans le footer */
+  .trash-footer-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid #444;
+    background: #151515;
+    color: #f5f5f5;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  
+  .trash-footer-toggle:hover {
+    background: #1f1f1f;
+  }
+  
+  .trash-footer-count {
+    min-width: 22px;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: #e74c3c;
+    color: #f5f5f5;
+    font-size: 0.75rem;
+    text-align: center;
+  }
+  
+  /* panneau déplié dans le footer */
+  .trash-footer-panel {
+    background: #101010;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    max-width: 100%;
+  }
+  
+  .trash-footer-content {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .trash-footer-section {
+    min-width: 120px;
+  }
+  
+  .trash-footer-section h4 {
+    font-size: 0.85rem;
+    color: #f5f5f5;
+    margin: 0 0 0.3rem 0;
+  }
+  
+  .trash-info {
+    color: #ccc;
+    font-size: 0.8rem;
+  }
+  
+  .trash-error {
+    color: #e74c3c;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .trash-empty {
+    color: #777;
+    font-size: 0.75rem;
+  }
+  
+  .trash-footer-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    background: #181818;
+    border-radius: 6px;
+    padding: 0.25rem 0.35rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .trash-footer-label {
+    color: #f5f5f5;
+    font-size: 0.8rem;
+  }
+  
+  .trash-footer-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .trash-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  
+  .trash-btn-restore {
+    background: #27ae60;
+    color: #f5f5f5;
+  }
+  
+  .trash-btn-restore:hover {
+    background: #2ecc71;
+    transform: translateY(-1px);
+  }
+  
+  .trash-btn-delete {
+    background: #7f8c8d;
+    color: #f5f5f5;
+  }
+  
+  .trash-btn-delete:hover {
+    background: #95a5a6;
+    transform: translateY(-1px);
+  }
+  

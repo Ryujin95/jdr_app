@@ -16,28 +16,45 @@ class CharacterRepository extends ServiceEntityRepository
         parent::__construct($registry, Character::class);
     }
 
-    //    /**
-    //     * @return Character[] Returns an array of Character objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('c')
-    //            ->andWhere('c.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('c.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * Tous les persos non supprimés
+     */
+    public function findAllActive(): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.deleted = :deleted')
+            ->setParameter('deleted', false)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 
-    //    public function findOneBySomeField($value): ?Character
-    //    {
-    //        return $this->createQueryBuilder('c')
-    //            ->andWhere('c.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    /**
+     * Tous les persos supprimés (pour la corbeille)
+     */
+    public function findAllDeleted(): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.deleted = :deleted')
+            ->setParameter('deleted', true)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Persos non supprimés dans un lieu donné
+     */
+    public function findByLocationIdActive(int $locationId): array
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.location', 'l')
+            ->andWhere('c.deleted = :deleted')
+            ->setParameter('deleted', false)
+            ->andWhere('l.id = :locationId')
+            ->setParameter('locationId', $locationId)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

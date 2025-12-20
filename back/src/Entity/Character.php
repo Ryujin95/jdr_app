@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\User;
+use App\Entity\Location;
 
 #[ORM\Entity(repositoryClass: CharacterRepository::class)]
 #[ORM\Table(name: '`character`')]
@@ -45,9 +46,20 @@ class Character
     #[ORM\Column]
     private ?bool $isPlayer = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'characters')]
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $clan = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true)]
     private ?User $owner = null;
+
+    #[ORM\ManyToOne(targetEntity: Location::class, inversedBy: 'characters')]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Location $location = null;
+
+    // SOFT DELETE
+    #[ORM\Column]
+    private bool $deleted = false;
 
     #[ORM\OneToOne(mappedBy: 'character', targetEntity: CharacterAttributes::class, cascade: ['persist', 'remove'])]
     private ?CharacterAttributes $attributes = null;
@@ -75,6 +87,7 @@ class Character
         $this->characterSkillValues = new ArrayCollection();
         $this->characterRelationships = new ArrayCollection();
         $this->characterKnowledge = new ArrayCollection();
+        $this->deleted = false;
     }
 
     public function getId(): ?int
@@ -90,7 +103,6 @@ class Character
     public function setLastname(string $lastname): static
     {
         $this->lastname = $lastname;
-
         return $this;
     }
 
@@ -102,7 +114,6 @@ class Character
     public function setFirstname(string $firstname): static
     {
         $this->firstname = $firstname;
-
         return $this;
     }
 
@@ -114,7 +125,6 @@ class Character
     public function setNickname(string $nickname): static
     {
         $this->nickname = $nickname;
-
         return $this;
     }
 
@@ -126,7 +136,6 @@ class Character
     public function setAge(int $age): static
     {
         $this->age = $age;
-
         return $this;
     }
 
@@ -138,7 +147,6 @@ class Character
     public function setBiography(string $biography): static
     {
         $this->biography = $biography;
-
         return $this;
     }
 
@@ -150,7 +158,6 @@ class Character
     public function setStrengths(?string $strengths): static
     {
         $this->strengths = $strengths;
-
         return $this;
     }
 
@@ -162,7 +169,6 @@ class Character
     public function setWeaknesses(?string $weaknesses): static
     {
         $this->weaknesses = $weaknesses;
-
         return $this;
     }
 
@@ -174,7 +180,6 @@ class Character
     public function setAvatarUrl(?string $avatarUrl): static
     {
         $this->avatarUrl = $avatarUrl;
-
         return $this;
     }
 
@@ -186,7 +191,17 @@ class Character
     public function setIsPlayer(bool $isPlayer): static
     {
         $this->isPlayer = $isPlayer;
+        return $this;
+    }
 
+    public function getClan(): ?string
+    {
+        return $this->clan;
+    }
+
+    public function setClan(?string $clan): static
+    {
+        $this->clan = $clan;
         return $this;
     }
 
@@ -198,110 +213,28 @@ class Character
     public function setOwner(?User $owner): static
     {
         $this->owner = $owner;
-
         return $this;
     }
 
-    public function getAttributes(): ?CharacterAttributes
+    public function getLocation(): ?Location
     {
-        return $this->attributes;
+        return $this->location;
     }
 
-    public function setAttributes(?CharacterAttributes $attributes): static
+    public function setLocation(?Location $location): static
     {
-        if ($attributes !== null && $attributes->getCharacter() !== $this) {
-            $attributes->setCharacter($this);
-        }
-
-        $this->attributes = $attributes;
-
+        $this->location = $location;
         return $this;
     }
 
-    /**
-     * @return Collection<int, CharacterSkillValue>
-     */
-    public function getCharacterSkillValues(): Collection
+    public function isDeleted(): bool
     {
-        return $this->characterSkillValues;
+        return $this->deleted;
     }
 
-    public function addCharacterSkillValue(CharacterSkillValue $characterSkillValue): static
+    public function setDeleted(bool $deleted): static
     {
-        if (!$this->characterSkillValues->contains($characterSkillValue)) {
-            $this->characterSkillValues->add($characterSkillValue);
-            $characterSkillValue->setOwner($this);
-        }
-
-        return $this;
-    }
-
-    public function removeCharacterSkillValue(CharacterSkillValue $characterSkillValue): static
-    {
-        if ($this->characterSkillValues->removeElement($characterSkillValue)) {
-            if ($characterSkillValue->getOwner() === $this) {
-                $characterSkillValue->setOwner(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, CharacterRelationship>
-     */
-    public function getCharacterRelationships(): Collection
-    {
-        return $this->characterRelationships;
-    }
-
-    public function addCharacterRelationship(CharacterRelationship $characterRelationship): static
-    {
-        if (!$this->characterRelationships->contains($characterRelationship)) {
-            $this->characterRelationships->add($characterRelationship);
-            $characterRelationship->setFromCharacter($this);
-        }
-
-        return $this;
-    }
-
-    public function removeCharacterRelationship(CharacterRelationship $characterRelationship): static
-    {
-        if ($this->characterRelationships->removeElement($characterRelationship)) {
-            if ($characterRelationship->getFromCharacter() === $this) {
-                $characterRelationship->setFromCharacter(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, CharacterKnowledge>
-     */
-    public function getCharacterKnowledge(): Collection
-    {
-        return $this->characterKnowledge;
-    }
-
-    public function addCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
-    {
-        if (!$this->characterKnowledge->contains($characterKnowledge)) {
-            $this->characterKnowledge->add($characterKnowledge);
-            $characterKnowledge->setTarget($this);
-        }
-
-        return $this;
-    }
-
-    public function removeCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
-    {
-        if ($this->characterKnowledge->removeElement($characterKnowledge)) {
-            if ($characterKnowledge->getTarget() === $this) {
-                $characterKnowledge->setTarget(null);
-            }
-        }
-
+        $this->deleted = $deleted;
         return $this;
     }
 }

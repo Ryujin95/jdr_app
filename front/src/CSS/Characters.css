@@ -98,4 +98,36 @@
     color: #93c5fd;
     border: 1px solid #3b82f6;
   }
+  .clan-section {
+    margin-top: 2rem;
+  }
+  
+  .clan-title {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.4rem;
+    color: #e5e7eb;
+    font-weight: 600;
+  }
+  
+  /* petit séparateur visuel si tu veux renforcer le découpage */
+  .clan-section + .clan-section {
+    border-top: 1px solid #1f2937;
+    padding-top: 2rem;
+  }
+  .character-trash-button {
+    margin-top: 0.5rem;
+    padding: 6px 12px;
+    background: #e74c3c;
+    color: #f5f5f5;
+    border: none;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  
+  .character-trash-button:hover {
+    background: #c0392b;
+    transform: translateY(-1px);
+  }
   

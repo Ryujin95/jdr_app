@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
@@ -10,6 +10,9 @@ function CharactersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // pour l’instant : tout utilisateur connecté voit le bouton
+  const showTrashButton = !!token;
 
   useEffect(() => {
     const fetchCharacters = async () => {
@@ -42,7 +45,59 @@ function CharactersPage() {
   const handleCardClick = (id) => {
     navigate(`/transition-video/${id}`);
   };
-  
+
+  const handleSendToTrash = async (event, id) => {
+    event.stopPropagation();
+
+    const confirmDelete = window.confirm(
+      "Envoyer ce personnage dans la corbeille ?"
+    );
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const res = await fetch(`${API_URL}/characters/${id}/trash`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.message ||
+            "Impossible d'envoyer ce personnage dans la corbeille."
+        );
+      }
+
+      // On retire le perso de la liste côté front
+      setCharacters((prev) => prev.filter((c) => c.id !== id));
+    } catch (e) {
+      setError(e.message || "Erreur lors de l'envoi dans la corbeille.");
+    }
+  };
+
+  const charactersByClan = useMemo(() => {
+    const grouped = {};
+
+    for (const char of characters) {
+      const clanName =
+        char.clan && char.clan.trim() !== "" ? char.clan : "Sans clan";
+      if (!grouped[clanName]) {
+        grouped[clanName] = [];
+      }
+      grouped[clanName].push(char);
+    }
+
+    return Object.entries(grouped).sort(([a], [b]) =>
+      a.localeCompare(b, "fr", { sensitivity: "base" })
+    );
+  }, [characters]);
 
   if (!token) {
     return <p style={{ padding: "2rem" }}>Connecte-toi pour voir les personnages.</p>;
@@ -67,43 +122,60 @@ function CharactersPage() {
   return (
     <div className="characters-page">
       <h1>Personnages du JDR</h1>
-      <div className="characters-grid">
-        {characters.map((char) => (
-          <div
-            key={char.id}
-            className="character-card"
-            onClick={() => handleCardClick(char.id)}
-          >
-            <div className="character-avatar-wrapper">
-              {char.avatarUrl ? (
-                <img
-                  src={char.avatarUrl}
-                  alt={char.nickname || char.firstname}
-                  className="character-avatar"
-                />
-              ) : (
-                <div className="character-avatar placeholder">
-                  {char.nickname?.charAt(0) || char.firstname?.charAt(0) || "?"}
-                </div>
-              )}
-            </div>
 
-            <div className="character-info">
-              <h2 className="character-nickname">{char.nickname}</h2>
-              <p className="character-name">
-                {char.firstname} {char.lastname}
-              </p>
-              <p className="character-age">{char.age} ans</p>
-              {char.isPlayer && (
-                <span className="character-badge player-badge">Joueur</span>
-              )}
-              {!char.isPlayer && (
-                <span className="character-badge npc-badge">PNJ</span>
-              )}
-            </div>
+      {charactersByClan.map(([clanName, clanCharacters]) => (
+        <section key={clanName} className="clan-section">
+          <h2 className="clan-title">{clanName}</h2>
+
+          <div className="characters-grid">
+            {clanCharacters.map((char) => (
+              <div
+                key={char.id}
+                className="character-card"
+                onClick={() => handleCardClick(char.id)}
+              >
+                <div className="character-avatar-wrapper">
+                  {char.avatarUrl ? (
+                    <img
+                      src={char.avatarUrl}
+                      alt={char.nickname || char.firstname}
+                      className="character-avatar"
+                    />
+                  ) : (
+                    <div className="character-avatar placeholder">
+                      {char.nickname?.charAt(0) ||
+                        char.firstname?.charAt(0) ||
+                        "?"}
+                    </div>
+                  )}
+                </div>
+
+                <div className="character-info">
+                  <h3 className="character-nickname">{char.nickname}</h3>
+                  <p className="character-name">
+                    {char.firstname} {char.lastname}
+                  </p>
+                  <p className="character-age">{char.age} ans</p>
+                  {char.isPlayer ? (
+                    <span className="character-badge player-badge">Joueur</span>
+                  ) : (
+                    <span className="character-badge npc-badge">PNJ</span>
+                  )}
+
+                  {showTrashButton && (
+                    <button
+                      className="character-trash-button"
+                      onClick={(event) => handleSendToTrash(event, char.id)}
+                    >
+                      Supprimer
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
+      ))}
     </div>
   );
 }
