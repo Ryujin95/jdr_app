@@ -1,59 +1,82 @@
 // src/pages/TransitionVideo.jsx
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import "../CSS/TransitionVideo.css";
+import CharacterDetailPage from "./CharacterDetailPage";
 
 function TransitionVideo() {
-  const navigate = useNavigate();
   const { id } = useParams();
+
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
+  // même logique que ton removeVideo, mais réutilisable (fin vidéo + skip)
+  const handleRemoveVideo = useCallback(() => {
+    if (leaving) return;
+
+    setLeaving(true);
+
+    // on laisse le fondu, puis on enlève l'overlay
+    setTimeout(() => {
+      setShowOverlay(false);
+    }, 800);
+  }, [leaving]);
+
   useEffect(() => {
-    let hasStartedLeave = false;
-
-    const startLeave = () => {
-      if (hasStartedLeave) return;
-      hasStartedLeave = true;
-
-      // on lance l'animation de fade-out
-      setLeaving(true);
-
-      // on laisse 500ms pour le fondu, puis on navigue vers la fiche
-      setTimeout(() => {
-        navigate(`/characters/${id}`);
-      }, 1800);
-    };
+    const mountTimer = setTimeout(() => {
+      setMounted(true);
+    }, 10);
 
     const video = document.getElementById("transition-video");
+
     if (video) {
-      video.addEventListener("ended", startLeave);
+      video.addEventListener("ended", handleRemoveVideo);
     }
 
-    // sécurité si l'event "ended" ne se déclenche pas
-    const timer = setTimeout(startLeave, 11000);
+    const safetyTimer = setTimeout(handleRemoveVideo, 11000);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(mountTimer);
+      clearTimeout(safetyTimer);
       if (video) {
-        video.removeEventListener("ended", startLeave);
+        video.removeEventListener("ended", handleRemoveVideo);
       }
     };
-  }, [id, navigate]);
+  }, [handleRemoveVideo]);
+
+  const overlayClassName =
+    "transition-video-overlay" +
+    (mounted ? " visible" : "") +
+    (leaving ? " leaving" : "");
 
   return (
-    <div
-      className={
-        "transition-video-container" + (leaving ? " leaving" : "")
-      }
-    >
-      <video
-        id="transition-video"
-        src="/videos/Kennichi.mp4"   // ton chemin actuel
-        autoPlay
-        muted
-        playsInline
-        className="transition-video"
-      />
+    <div className="transition-video-page">
+      <div className="transition-background">
+        <CharacterDetailPage />
+      </div>
+
+      {showOverlay && (
+        <div className={overlayClassName}>
+          <video
+            id="transition-video"
+            src="/videos/Kennichi.mp4"
+            autoPlay
+            muted
+            playsInline
+            className="transition-video"
+          />
+
+          {/* Bouton Skip pendant la vidéo */}
+          <button
+            type="button"
+            className="transition-skip-button"
+            onClick={handleRemoveVideo}
+          >
+            Skip
+          </button>
+        </div>
+      )}
     </div>
   );
 }

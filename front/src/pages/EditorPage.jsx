@@ -3,13 +3,13 @@ import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { API_URL } from "../config";
-import "../CSS/Editor.css"; // tu peux ajuster le nom de CSS
+import "../CSS/Editor.css";
 
 function EditorPage() {
   const { token } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("character"); // "character" ou "location"
+  const [mode, setMode] = useState("character");
 
   // --- états communs au formulaire personnage ---
   const [firstname, setFirstname] = useState("");
@@ -44,13 +44,12 @@ function EditorPage() {
     const fetchLocations = async () => {
       try {
         const res = await fetch(`${API_URL}/locations`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
+
         const data = await res.json();
-        setLocations(data);
+        setLocations(Array.isArray(data) ? data : []);
       } catch (e) {
         console.error(e);
       }
@@ -59,16 +58,26 @@ function EditorPage() {
     fetchLocations();
   }, [token]);
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files?.[0] || null;
-    setAvatarFile(file);
+  // cleanup preview URL quand on change d'image
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
 
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setAvatarPreview(url);
-    } else {
+  const handleAvatarChange = (e) => {
+    const file =
+      e.target.files && e.target.files[0] ? e.target.files[0] : null;
+
+    // sécurité: vrai File + non vide
+    if (!file || !(file instanceof File) || file.size === 0) {
+      setAvatarFile(null);
       setAvatarPreview(null);
+      return;
     }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
   };
 
   const handleSubmitCharacter = async (e) => {
@@ -82,6 +91,7 @@ function EditorPage() {
     }
 
     setSubmitting(true);
+
     try {
       const formData = new FormData();
       formData.append("firstname", firstname);
@@ -99,30 +109,45 @@ function EditorPage() {
         formData.append("locationId", locationId);
       }
 
-      if (avatarFile) {
+      // IMPORTANT: on n'envoie avatar que si c'est un vrai fichier non vide
+      if (avatarFile && avatarFile instanceof File && avatarFile.size > 0) {
         formData.append("avatar", avatarFile);
       }
 
-      const res = await fetch(`${API_URL}/characters`, {
+      const res = await fetch(`${API_URL}/admin/characters`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.message || "Erreur lors de la création du personnage."
-        );
+        const text = await res.text(); // parfois pas du JSON
+        console.log("BACK ERROR STATUS:", res.status);
+        console.log("BACK ERROR BODY:", text);
+        throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
+      const created = await res.json().catch(() => null);
+      console.log("CREATED:", created);
+
       setInfo("Personnage créé avec succès.");
-      // tu peux choisir :
-      // navigate("/characters");
-    } catch (e) {
-      setError(e.message || "Erreur inconnue côté personnage.");
+
+      // Optionnel: reset formulaire (je le fais sans toucher aux classes)
+      setFirstname("");
+      setLastname("");
+      setNickname("");
+      setAge("");
+      setBiography("");
+      setStrengths("");
+      setWeaknesses("");
+      setClan("");
+      setIsPlayer(false);
+      setSecret("");
+      setLocationId("");
+      setAvatarFile(null);
+      setAvatarPreview(null);
+    } catch (e2) {
+      setError(e2.message || "Erreur inconnue côté personnage.");
     } finally {
       setSubmitting(false);
     }
@@ -139,6 +164,7 @@ function EditorPage() {
     }
 
     setSubmitting(true);
+
     try {
       const res = await fetch(`${API_URL}/locations`, {
         method: "POST",
@@ -153,17 +179,33 @@ function EditorPage() {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.message || "Erreur lors de la création du lieu."
-        );
+        const text = await res.text();
+        console.log("BACK ERROR STATUS:", res.status);
+        console.log("BACK ERROR BODY:", text);
+        throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
+      const created = await res.json().catch(() => null);
+      console.log("LOCATION CREATED:", created);
+
       setInfo("Lieu créé avec succès.");
-      // tu peux choisir :
-      // navigate("/map");
-    } catch (e) {
-      setError(e.message || "Erreur inconnue côté lieu.");
+
+      // reset
+      setLocationName("");
+      setLocationDescription("");
+
+      // refresh la liste des lieux (utile pour le select perso)
+      try {
+        const r = await fetch(`${API_URL}/locations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.ok) {
+          const data = await r.json();
+          setLocations(Array.isArray(data) ? data : []);
+        }
+      } catch (_) {}
+    } catch (e2) {
+      setError(e2.message || "Erreur inconnue côté lieu.");
     } finally {
       setSubmitting(false);
     }
@@ -181,26 +223,24 @@ function EditorPage() {
     <div className="character-form-page">
       <h1>Éditeur de contenu</h1>
 
-        <div className="editor-mode-switch">
-    {/* fond qui glisse */}
-    <div className={`editor-mode-slider ${mode}`}></div>
+      <div className="editor-mode-switch">
+        <div className={`editor-mode-slider ${mode}`}></div>
 
-    <button
-        type="button"
-        className={mode === "character" ? "mode-button active" : "mode-button"}
-        onClick={() => setMode("character")}
-    >
-        Personnage
-    </button>
-    <button
-        type="button"
-        className={mode === "location" ? "mode-button active" : "mode-button"}
-        onClick={() => setMode("location")}
-    >
-        Lieu
-    </button>
-    </div>
-
+        <button
+          type="button"
+          className={mode === "character" ? "mode-button active" : "mode-button"}
+          onClick={() => setMode("character")}
+        >
+          Personnage
+        </button>
+        <button
+          type="button"
+          className={mode === "location" ? "mode-button active" : "mode-button"}
+          onClick={() => setMode("location")}
+        >
+          Lieu
+        </button>
+      </div>
 
       {error && <p className="form-error">{error}</p>}
       {info && <p className="form-info">{info}</p>}
@@ -341,7 +381,11 @@ function EditorPage() {
             <div className="form-row">
               <label>
                 Image du personnage
-                <input type="file" accept="image/*" onChange={handleAvatarChange} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                />
               </label>
 
               {avatarPreview && (

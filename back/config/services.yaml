@@ -19,3 +19,8 @@ services:
       $fromEmail: '%app.mail_from%'
       $frontBaseUrl: '%app.front_base_url%'
       $ttlMinutes: 240
+
+  # 👉 injection explicite du projectDir pour l’upload avatar
+  App\Service\CharacterService:
+    arguments:
+      $projectDir: '%kernel.project_dir%'
