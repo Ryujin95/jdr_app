@@ -51,28 +51,32 @@ class TrashService
     }
 
     /**
-     * Restaurer un élément supprimé
+     * Déplacer un élément dans la corbeille (deleted = true)
+     */
+    public function moveToTrash(string $entity, int $id): void
+    {
+        $item = $this->getEntityItem($entity, $id);
+
+        if (!method_exists($item, 'setDeleted')) {
+            throw new \RuntimeException('Cette entité ne supporte pas le champ deleted.');
+        }
+
+        $item->setDeleted(true);
+        $this->em->flush();
+    }
+
+    /**
+     * Restaurer un élément supprimé (deleted = false)
      */
     public function restore(string $entity, int $id): void
     {
-        $entity = strtolower($entity);
+        $item = $this->getEntityItem($entity, $id);
 
-        if ($entity === 'user') {
-            $item = $this->userRepository->find($id);
-        } elseif ($entity === 'character') {
-            $item = $this->characterRepository->find($id);
-        } elseif ($entity === 'location') {
-            $item = $this->locationRepository->find($id);
-        } else {
-            throw new NotFoundHttpException('Type d\'entité inconnu.');
-        }
-
-        if (!$item) {
-            throw new NotFoundHttpException('Élément introuvable pour restauration.');
+        if (!method_exists($item, 'setDeleted')) {
+            throw new \RuntimeException('Cette entité ne supporte pas le champ deleted.');
         }
 
         $item->setDeleted(false);
-
         $this->em->flush();
     }
 
@@ -81,7 +85,18 @@ class TrashService
      */
     public function forceDelete(string $entity, int $id): void
     {
-        $entity = strtolower($entity);
+        $item = $this->getEntityItem($entity, $id);
+
+        $this->em->remove($item);
+        $this->em->flush();
+    }
+
+    /**
+     * Récupère l'entité demandée ou throw NotFound
+     */
+    private function getEntityItem(string $entity, int $id): object
+    {
+        $entity = strtolower(trim($entity));
 
         if ($entity === 'user') {
             $item = $this->userRepository->find($id);
@@ -90,14 +105,13 @@ class TrashService
         } elseif ($entity === 'location') {
             $item = $this->locationRepository->find($id);
         } else {
-            throw new NotFoundHttpException('Type d\'entité inconnu pour suppression définitive.');
+            throw new NotFoundHttpException("Type d'entité inconnu: {$entity}");
         }
 
         if (!$item) {
-            throw new NotFoundHttpException('Élément introuvable.');
+            throw new NotFoundHttpException("Élément introuvable: {$entity} #{$id}");
         }
 
-        $this->em->remove($item);
-        $this->em->flush();
+        return $item;
     }
 }

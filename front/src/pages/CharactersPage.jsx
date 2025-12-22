@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext, useMemo } from "react";
+import { useEffect, useState, useContext, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
@@ -14,33 +14,34 @@ function CharactersPage() {
   // pour l’instant : tout utilisateur connecté voit le bouton
   const showTrashButton = !!token;
 
-  useEffect(() => {
-    const fetchCharacters = async () => {
-      try {
-        const res = await fetch(`${API_URL}/characters`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+  const fetchCharacters = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          throw new Error(data?.message || `Erreur HTTP ${res.status}`);
-        }
+      const res = await fetch(`${API_URL}/characters`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        const data = await res.json();
-        setCharacters(data);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Erreur HTTP ${res.status}`);
       }
-    };
 
-    if (token) {
-      fetchCharacters();
+      const data = await res.json();
+      setCharacters(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (token) fetchCharacters();
+  }, [token, fetchCharacters]);
 
   const handleCardClick = (id) => {
     navigate(`/transition-video/${id}`);
@@ -49,33 +50,27 @@ function CharactersPage() {
   const handleSendToTrash = async (event, id) => {
     event.stopPropagation();
 
-    const confirmDelete = window.confirm(
-      "Envoyer ce personnage dans la corbeille ?"
-    );
-    if (!confirmDelete) {
-      return;
-    }
+    const confirmDelete = window.confirm("Envoyer ce personnage dans la corbeille ?");
+    if (!confirmDelete) return;
 
     try {
       setError(null);
 
-      const res = await fetch(`${API_URL}/characters/${id}/trash`, {
+      // IMPORTANT:
+      // - pas de Content-Type inutile
+      // - route trash "move" (cohérente avec ta corbeille)
+      const res = await fetch(`${API_URL}/trash/move/character/${id}`, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.message ||
-            "Impossible d'envoyer ce personnage dans la corbeille."
-        );
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Impossible d'envoyer ce personnage dans la corbeille.");
       }
 
-      // On retire le perso de la liste côté front
       setCharacters((prev) => prev.filter((c) => c.id !== id));
     } catch (e) {
       setError(e.message || "Erreur lors de l'envoi dans la corbeille.");
@@ -86,11 +81,8 @@ function CharactersPage() {
     const grouped = {};
 
     for (const char of characters) {
-      const clanName =
-        char.clan && char.clan.trim() !== "" ? char.clan : "Sans clan";
-      if (!grouped[clanName]) {
-        grouped[clanName] = [];
-      }
+      const clanName = char.clan && char.clan.trim() !== "" ? char.clan : "Sans clan";
+      if (!grouped[clanName]) grouped[clanName] = [];
       grouped[clanName].push(char);
     }
 
@@ -143,9 +135,7 @@ function CharactersPage() {
                     />
                   ) : (
                     <div className="character-avatar placeholder">
-                      {char.nickname?.charAt(0) ||
-                        char.firstname?.charAt(0) ||
-                        "?"}
+                      {char.nickname?.charAt(0) || char.firstname?.charAt(0) || "?"}
                     </div>
                   )}
                 </div>
@@ -156,6 +146,7 @@ function CharactersPage() {
                     {char.firstname} {char.lastname}
                   </p>
                   <p className="character-age">{char.age} ans</p>
+
                   {char.isPlayer ? (
                     <span className="character-badge player-badge">Joueur</span>
                   ) : (
@@ -164,6 +155,7 @@ function CharactersPage() {
 
                   {showTrashButton && (
                     <button
+                      type="button"
                       className="character-trash-button"
                       onClick={(event) => handleSendToTrash(event, char.id)}
                     >
