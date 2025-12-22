@@ -28,6 +28,10 @@ function Header() {
           Carte
         </Link>
 
+      <Link to="/editor" className="nav-link">
+          Éditeur
+      </Link>
+
         {!isAuthenticated && (
           <Link to="/login" className="nav-link">
             Se connecter

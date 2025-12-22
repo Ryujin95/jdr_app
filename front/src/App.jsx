@@ -16,6 +16,7 @@ import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
 import TransitionVideo from "./pages/TransitionVideo.jsx";
 import MapPage from "./pages/MapPage.jsx";
 import TrashPanel from "./components/TrashPanel.jsx";
+import EditorPage from "./pages/EditorPage.jsx";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/editor" element={<EditorPage />} />
       </Routes>
 
       <TrashPanel />
