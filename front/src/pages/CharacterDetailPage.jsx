@@ -62,15 +62,19 @@ function CharacterDetailPage() {
 
   const fullName = `${character.firstname} ${character.lastname}`;
 
+  const backgroundUrl = character.avatarUrl
+  ? character.avatarUrl.startsWith("http")
+    ? character.avatarUrl
+    : character.avatarUrl.startsWith("/")
+      ? `https://127.0.0.1:8000${character.avatarUrl}`
+      : `https://127.0.0.1:8000/${character.avatarUrl}`
+  : null;
+
   return (
     <div
       className="character-detail-page"
       
-      style={
-        character.avatarUrl
-          ? { backgroundImage: `url(${character.avatarUrl})` }
-          : undefined
-      }
+      style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})` } : undefined}
     >
       <button className="back-button" onClick={() => navigate(-1)}>
         ← Retour

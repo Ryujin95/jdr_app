@@ -11,8 +11,25 @@ function CharactersPage() {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // pour l’instant : tout utilisateur connecté voit le bouton
   const showTrashButton = !!token;
+
+  const BACK_BASE_URL = API_URL.replace(/\/api\/?$/, "");
+
+  const resolveAvatarUrl = (avatarUrl) => {
+    if (!avatarUrl) return null;
+
+    const url = String(avatarUrl).trim();
+
+    if (/^https?:\/\//i.test(url)) return url;
+
+    if (url.startsWith("/")) return `${BACK_BASE_URL}${url}`;
+
+    if (url.startsWith("image/")) return `${BACK_BASE_URL}/${url}`;
+
+    if (url.startsWith("uploads/")) return `${BACK_BASE_URL}/${url}`;
+
+    return `${BACK_BASE_URL}/image/${url}`;
+  };
 
   const fetchCharacters = useCallback(async () => {
     try {
@@ -47,6 +64,11 @@ function CharactersPage() {
     navigate(`/transition-video/${id}`);
   };
 
+  const handleEditCharacter = (event, id) => {
+    event.stopPropagation();
+    navigate(`/characters/${id}/edit`);
+  };
+
   const handleSendToTrash = async (event, id) => {
     event.stopPropagation();
 
@@ -56,9 +78,6 @@ function CharactersPage() {
     try {
       setError(null);
 
-      // IMPORTANT:
-      // - pas de Content-Type inutile
-      // - route trash "move" (cohérente avec ta corbeille)
       const res = await fetch(`${API_URL}/trash/move/character/${id}`, {
         method: "PATCH",
         headers: {
@@ -120,51 +139,65 @@ function CharactersPage() {
           <h2 className="clan-title">{clanName}</h2>
 
           <div className="characters-grid">
-            {clanCharacters.map((char) => (
-              <div
-                key={char.id}
-                className="character-card"
-                onClick={() => handleCardClick(char.id)}
-              >
-                <div className="character-avatar-wrapper">
-                  {char.avatarUrl ? (
-                    <img
-                      src={char.avatarUrl}
-                      alt={char.nickname || char.firstname}
-                      className="character-avatar"
-                    />
-                  ) : (
-                    <div className="character-avatar placeholder">
-                      {char.nickname?.charAt(0) || char.firstname?.charAt(0) || "?"}
-                    </div>
-                  )}
+            {clanCharacters.map((char) => {
+              const avatarSrc = resolveAvatarUrl(char.avatarUrl);
+
+              return (
+                <div
+                  key={char.id}
+                  className="character-card"
+                  onClick={() => handleCardClick(char.id)}
+                >
+                  <div className="character-avatar-wrapper">
+                    {avatarSrc ? (
+                      <img
+                        src={avatarSrc}
+                        alt={char.nickname || char.firstname}
+                        className="character-avatar"
+                      />
+                    ) : (
+                      <div className="character-avatar placeholder">
+                        {char.nickname?.charAt(0) || char.firstname?.charAt(0) || "?"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="character-info">
+                    <h3 className="character-nickname">{char.nickname}</h3>
+                    <p className="character-name">
+                      {char.firstname} {char.lastname}
+                    </p>
+                    <p className="character-age">{char.age} ans</p>
+
+                    {char.isPlayer ? (
+                      <span className="character-badge player-badge">Joueur</span>
+                    ) : (
+                      <span className="character-badge npc-badge">PNJ</span>
+                    )}
+
+                    {showTrashButton && (
+                      <div className="character-actions">
+                        <button
+                          type="button"
+                          className="character-edit-button"
+                          onClick={(event) => handleEditCharacter(event, char.id)}
+                        >
+                          Modifier
+                        </button>
+
+                        <button
+                          type="button"
+                          className="character-trash-button"
+                          onClick={(event) => handleSendToTrash(event, char.id)}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <div className="character-info">
-                  <h3 className="character-nickname">{char.nickname}</h3>
-                  <p className="character-name">
-                    {char.firstname} {char.lastname}
-                  </p>
-                  <p className="character-age">{char.age} ans</p>
-
-                  {char.isPlayer ? (
-                    <span className="character-badge player-badge">Joueur</span>
-                  ) : (
-                    <span className="character-badge npc-badge">PNJ</span>
-                  )}
-
-                  {showTrashButton && (
-                    <button
-                      type="button"
-                      className="character-trash-button"
-                      onClick={(event) => handleSendToTrash(event, char.id)}
-                    >
-                      Supprimer
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       ))}

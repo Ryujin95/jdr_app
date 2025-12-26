@@ -43,6 +43,10 @@ class Character
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $avatarUrl = null;
 
+    // ✅ AJOUT VIDEO TRANSITION (même principe que avatarUrl)
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $transitionVideoUrl = null;
+
     #[ORM\Column]
     private ?bool $isPlayer = null;
 
@@ -180,6 +184,18 @@ class Character
     public function setAvatarUrl(?string $avatarUrl): static
     {
         $this->avatarUrl = $avatarUrl;
+        return $this;
+    }
+
+    // ✅ GET/SET VIDEO TRANSITION
+    public function getTransitionVideoUrl(): ?string
+    {
+        return $this->transitionVideoUrl;
+    }
+
+    public function setTransitionVideoUrl(?string $transitionVideoUrl): static
+    {
+        $this->transitionVideoUrl = $transitionVideoUrl;
         return $this;
     }
 

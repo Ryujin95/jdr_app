@@ -17,6 +17,8 @@ import TransitionVideo from "./pages/TransitionVideo.jsx";
 import MapPage from "./pages/MapPage.jsx";
 import TrashPanel from "./components/TrashPanel.jsx";
 import EditorPage from "./pages/EditorPage.jsx";
+import LocationCharactersPage from "./pages/LocationCharactersPage.jsx";
+import CharacterEditPage from "./pages/CharacterEditPage.jsx";
 
 function App() {
   return (
@@ -38,6 +40,8 @@ function App() {
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/editor" element={<EditorPage />} />
+        <Route path="/locations/:locationId/characters" element={<LocationCharactersPage />} />
+        <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
       </Routes>
 
       <TrashPanel />

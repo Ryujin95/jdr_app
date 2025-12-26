@@ -13,8 +13,6 @@ use App\Repository\CharacterSkillValueRepository;
 use App\Repository\LocationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\String\Slugger\SluggerInterface;
@@ -54,6 +52,7 @@ class CharacterService
                 'lastname'  => $character->getLastname(),
                 'age'       => $character->getAge(),
                 'avatarUrl' => $character->getAvatarUrl(),
+                'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl') ? $character->getTransitionVideoUrl() : null,
                 'isPlayer'  => $character->isPlayer(),
                 'clan'      => $character->getClan(),
             ];
@@ -79,6 +78,7 @@ class CharacterService
             'lastname'  => $character->getLastname(),
             'age'       => $character->getAge(),
             'avatarUrl' => $character->getAvatarUrl(),
+            'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl') ? $character->getTransitionVideoUrl() : null,
             'isPlayer'  => $character->isPlayer(),
             'clan'      => $character->getClan(),
         ];
@@ -224,29 +224,87 @@ class CharacterService
             }
         }
 
-        $avatar = $request->files->get('avatar');
-        if ($avatar instanceof UploadedFile) {
-            if (!$avatar->isValid()) {
-                throw new \InvalidArgumentException('Upload avatar invalide');
+        // ---------- AVATAR (déjà existant chez toi) ----------
+        $avatarFile = $request->files->get('avatar');
+        if ($avatarFile) {
+            $ext = strtolower($avatarFile->guessExtension() ?: '');
+            $allowed = ['jpg', 'jpeg', 'png', 'webp'];
+            if (!in_array($ext, $allowed, true)) {
+                throw new \InvalidArgumentException('Format image non autorisé (jpg, jpeg, png, webp).');
             }
 
-            $original = pathinfo($avatar->getClientOriginalName(), PATHINFO_FILENAME);
-            $safeName = $this->slugger->slug($original)->lower();
-            $ext = $avatar->guessExtension() ?: 'bin';
-            $newFilename = $safeName . '-' . uniqid('', true) . '.' . $ext;
+            $originalBase = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
+            $safeBase = (string) $this->slugger->slug($originalBase)->lower();
 
-            $targetDir = rtrim($this->projectDir, '/\\') . '/public/uploads/avatars';
+            $targetDir = rtrim($this->projectDir, '/') . '/public/image';
             if (!is_dir($targetDir)) {
-                @mkdir($targetDir, 0775, true);
+                if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+                    throw new \RuntimeException('Impossible de créer le dossier public/image');
+                }
+            }
+
+            $filename = $safeBase . '.' . $ext;
+            $i = 2;
+            while (file_exists($targetDir . '/' . $filename)) {
+                $filename = $safeBase . '-' . $i . '.' . $ext;
+                $i++;
             }
 
             try {
-                $avatar->move($targetDir, $newFilename);
-            } catch (FileException $e) {
+                $avatarFile->move($targetDir, $filename);
+            } catch (\Symfony\Component\HttpFoundation\File\Exception\FileException $e) {
                 throw new \RuntimeException('Erreur upload avatar');
             }
 
-            $character->setAvatarUrl('/uploads/avatars/' . $newFilename);
+            $character->setAvatarUrl('/image/' . $filename);
+        }
+
+        // ---------- VIDEO TRANSITION (nouveau) ----------
+        // ✅ côté front: FormData.append('transitionVideo', file)
+        // ✅ côté back: stocke /video/xxx.mp4 en base
+        $videoFile = $request->files->get('transitionVideo');
+        if ($videoFile) {
+            $ext = strtolower($videoFile->guessExtension() ?: '');
+            $allowed = ['mp4', 'webm'];
+
+            if (!in_array($ext, $allowed, true)) {
+                throw new \InvalidArgumentException('Format vidéo non autorisé (mp4, webm).');
+            }
+
+            // limite taille (ajuste si tu veux)
+            $maxBytes = 25 * 1024 * 1024; // 25 Mo
+            $size = $videoFile->getSize();
+            if ($size !== null && $size > $maxBytes) {
+                throw new \InvalidArgumentException('Vidéo trop lourde (max 25 Mo).');
+            }
+
+            $originalBase = pathinfo($videoFile->getClientOriginalName(), PATHINFO_FILENAME);
+            $safeBase = (string) $this->slugger->slug($originalBase)->lower();
+
+            $targetDir = rtrim($this->projectDir, '/') . '/public/video';
+            if (!is_dir($targetDir)) {
+                if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+                    throw new \RuntimeException('Impossible de créer le dossier public/video');
+                }
+            }
+
+            $filename = $safeBase . '.' . $ext;
+            $i = 2;
+            while (file_exists($targetDir . '/' . $filename)) {
+                $filename = $safeBase . '-' . $i . '.' . $ext;
+                $i++;
+            }
+
+            try {
+                $videoFile->move($targetDir, $filename);
+            } catch (\Symfony\Component\HttpFoundation\File\Exception\FileException $e) {
+                throw new \RuntimeException('Erreur upload vidéo');
+            }
+
+            // nécessite ton champ transitionVideoUrl dans l'entity
+            if (method_exists($character, 'setTransitionVideoUrl')) {
+                $character->setTransitionVideoUrl('/video/' . $filename);
+            }
         }
     }
 }

@@ -115,19 +115,30 @@
     padding-top: 2rem;
   }
   .character-trash-button {
-    margin-top: 0.5rem;
-    padding: 6px 12px;
-    background: #e74c3c;
-    color: #f5f5f5;
-    border: none;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: background 0.15s ease, transform 0.15s ease;
-  }
-  
-  .character-trash-button:hover {
-    background: #c0392b;
-    transform: translateY(-1px);
-  }
-  
+  margin-top: 0.5rem;
+  padding: 6px 12px;
+  background: #e74c3c;
+  color: #f5f5f5;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.character-trash-button:hover {
+  background: #c0392b;
+  transform: translateY(-1px);
+}
+
+.character-edit-button {
+  margin-top: 0.5rem;
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: #f5f5f5;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}

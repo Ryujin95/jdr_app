@@ -1,0 +1,210 @@
+/* src/CSS/CharacterEdit.css */
+
+.character-edit-page {
+    padding: 2rem;
+    color: #f3f4f6;
+  }
+  
+  .edit-title {
+    margin: 0 0 18px;
+    font-size: 1.7rem;
+    font-weight: 800;
+  }
+  
+  .edit-message {
+    padding: 2rem;
+    color: rgba(243, 244, 246, 0.75);
+  }
+  
+  .edit-error {
+    color: #ff6b6b;
+  }
+  
+  .edit-back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    padding: 9px 16px;
+    background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
+    color: #e5e7eb;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    cursor: pointer;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+    transition: transform 120ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  }
+  
+  .edit-back-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+  }
+  
+  .edit-form {
+    background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+    max-width: 980px;
+  }
+  
+  .edit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  
+  .edit-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  
+  .edit-field {
+    display: grid;
+    gap: 8px;
+  }
+  
+  .edit-field > span {
+    font-size: 0.92rem;
+    color: rgba(243, 244, 246, 0.75);
+  }
+  
+  .edit-field input,
+  .edit-field textarea {
+    background: rgba(255, 255, 255, 0.04);
+    color: #f3f4f6;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
+    padding: 10px 12px;
+    outline: none;
+  }
+  
+  .edit-field input:focus,
+  .edit-field textarea:focus {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+  
+  .edit-checkbox {
+    grid-column: span 3;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  .edit-media {
+    margin-top: 18px;
+    display: grid;
+    gap: 14px;
+  }
+  
+  .edit-media-block {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  
+  .edit-media-title {
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  
+  .edit-media-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  
+  .edit-avatar-preview,
+  .edit-avatar-placeholder {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  
+  .edit-avatar-preview {
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+  }
+  
+  .edit-avatar-placeholder {
+    background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+    border: 2px solid rgba(255, 255, 255, 0.12);
+  }
+  
+  .edit-video-chip {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    color: rgba(243, 244, 246, 0.85);
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .edit-media-controls {
+    display: grid;
+    gap: 6px;
+  }
+  
+  .edit-hint {
+    font-size: 0.85rem;
+    color: rgba(243, 244, 246, 0.55);
+  }
+  
+  .edit-success {
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.22);
+    color: rgba(243, 244, 246, 0.9);
+  }
+  
+  .edit-submit {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f3f4f6;
+    cursor: pointer;
+    transition: transform 120ms ease, border-color 160ms ease, background 160ms ease;
+  }
+  
+  .edit-submit:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  .edit-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  @media (max-width: 860px) {
+    .edit-grid {
+      grid-template-columns: 1fr;
+    }
+    .edit-checkbox {
+      grid-column: auto;
+    }
+    .edit-grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+  

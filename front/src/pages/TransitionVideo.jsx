@@ -1,49 +1,115 @@
 // src/pages/TransitionVideo.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import "../CSS/TransitionVideo.css";
 import CharacterDetailPage from "./CharacterDetailPage";
+import { API_URL } from "../config";
+import { AuthContext } from "../context/AuthContext";
 
 function TransitionVideo() {
   const { id } = useParams();
+  const { token } = useContext(AuthContext);
+
+  const [character, setCharacter] = useState(null);
+  const [loadingCharacter, setLoadingCharacter] = useState(true);
 
   const [showOverlay, setShowOverlay] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
-  // même logique que ton removeVideo, mais réutilisable (fin vidéo + skip)
+  const videoRef = useRef(null);
+
+  const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
+  const buildAssetUrl = useCallback(
+    (path) => {
+      if (!path) return null;
+      if (typeof path !== "string") return null;
+      if (path.startsWith("http")) return path;
+      if (path.startsWith("/")) return `${assetBase}${path}`;
+      return `${assetBase}/${path}`;
+    },
+    [assetBase]
+  );
+
+  const transitionVideoSrc = useMemo(() => {
+    return buildAssetUrl(character?.transitionVideoUrl || null);
+  }, [character, buildAssetUrl]);
+
   const handleRemoveVideo = useCallback(() => {
     if (leaving) return;
 
     setLeaving(true);
-
-    // on laisse le fondu, puis on enlève l'overlay
     setTimeout(() => {
       setShowOverlay(false);
     }, 800);
   }, [leaving]);
 
+  // 1) Charge le personnage UNE SEULE FOIS (plus de fetch dans CharacterDetailPage)
   useEffect(() => {
-    const mountTimer = setTimeout(() => {
-      setMounted(true);
-    }, 10);
+    const fetchCharacter = async () => {
+      setLoadingCharacter(true);
+      try {
+        const res = await fetch(`${API_URL}/characters/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-    const video = document.getElementById("transition-video");
+        if (!res.ok) {
+          setCharacter(null);
+          return;
+        }
 
-    if (video) {
-      video.addEventListener("ended", handleRemoveVideo);
+        const data = await res.json();
+        setCharacter(data);
+      } catch {
+        setCharacter(null);
+      } finally {
+        setLoadingCharacter(false);
+      }
+    };
+
+    if (token && id) fetchCharacter();
+    else {
+      setCharacter(null);
+      setLoadingCharacter(false);
     }
+  }, [id, token]);
 
+  // 2) animation d'apparition overlay
+  useEffect(() => {
+    const mountTimer = setTimeout(() => setMounted(true), 10);
+    return () => clearTimeout(mountTimer);
+  }, []);
+
+  // 3) Si pas de vidéo => on enlève l'overlay proprement dès que le perso est chargé
+  useEffect(() => {
+    if (loadingCharacter) return;
+    if (!showOverlay) return;
+
+    if (!transitionVideoSrc) {
+      handleRemoveVideo();
+    }
+  }, [loadingCharacter, transitionVideoSrc, showOverlay, handleRemoveVideo]);
+
+  // 4) Timers + "ended" uniquement quand la vidéo existe et est montée
+  useEffect(() => {
+    if (!showOverlay) return;
+    if (!transitionVideoSrc) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onEnded = () => handleRemoveVideo();
+
+    video.addEventListener("ended", onEnded);
     const safetyTimer = setTimeout(handleRemoveVideo, 11000);
 
     return () => {
-      clearTimeout(mountTimer);
       clearTimeout(safetyTimer);
-      if (video) {
-        video.removeEventListener("ended", handleRemoveVideo);
-      }
+      video.removeEventListener("ended", onEnded);
     };
-  }, [handleRemoveVideo]);
+  }, [showOverlay, transitionVideoSrc, handleRemoveVideo]);
 
   const overlayClassName =
     "transition-video-overlay" +
@@ -53,21 +119,25 @@ function TransitionVideo() {
   return (
     <div className="transition-video-page">
       <div className="transition-background">
-        <CharacterDetailPage />
+        {/* ✅ IMPORTANT: CharacterDetailPage doit accepter un prop "character"
+            et NE PLUS refetch si ce prop est fourni */}
+        <CharacterDetailPage character={character} />
       </div>
 
       {showOverlay && (
         <div className={overlayClassName}>
-          <video
-            id="transition-video"
-            src="/videos/Kennichi.mp4"
-            autoPlay
-            muted
-            playsInline
-            className="transition-video"
-          />
+          {transitionVideoSrc && (
+            <video
+              ref={videoRef}
+              id="transition-video"
+              src={transitionVideoSrc}
+              autoPlay
+              muted
+              playsInline
+              className="transition-video"
+            />
+          )}
 
-          {/* Bouton Skip pendant la vidéo */}
           <button
             type="button"
             className="transition-skip-button"
