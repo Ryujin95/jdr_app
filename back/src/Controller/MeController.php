@@ -29,6 +29,10 @@ class MeController extends AbstractController
             'id'       => $user->getId(),
             'username' => $user->getUsername(),
             'email'    => $user->getEmail(),
+            // ✅ NOUVEAU
+            'disableTransitions' => method_exists($user, 'isDisableTransitions')
+                ? $user->isDisableTransitions()
+                : false,
         ]);
     }
 
@@ -48,6 +52,10 @@ class MeController extends AbstractController
             'message'  => 'Profil mis à jour',
             'username' => $user->getUsername(),
             'email'    => $user->getEmail(),
+            // ✅ NOUVEAU
+            'disableTransitions' => method_exists($user, 'isDisableTransitions')
+                ? $user->isDisableTransitions()
+                : false,
         ]);
     }
 
@@ -61,7 +69,6 @@ class MeController extends AbstractController
 
         $this->meService->delete($user);
 
-        // 204 = No Content
         return new JsonResponse(null, 204);
     }
 }

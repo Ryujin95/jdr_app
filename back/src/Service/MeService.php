@@ -15,11 +15,11 @@ class MeService
     ) {}
 
     /**
-     * Met à jour les infos du user connecté (username, email, password).
+     * Met à jour les infos du user connecté (username, email, password, préférences).
      */
     public function update(User $user, array $data): User
     {
-        // username: si présent et non vide, on met à jour
+        // username
         if (\array_key_exists('username', $data)) {
             $username = trim((string) $data['username']);
             if ($username !== '') {
@@ -27,7 +27,7 @@ class MeService
             }
         }
 
-        // email: si présent et non vide, on met à jour en minuscule
+        // email
         if (\array_key_exists('email', $data)) {
             $email = trim((string) $data['email']);
             if ($email !== '') {
@@ -35,11 +35,24 @@ class MeService
             }
         }
 
-        // password: si présent et non vide, on le hash
+        // password
         if (!empty($data['password'])) {
             $plainPassword = (string) $data['password'];
             $hashed = $this->hasher->hashPassword($user, $plainPassword);
             $user->setPassword($hashed);
+        }
+
+        // ✅ NOUVEAU : préférence désactiver les vidéos de transition
+        if (\array_key_exists('disableTransitions', $data)) {
+            $val = filter_var(
+                $data['disableTransitions'],
+                FILTER_VALIDATE_BOOLEAN,
+                FILTER_NULL_ON_FAILURE
+            );
+
+            if ($val !== null && method_exists($user, 'setDisableTransitions')) {
+                $user->setDisableTransitions($val);
+            }
         }
 
         $this->em->flush();

@@ -43,6 +43,11 @@ function CharacterEditPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [videoName, setVideoName] = useState("");
 
+  // ✅ AJOUT : liste users + owner select
+  const [users, setUsers] = useState([]);
+  const [ownerUserId, setOwnerUserId] = useState(""); // "" = aucun
+  const [usersLoading, setUsersLoading] = useState(false);
+
   useEffect(() => {
     if (!token) return;
 
@@ -76,6 +81,11 @@ function CharacterEditPage() {
 
         setAvatarPreview(buildAssetUrl(c.avatarUrl));
         setVideoName(c.transitionVideoUrl ? (c.transitionVideoUrl.split("/").pop() || "") : "");
+
+        // ✅ AJOUT : si ton API renvoie owner (optionnel), on pré-sélectionne
+        if (c.owner?.id != null) {
+          setOwnerUserId(String(c.owner.id));
+        }
       } catch (e) {
         setError(e.message);
       } finally {
@@ -85,6 +95,34 @@ function CharacterEditPage() {
 
     fetchCharacter();
   }, [id, token]);
+
+  // ✅ AJOUT : fetch users pour remplir le select
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchUsers = async () => {
+      setUsersLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/admin/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+          setUsers([]);
+          return;
+        }
+
+        const data = await res.json().catch(() => []);
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (_) {
+        setUsers([]);
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [token]);
 
   useEffect(() => {
     if (!avatarFile) return;
@@ -130,7 +168,7 @@ function CharacterEditPage() {
       if (transitionVideoFile) fd.append("transitionVideo", transitionVideoFile);
 
       const res = await fetch(`${API_URL}/characters/${id}`, {
-        method: "POST", // ton controller accepte POST/PUT/PATCH, on garde POST pour FormData
+        method: "POST", // on ne touche pas à ta logique actuelle
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
@@ -138,6 +176,24 @@ function CharacterEditPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.message || `Erreur HTTP ${res.status}`);
+      }
+
+      // ✅ AJOUT : attribution owner via route admin (si sélection)
+      // si ownerUserId === "" -> on retire l'owner (null)
+      const ownerPayload = { userId: ownerUserId === "" ? null : Number(ownerUserId) };
+
+      const r2 = await fetch(`${API_URL}/admin/characters/${id}/owner`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(ownerPayload),
+      });
+
+      if (!r2.ok) {
+        const t2 = await r2.text().catch(() => "");
+        throw new Error(t2 || "Modif OK, mais attribution joueur impossible.");
       }
 
       setSuccess("Modifications enregistrées.");
@@ -198,12 +254,34 @@ function CharacterEditPage() {
 
           <label className="edit-field">
             <span>Location ID</span>
-            <input name="locationId" value={form.locationId} onChange={onChange} placeholder="ex: 1, 2, 3…" />
+            <input
+              name="locationId"
+              value={form.locationId}
+              onChange={onChange}
+              placeholder="ex: 1, 2, 3…"
+            />
           </label>
 
           <label className="edit-field edit-checkbox">
             <input type="checkbox" name="isPlayer" checked={form.isPlayer} onChange={onChange} />
             <span>Personnage joueur</span>
+          </label>
+
+          {/* ✅ AJOUT : attribution joueur */}
+          <label className="edit-field">
+            <span>Attribuer à un joueur</span>
+            <select
+              value={ownerUserId}
+              onChange={(e) => setOwnerUserId(e.target.value)}
+              disabled={usersLoading}
+            >
+              <option value="">{usersLoading ? "Chargement…" : "Aucun"}</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.username || u.email || `User #${u.id}`}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
@@ -248,7 +326,7 @@ function CharacterEditPage() {
             <div className="edit-media-title">Vidéo de transition</div>
             <div className="edit-media-row">
               <div className="edit-video-chip">
-                {transitionVideoFile ? transitionVideoFile.name : (videoName || "Aucune")}
+                {transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}
               </div>
               <div className="edit-media-controls">
                 <input

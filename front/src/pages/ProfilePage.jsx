@@ -17,12 +17,21 @@ export default function ProfilePage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
+  // ✅ NOUVEAU : préférence transitions (local state)
+  const [disableTransitions, setDisableTransitions] = useState(false);
+  const [savingTransitions, setSavingTransitions] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated) navigate("/login");
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (user?.avatar) setProfileImagePreview(user.avatar);
+  }, [user]);
+
+  // ✅ NOUVEAU : initialise le toggle depuis user
+  useEffect(() => {
+    setDisableTransitions(!!user?.disableTransitions);
   }, [user]);
 
   const callUpdateApi = async (body, successMessage) => {
@@ -41,9 +50,15 @@ export default function ProfilePage() {
     updateUser({
       username: data.username ?? user.username,
       email: data.email ?? user.email,
+      // ✅ NOUVEAU : on persiste aussi la préférence dans le context
+      disableTransitions:
+        typeof data.disableTransitions === "boolean"
+          ? data.disableTransitions
+          : (user?.disableTransitions ?? false),
     });
 
     addNotification({ type: "success", message: successMessage });
+    return data;
   };
 
   const handleUsernameSave = async (e) => {
@@ -82,6 +97,32 @@ export default function ProfilePage() {
     }
   };
 
+  // ✅ NOUVEAU : toggle transitions -> save direct en back
+  const handleToggleTransitions = async () => {
+    const next = !disableTransitions;
+
+    setDisableTransitions(next);
+    setSavingTransitions(true);
+
+    try {
+      const data = await callUpdateApi(
+        { disableTransitions: next },
+        next ? "Transitions désactivées." : "Transitions activées."
+      );
+
+      // sécurité si le back renvoie autre chose
+      if (typeof data?.disableTransitions === "boolean") {
+        setDisableTransitions(data.disableTransitions);
+      }
+    } catch (err) {
+      // rollback UI si erreur
+      setDisableTransitions(!next);
+      addNotification({ type: "error", message: err.message });
+    } finally {
+      setSavingTransitions(false);
+    }
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -96,8 +137,6 @@ export default function ProfilePage() {
     };
     reader.readAsDataURL(file);
   };
-
-  // ------------------- Delete account ---------------------
 
   const deleteAccount = async () => {
     try {
@@ -158,6 +197,27 @@ export default function ProfilePage() {
         </button>
       </div>
 
+      {/* ✅ NOUVEAU : Préférences */}
+      <section className="profile-section">
+        <h3>Préférences</h3>
+
+        <div className="profile-form-inline" style={{ alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input
+              type="checkbox"
+              checked={disableTransitions}
+              onChange={handleToggleTransitions}
+              disabled={savingTransitions}
+            />
+            Désactiver les transitions vidéo
+          </label>
+
+          <span style={{ opacity: 0.75 }}>
+            {savingTransitions ? "Enregistrement..." : ""}
+          </span>
+        </div>
+      </section>
+
       <section className="profile-section">
         <h3>Nom d'utilisateur</h3>
         <p className="profile-current">
@@ -199,7 +259,6 @@ export default function ProfilePage() {
       <section className="profile-section">
         <h3>Mot de passe</h3>
         <form className="profile-form-inline" onSubmit={handlePasswordSave}>
-          
           <input
             type="password"
             className="profile-input"
@@ -228,7 +287,6 @@ export default function ProfilePage() {
         </form>
       </section>
 
-      {/* ---------- delete section ---------- */}
       <section className="profile-section delete-section">
         <h3>Supprimer mon compte</h3>
 

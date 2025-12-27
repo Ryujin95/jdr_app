@@ -8,7 +8,7 @@ import { AuthContext } from "../context/AuthContext";
 
 function TransitionVideo() {
   const { id } = useParams();
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext); // ✅ SEULE MODIFICATION
 
   const [character, setCharacter] = useState(null);
   const [loadingCharacter, setLoadingCharacter] = useState(true);
@@ -44,7 +44,7 @@ function TransitionVideo() {
     }, 800);
   }, [leaving]);
 
-  // 1) Charge le personnage UNE SEULE FOIS (plus de fetch dans CharacterDetailPage)
+  // 1) Charge le personnage UNE SEULE FOIS
   useEffect(() => {
     const fetchCharacter = async () => {
       setLoadingCharacter(true);
@@ -76,13 +76,13 @@ function TransitionVideo() {
     }
   }, [id, token]);
 
-  // 2) animation d'apparition overlay
+  // 2) animation apparition overlay
   useEffect(() => {
     const mountTimer = setTimeout(() => setMounted(true), 10);
     return () => clearTimeout(mountTimer);
   }, []);
 
-  // 3) Si pas de vidéo => on enlève l'overlay proprement dès que le perso est chargé
+  // 3) Pas de vidéo → on enlève l’overlay
   useEffect(() => {
     if (loadingCharacter) return;
     if (!showOverlay) return;
@@ -92,7 +92,7 @@ function TransitionVideo() {
     }
   }, [loadingCharacter, transitionVideoSrc, showOverlay, handleRemoveVideo]);
 
-  // 4) Timers + "ended" uniquement quand la vidéo existe et est montée
+  // 4) timers vidéo
   useEffect(() => {
     if (!showOverlay) return;
     if (!transitionVideoSrc) return;
@@ -119,12 +119,10 @@ function TransitionVideo() {
   return (
     <div className="transition-video-page">
       <div className="transition-background">
-        {/* ✅ IMPORTANT: CharacterDetailPage doit accepter un prop "character"
-            et NE PLUS refetch si ce prop est fourni */}
         <CharacterDetailPage character={character} />
       </div>
 
-      {showOverlay && (
+      {showOverlay && !user?.disableTransitions && (
         <div className={overlayClassName}>
           {transitionVideoSrc && (
             <video

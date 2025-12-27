@@ -5,84 +5,73 @@ import { API_URL } from "../config";
 import "../CSS/TrashPanel.css";
 
 function TrashPanel() {
-  // 1) TOUS les hooks déclarés en haut, sans condition
   const { token } = useContext(AuthContext);
 
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [trash, setTrash] = useState({
-    users: [],
     characters: [],
     locations: [],
   });
   const [error, setError] = useState(null);
 
   const fetchTrash = useCallback(async () => {
-    if (!token) {
-      return;
-    }
+    if (!token) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_URL}/trash`, {
-        method: "GET",
+      const res = await fetch(`${API_URL}/trash`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error("Erreur lors du chargement de la corbeille");
       }
 
-      const data = await response.json();
+      const data = await res.json();
       setTrash({
-        users: data.users || [],
         characters: data.characters || [],
         locations: data.locations || [],
       });
-    } catch (err) {
-      setError(err.message || "Erreur inconnue");
+    } catch (e) {
+      setError(e.message || "Erreur inconnue");
     } finally {
       setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchTrash();
-    }
+    if (isOpen) fetchTrash();
   }, [isOpen, fetchTrash]);
 
-  // 2) Les retours conditionnels seulement APRÈS les hooks
-  if (!token) {
-    return null;
-  }
+  if (!token) return null;
+
+  const totalCount =
+    trash.characters.length + trash.locations.length;
 
   return (
     <div className="trash-footer-container">
       <button
         className="trash-footer-toggle"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => setIsOpen((p) => !p)}
       >
         Corbeille
-        <span className="trash-footer-count">
-          {trash.characters.length +
-            trash.locations.length +
-            trash.users.length}
-        </span>
+        <span className="trash-footer-count">{totalCount}</span>
       </button>
 
       {isOpen && (
         <div className="trash-footer-panel">
-          {loading && <p className="trash-info">Chargement...</p>}
+          {loading && <p className="trash-info">Chargement…</p>}
           {error && <p className="trash-error">{error}</p>}
 
           {!loading && !error && (
             <div className="trash-footer-content">
+              {/* Persos */}
               <div className="trash-footer-section">
                 <h4>Persos</h4>
                 {trash.characters.length === 0 && (
@@ -96,13 +85,17 @@ function TrashPanel() {
                     <div className="trash-footer-actions">
                       <button
                         className="trash-btn trash-btn-restore"
-                        onClick={() => handleRestore("character", c.id, token, fetchTrash, setError)}
+                        onClick={() =>
+                          handleRestore("character", c.id, token, fetchTrash, setError)
+                        }
                       >
                         Remettre
                       </button>
                       <button
                         className="trash-btn trash-btn-delete"
-                        onClick={() => handleForceDelete("character", c.id, token, fetchTrash, setError)}
+                        onClick={() =>
+                          handleForceDelete("character", c.id, token, fetchTrash, setError)
+                        }
                       >
                         Supprimer
                       </button>
@@ -111,6 +104,7 @@ function TrashPanel() {
                 ))}
               </div>
 
+              {/* Lieux */}
               <div className="trash-footer-section">
                 <h4>Lieux</h4>
                 {trash.locations.length === 0 && (
@@ -122,41 +116,17 @@ function TrashPanel() {
                     <div className="trash-footer-actions">
                       <button
                         className="trash-btn trash-btn-restore"
-                        onClick={() => handleRestore("location", l.id, token, fetchTrash, setError)}
+                        onClick={() =>
+                          handleRestore("location", l.id, token, fetchTrash, setError)
+                        }
                       >
                         Remettre
                       </button>
                       <button
                         className="trash-btn trash-btn-delete"
-                        onClick={() => handleForceDelete("location", l.id, token, fetchTrash, setError)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="trash-footer-section">
-                <h4>Joueurs</h4>
-                {trash.users.length === 0 && (
-                  <p className="trash-empty">Aucun.</p>
-                )}
-                {trash.users.map((u) => (
-                  <div key={`user-${u.id}`} className="trash-footer-item">
-                    <span className="trash-footer-label">
-                      {u.username || u.email}
-                    </span>
-                    <div className="trash-footer-actions">
-                      <button
-                        className="trash-btn trash-btn-restore"
-                        onClick={() => handleRestore("user", u.id, token, fetchTrash, setError)}
-                      >
-                        Remettre
-                      </button>
-                      <button
-                        className="trash-btn trash-btn-delete"
-                        onClick={() => handleForceDelete("user", u.id, token, fetchTrash, setError)}
+                        onClick={() =>
+                          handleForceDelete("location", l.id, token, fetchTrash, setError)
+                        }
                       >
                         Supprimer
                       </button>
@@ -172,11 +142,9 @@ function TrashPanel() {
   );
 }
 
-// fonctions utilitaires en dehors du composant (pas des hooks, donc pas de problème)
 async function handleRestore(type, id, token, fetchTrash, setError) {
   try {
     setError(null);
-
     const res = await fetch(`${API_URL}/trash/restore/${type}/${id}`, {
       method: "PATCH",
       headers: {
@@ -184,25 +152,18 @@ async function handleRestore(type, id, token, fetchTrash, setError) {
         Authorization: `Bearer ${token}`,
       },
     });
-
-    if (!res.ok) {
-      throw new Error("Impossible de restaurer cet élément");
-    }
-
+    if (!res.ok) throw new Error("Impossible de restaurer cet élément");
     await fetchTrash();
-  } catch (err) {
-    setError(err.message || "Erreur lors de la restauration");
+  } catch (e) {
+    setError(e.message || "Erreur lors de la restauration");
   }
 }
 
 async function handleForceDelete(type, id, token, fetchTrash, setError) {
-  if (!window.confirm("Supprimer définitivement cet élément ?")) {
-    return;
-  }
+  if (!window.confirm("Supprimer définitivement cet élément ?")) return;
 
   try {
     setError(null);
-
     const res = await fetch(`${API_URL}/trash/force/${type}/${id}`, {
       method: "DELETE",
       headers: {
@@ -210,14 +171,10 @@ async function handleForceDelete(type, id, token, fetchTrash, setError) {
         Authorization: `Bearer ${token}`,
       },
     });
-
-    if (!res.ok) {
-      throw new Error("Impossible de supprimer définitivement cet élément");
-    }
-
+    if (!res.ok) throw new Error("Impossible de supprimer définitivement cet élément");
     await fetchTrash();
-  } catch (err) {
-    setError(err.message || "Erreur lors de la suppression définitive");
+  } catch (e) {
+    setError(e.message || "Erreur lors de la suppression définitive");
   }
 }
 

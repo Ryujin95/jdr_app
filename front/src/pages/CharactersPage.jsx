@@ -21,11 +21,8 @@ function CharactersPage() {
     const url = String(avatarUrl).trim();
 
     if (/^https?:\/\//i.test(url)) return url;
-
     if (url.startsWith("/")) return `${BACK_BASE_URL}${url}`;
-
     if (url.startsWith("image/")) return `${BACK_BASE_URL}/${url}`;
-
     if (url.startsWith("uploads/")) return `${BACK_BASE_URL}/${url}`;
 
     return `${BACK_BASE_URL}/image/${url}`;
@@ -37,9 +34,7 @@ function CharactersPage() {
       setError(null);
 
       const res = await fetch(`${API_URL}/characters`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -64,7 +59,7 @@ function CharactersPage() {
     navigate(`/transition-video/${id}`);
   };
 
-  const handleEditCharacter = (event, id) => {
+  const handleEditClick = (event, id) => {
     event.stopPropagation();
     navigate(`/characters/${id}/edit`);
   };
@@ -80,9 +75,7 @@ function CharactersPage() {
 
       const res = await fetch(`${API_URL}/trash/move/character/${id}`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -142,6 +135,11 @@ function CharactersPage() {
             {clanCharacters.map((char) => {
               const avatarSrc = resolveAvatarUrl(char.avatarUrl);
 
+              const ownerLabel =
+                char.owner?.username ||
+                char.owner?.email ||
+                (char.owner?.id ? `User #${char.owner.id}` : null);
+
               return (
                 <div
                   key={char.id}
@@ -164,27 +162,31 @@ function CharactersPage() {
 
                   <div className="character-info">
                     <h3 className="character-nickname">{char.nickname}</h3>
+
                     <p className="character-name">
                       {char.firstname} {char.lastname}
                     </p>
+
                     <p className="character-age">{char.age} ans</p>
 
                     {char.isPlayer ? (
-                      <span className="character-badge player-badge">Joueur</span>
+                      <span className="character-badge player-badge">
+                        Joueur{ownerLabel ? ` · ${ownerLabel}` : ""}
+                      </span>
                     ) : (
                       <span className="character-badge npc-badge">PNJ</span>
                     )}
 
-                    {showTrashButton && (
-                      <div className="character-actions">
-                        <button
-                          type="button"
-                          className="character-edit-button"
-                          onClick={(event) => handleEditCharacter(event, char.id)}
-                        >
-                          Modifier
-                        </button>
+                    <div className="character-actions">
+                      <button
+                        type="button"
+                        className="character-edit-button"
+                        onClick={(event) => handleEditClick(event, char.id)}
+                      >
+                        Modifier
+                      </button>
 
+                      {showTrashButton && (
                         <button
                           type="button"
                           className="character-trash-button"
@@ -192,8 +194,8 @@ function CharactersPage() {
                         >
                           Supprimer
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               );

@@ -8,7 +8,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
 
-  // par exemple: lecture du localStorage au démarrage
+  // lecture du localStorage au démarrage
   useEffect(() => {
     const raw = localStorage.getItem("auth");
     if (!raw) return;
@@ -20,6 +20,27 @@ export function AuthProvider({ children }) {
       }
     } catch {}
   }, []);
+
+  // ✅ NOUVEAU : si on a un token, on recharge /me pour avoir les champs à jour (ex: disableTransitions)
+  useEffect(() => {
+    if (!token) return;
+
+    const syncMe = async () => {
+      try {
+        const meRes = await fetch(`${API_URL}/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!meRes.ok) return;
+
+        const me = await meRes.json();
+        setUser(me);
+        localStorage.setItem("auth", JSON.stringify({ token, user: me }));
+      } catch {}
+    };
+
+    syncMe();
+  }, [token]);
 
   const saveAuth = (nextToken, nextUser) => {
     setToken(nextToken);
@@ -64,10 +85,7 @@ export function AuthProvider({ children }) {
   const updateUser = (partial) => {
     setUser((prev) => {
       const next = { ...prev, ...partial };
-      localStorage.setItem(
-        "auth",
-        JSON.stringify({ token, user: next })
-      );
+      localStorage.setItem("auth", JSON.stringify({ token, user: next }));
       return next;
     });
   };

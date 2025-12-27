@@ -29,15 +29,22 @@ function EditorPage() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
 
+  // --- AJOUT : attribution à un utilisateur ---
+  const [users, setUsers] = useState([]);
+  const [ownerUserId, setOwnerUserId] = useState(""); // "" = aucun
+
   // --- états du formulaire lieu ---
   const [locationName, setLocationName] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
+
+  // --- NOUVEAU : select suppression lieu ---
+  const [deleteLocationId, setDeleteLocationId] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
-  // Charger les lieux existants pour le select (quand on crée un perso)
+  // Charger les lieux existants (select perso + select suppression lieu)
   useEffect(() => {
     if (!token) return;
 
@@ -49,13 +56,44 @@ function EditorPage() {
         if (!res.ok) return;
 
         const data = await res.json();
-        setLocations(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setLocations(list);
+
+        if (!deleteLocationId && list.length > 0) {
+          setDeleteLocationId(String(list[0].id));
+        }
       } catch (e) {
         console.error(e);
       }
     };
 
     fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // AJOUT : charger les utilisateurs pour pouvoir attribuer un perso à un user
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch(`${API_URL}/admin/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          setUsers([]);
+          return;
+        }
+
+        const data = await res.json().catch(() => []);
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error(e);
+        setUsers([]);
+      }
+    };
+
+    fetchUsers();
   }, [token]);
 
   // cleanup preview URL quand on change d'image
@@ -66,10 +104,8 @@ function EditorPage() {
   }, [avatarPreview]);
 
   const handleAvatarChange = (e) => {
-    const file =
-      e.target.files && e.target.files[0] ? e.target.files[0] : null;
+    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
 
-    // sécurité: vrai File + non vide
     if (!file || !(file instanceof File) || file.size === 0) {
       setAvatarFile(null);
       setAvatarPreview(null);
@@ -78,6 +114,22 @@ function EditorPage() {
 
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const refreshLocations = async () => {
+    try {
+      const r = await fetch(`${API_URL}/locations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      const list = Array.isArray(data) ? data : [];
+      setLocations(list);
+
+      if (deleteLocationId && !list.some((l) => String(l.id) === String(deleteLocationId))) {
+        setDeleteLocationId(list.length > 0 ? String(list[0].id) : "");
+      }
+    } catch (_) {}
   };
 
   const handleSubmitCharacter = async (e) => {
@@ -109,7 +161,6 @@ function EditorPage() {
         formData.append("locationId", locationId);
       }
 
-      // IMPORTANT: on n'envoie avatar que si c'est un vrai fichier non vide
       if (avatarFile && avatarFile instanceof File && avatarFile.size > 0) {
         formData.append("avatar", avatarFile);
       }
@@ -121,18 +172,42 @@ function EditorPage() {
       });
 
       if (!res.ok) {
-        const text = await res.text(); // parfois pas du JSON
+        const text = await res.text();
         console.log("BACK ERROR STATUS:", res.status);
         console.log("BACK ERROR BODY:", text);
         throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
       const created = await res.json().catch(() => null);
-      console.log("CREATED:", created);
+
+      // AJOUT : si un user est choisi, on attribue le perso via PATCH /admin/characters/{id}/owner
+      const chosenOwnerId = ownerUserId ? Number(ownerUserId) : null;
+      const createdId = created?.id;
+
+      if (createdId && (chosenOwnerId !== null || ownerUserId === "")) {
+        if (chosenOwnerId !== null) {
+          const r2 = await fetch(`${API_URL}/admin/characters/${createdId}/owner`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ userId: chosenOwnerId }),
+          });
+
+          if (!r2.ok) {
+            const t2 = await r2.text().catch(() => "");
+            console.log("ASSIGN OWNER ERROR STATUS:", r2.status);
+            console.log("ASSIGN OWNER ERROR BODY:", t2);
+            throw new Error(t2 || "Le personnage a été créé, mais l'attribution au joueur a échoué.");
+          }
+
+          await r2.json().catch(() => null);
+        }
+      }
 
       setInfo("Personnage créé avec succès.");
 
-      // Optionnel: reset formulaire (je le fais sans toucher aux classes)
       setFirstname("");
       setLastname("");
       setNickname("");
@@ -146,6 +221,9 @@ function EditorPage() {
       setLocationId("");
       setAvatarFile(null);
       setAvatarPreview(null);
+      setOwnerUserId("");
+
+      await refreshLocations();
     } catch (e2) {
       setError(e2.message || "Erreur inconnue côté personnage.");
     } finally {
@@ -185,25 +263,13 @@ function EditorPage() {
         throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
-      const created = await res.json().catch(() => null);
-      console.log("LOCATION CREATED:", created);
+      await res.json().catch(() => null);
 
       setInfo("Lieu créé avec succès.");
-
-      // reset
       setLocationName("");
       setLocationDescription("");
 
-      // refresh la liste des lieux (utile pour le select perso)
-      try {
-        const r = await fetch(`${API_URL}/locations`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (r.ok) {
-          const data = await r.json();
-          setLocations(Array.isArray(data) ? data : []);
-        }
-      } catch (_) {}
+      await refreshLocations();
     } catch (e2) {
       setError(e2.message || "Erreur inconnue côté lieu.");
     } finally {
@@ -211,12 +277,45 @@ function EditorPage() {
     }
   };
 
+  const handleSendLocationToTrash = async () => {
+    setError(null);
+    setInfo(null);
+
+    if (!deleteLocationId) {
+      setError("Choisis un lieu à supprimer.");
+      return;
+    }
+
+    const loc = locations.find((l) => String(l.id) === String(deleteLocationId));
+    const label = loc?.name ? ` "${loc.name}"` : "";
+
+    const ok = window.confirm(`Envoyer ce lieu${label} dans la corbeille ?`);
+    if (!ok) return;
+
+    try {
+      setSubmitting(true);
+
+      const res = await fetch(`${API_URL}/trash/move/location/${deleteLocationId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || "Impossible d'envoyer ce lieu dans la corbeille.");
+      }
+
+      setInfo("Lieu envoyé dans la corbeille.");
+      await refreshLocations();
+    } catch (e) {
+      setError(e.message || "Erreur lors de l'envoi du lieu dans la corbeille.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (!token) {
-    return (
-      <p style={{ padding: "2rem" }}>
-        Tu dois être connecté pour utiliser l’éditeur.
-      </p>
-    );
+    return <p style={{ padding: "2rem" }}>Tu dois être connecté pour utiliser l’éditeur.</p>;
   }
 
   return (
@@ -253,20 +352,12 @@ function EditorPage() {
             <div className="form-row">
               <label>
                 Prénom
-                <input
-                  type="text"
-                  value={firstname}
-                  onChange={(e) => setFirstname(e.target.value)}
-                />
+                <input type="text" value={firstname} onChange={(e) => setFirstname(e.target.value)} />
               </label>
 
               <label>
                 Nom
-                <input
-                  type="text"
-                  value={lastname}
-                  onChange={(e) => setLastname(e.target.value)}
-                />
+                <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)} />
               </label>
             </div>
 
@@ -283,12 +374,7 @@ function EditorPage() {
 
               <label>
                 Âge
-                <input
-                  type="number"
-                  min="0"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                />
+                <input type="number" min="0" value={age} onChange={(e) => setAge(e.target.value)} />
               </label>
             </div>
 
@@ -316,14 +402,25 @@ function EditorPage() {
             <div className="form-row">
               <label>
                 Lieu actuel
-                <select
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                >
+                <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
                   <option value="">Aucun lieu</option>
                   {locations.map((loc) => (
                     <option key={loc.id} value={loc.id}>
                       {loc.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="form-row">
+              <label>
+                Attribuer à un joueur
+                <select value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)}>
+                  <option value="">Aucun</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.username || u.email || `User #${u.id}`}
                     </option>
                   ))}
                 </select>
@@ -336,29 +433,17 @@ function EditorPage() {
 
             <label>
               Biographie
-              <textarea
-                value={biography}
-                onChange={(e) => setBiography(e.target.value)}
-                rows={5}
-              />
+              <textarea value={biography} onChange={(e) => setBiography(e.target.value)} rows={5} />
             </label>
 
             <label>
               Points forts
-              <textarea
-                value={strengths}
-                onChange={(e) => setStrengths(e.target.value)}
-                rows={3}
-              />
+              <textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} rows={3} />
             </label>
 
             <label>
               Points faibles
-              <textarea
-                value={weaknesses}
-                onChange={(e) => setWeaknesses(e.target.value)}
-                rows={3}
-              />
+              <textarea value={weaknesses} onChange={(e) => setWeaknesses(e.target.value)} rows={3} />
             </label>
           </div>
 
@@ -367,11 +452,7 @@ function EditorPage() {
 
             <label>
               Secret principal
-              <textarea
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-                rows={3}
-              />
+              <textarea value={secret} onChange={(e) => setSecret(e.target.value)} rows={3} />
             </label>
           </div>
 
@@ -381,11 +462,7 @@ function EditorPage() {
             <div className="form-row">
               <label>
                 Image du personnage
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                />
+                <input type="file" accept="image/*" onChange={handleAvatarChange} />
               </label>
 
               {avatarPreview && (
@@ -407,11 +484,7 @@ function EditorPage() {
               Annuler
             </button>
 
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={submitting}
-            >
+            <button type="submit" className="primary-button" disabled={submitting}>
               {submitting ? "Enregistrement..." : "Créer le personnage"}
             </button>
           </div>
@@ -443,6 +516,39 @@ function EditorPage() {
             </label>
           </div>
 
+          <div className="form-section">
+            <h2>Supprimer un lieu (corbeille)</h2>
+
+            <div className="form-row">
+              <label>
+                Lieux existants
+                <select
+                  value={deleteLocationId}
+                  onChange={(e) => setDeleteLocationId(e.target.value)}
+                >
+                  {locations.length === 0 ? (
+                    <option value="">Aucun lieu</option>
+                  ) : (
+                    locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="danger-button"
+                onClick={handleSendLocationToTrash}
+                disabled={submitting || !deleteLocationId}
+              >
+                Envoyer à la corbeille
+              </button>
+            </div>
+          </div>
+
           <div className="form-actions">
             <button
               type="button"
@@ -453,11 +559,7 @@ function EditorPage() {
               Annuler
             </button>
 
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={submitting}
-            >
+            <button type="submit" className="primary-button" disabled={submitting}>
               {submitting ? "Enregistrement..." : "Créer le lieu"}
             </button>
           </div>

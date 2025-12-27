@@ -77,10 +77,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: CharacterKnowledge::class, mappedBy: 'viewer')]
     private Collection $characterKnowledge;
 
+    // ✅ NOUVEAU : préférence utilisateur (désactiver la vidéo de transition)
+    #[ORM\Column(options: ['default' => false])]
+    private bool $disableTransitions = false;
+
     public function __construct()
     {
         $this->characterKnowledge = new ArrayCollection();
         $this->deleted = false;
+        $this->disableTransitions = false;
     }
 
     public function getId(): ?int
@@ -213,6 +218,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             }
         }
 
+        return $this;
+    }
+
+    // ✅ NOUVEAU : getters/setters préférence transitions
+    public function isDisableTransitions(): bool
+    {
+        return $this->disableTransitions;
+    }
+
+    public function setDisableTransitions(bool $disableTransitions): static
+    {
+        $this->disableTransitions = $disableTransitions;
         return $this;
     }
 }

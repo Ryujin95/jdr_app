@@ -235,7 +235,45 @@
   .secondary-button:hover {
     background: #232330;
   }
-  
+ /* Bouton danger : Envoyer à la corbeille */
+.danger-button {
+  align-self: flex-end;
+  padding: 10px 16px;
+  border-radius: 10px;
+
+  background: linear-gradient(135deg, #b91c1c, #ef4444);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+
+  border: none;
+  cursor: pointer;
+
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease;
+}
+
+.danger-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.45);
+  filter: brightness(1.05);
+}
+
+.danger-button:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.3);
+}
+
+.danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: none;
+}
+
   
   /* Responsive */
   

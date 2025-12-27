@@ -22,6 +22,7 @@ class CharacterRepository extends ServiceEntityRepository
     public function findAllActive(): array
     {
         return $this->createQueryBuilder('c')
+            ->leftJoin('c.owner', 'o')->addSelect('o') // ✅ AJOUT (évite N+1)
             ->andWhere('c.deleted = :deleted')
             ->setParameter('deleted', false)
             ->orderBy('c.id', 'ASC')
@@ -35,6 +36,7 @@ class CharacterRepository extends ServiceEntityRepository
     public function findAllDeleted(): array
     {
         return $this->createQueryBuilder('c')
+            ->leftJoin('c.owner', 'o')->addSelect('o') // ✅ AJOUT (optionnel mais cohérent)
             ->andWhere('c.deleted = :deleted')
             ->setParameter('deleted', true)
             ->orderBy('c.id', 'ASC')
@@ -49,6 +51,7 @@ class CharacterRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->leftJoin('c.location', 'l')
+            ->leftJoin('c.owner', 'o')->addSelect('o') // ✅ AJOUT (évite N+1)
             ->andWhere('c.deleted = :deleted')
             ->setParameter('deleted', false)
             ->andWhere('l.id = :locationId')
