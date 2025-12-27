@@ -5,13 +5,17 @@ import { AuthContext } from "../context/AuthContext";
 import "../CSS/Characters.css";
 
 function CharactersPage() {
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  const showTrashButton = !!token;
+  const isAdminOrMj =
+    Array.isArray(user?.roles) &&
+    (user.roles.includes("ROLE_ADMIN") || user.roles.includes("ROLE_MJ"));
+
+  const showTrashButton = !!token && isAdminOrMj;
 
   const BACK_BASE_URL = API_URL.replace(/\/api\/?$/, "");
 
@@ -177,16 +181,16 @@ function CharactersPage() {
                       <span className="character-badge npc-badge">PNJ</span>
                     )}
 
-                    <div className="character-actions">
-                      <button
-                        type="button"
-                        className="character-edit-button"
-                        onClick={(event) => handleEditClick(event, char.id)}
-                      >
-                        Modifier
-                      </button>
+                    {isAdminOrMj && (
+                      <div className="character-actions">
+                        <button
+                          type="button"
+                          className="character-edit-button"
+                          onClick={(event) => handleEditClick(event, char.id)}
+                        >
+                          Modifier
+                        </button>
 
-                      {showTrashButton && (
                         <button
                           type="button"
                           className="character-trash-button"
@@ -194,8 +198,8 @@ function CharactersPage() {
                         >
                           Supprimer
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

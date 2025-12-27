@@ -5,7 +5,12 @@ import { API_URL } from "../config";
 import "../CSS/TrashPanel.css";
 
 function TrashPanel() {
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
+
+  // ✅ visible uniquement ADMIN ou MJ
+  const isAdminOrMj =
+    Array.isArray(user?.roles) &&
+    (user.roles.includes("ROLE_ADMIN") || user.roles.includes("ROLE_MJ"));
 
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,10 +54,10 @@ function TrashPanel() {
     if (isOpen) fetchTrash();
   }, [isOpen, fetchTrash]);
 
-  if (!token) return null;
+  // ✅ si pas connecté OU pas ADMIN/MJ -> rien
+  if (!token || !isAdminOrMj) return null;
 
-  const totalCount =
-    trash.characters.length + trash.locations.length;
+  const totalCount = trash.characters.length + trash.locations.length;
 
   return (
     <div className="trash-footer-container">

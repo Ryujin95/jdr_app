@@ -10,6 +10,9 @@ function Header() {
   const { isAuthenticated, user } = useContext(AuthContext);
   const [panelOpen, setPanelOpen] = useState(false);
 
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+  const canSeeEditor = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_MJ");
+
   return (
     <header className="header">
       <h1 className="logo">JDR The Walking Dead</h1>
@@ -19,18 +22,23 @@ function Header() {
           Accueil
         </Link>
 
-        <Link to="/characters" className="nav-link">
-          Personnages
-        </Link>
+        {isAuthenticated && (
+          <>
+            <Link to="/characters" className="nav-link">
+              Personnages
+            </Link>
 
-        {/* Lien vers la carte */}
-        <Link to="/map" className="nav-link">
-          Carte
-        </Link>
+            <Link to="/map" className="nav-link">
+              Carte
+            </Link>
+          </>
+        )}
 
-      <Link to="/editor" className="nav-link">
-          Éditeur
-      </Link>
+        {isAuthenticated && canSeeEditor && (
+          <Link to="/editor" className="nav-link">
+            Éditeur
+          </Link>
+        )}
 
         {!isAuthenticated && (
           <Link to="/login" className="nav-link">

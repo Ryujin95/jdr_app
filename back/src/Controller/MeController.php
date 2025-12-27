@@ -18,23 +18,28 @@ class MeController extends AbstractController
     }
 
     #[Route('/me', name: 'api_me_get', methods: ['GET'])]
-    public function me(): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            return $this->json(['error' => 'Non authentifié'], 401);
-        }
-
-        return $this->json([
-            'id'       => $user->getId(),
-            'username' => $user->getUsername(),
-            'email'    => $user->getEmail(),
-            // ✅ NOUVEAU
-            'disableTransitions' => method_exists($user, 'isDisableTransitions')
-                ? $user->isDisableTransitions()
-                : false,
-        ]);
+public function me(): JsonResponse
+{
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        return $this->json(['error' => 'Non authentifié'], 401);
     }
+
+    return $this->json([
+        'id'       => $user->getId(),
+        'username' => $user->getUsername(),
+        'email'    => $user->getEmail(),
+
+        // ✅ AJOUTE ÇA
+        'roles'    => $user->getRoles(),
+
+        // ✅ ton truc reste pareil
+        'disableTransitions' => method_exists($user, 'isDisableTransitions')
+            ? $user->isDisableTransitions()
+            : false,
+    ]);
+}
+
 
     #[Route('/me', name: 'api_me_update', methods: ['PUT'])]
     public function update(Request $request): JsonResponse
