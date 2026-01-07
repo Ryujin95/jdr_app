@@ -146,6 +146,31 @@ final class RelationshipService
     return ['ok' => true];
 }
 
+public function removeKnown(int $fromCharacterId, int $toCharacterId): void
+{
+    $this->assertAdminOrMj();
+
+    $from = $this->characterRepository->find($fromCharacterId);
+    $to = $this->characterRepository->find($toCharacterId);
+
+    if (!$from || !$to) {
+        throw new \InvalidArgumentException('Character not found');
+    }
+
+    $rel = $this->relationshipRepository->findOneByFromTo($from, $to);
+    if ($rel) {
+        $this->em->remove($rel);
+    }
+
+    // relation inverse si tu veux du mutuel
+    $relBack = $this->relationshipRepository->findOneByFromTo($to, $from);
+    if ($relBack) {
+        $this->em->remove($relBack);
+    }
+
+    $this->em->flush();
+}
+
 
     public function upsertRelationshipStars(int $fromId, int $toId, int $stars): array
     {

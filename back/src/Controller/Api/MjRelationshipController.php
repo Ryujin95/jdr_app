@@ -29,6 +29,25 @@ final class MjRelationshipController extends AbstractController
         }
     }
 
+    #[Route('/relationships', name: 'api_mj_relationship_upsert', methods: ['PATCH'])]
+    public function upsert(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true) ?? [];
+
+            $fromId = isset($data['fromCharacterId']) ? (int) $data['fromCharacterId'] : 0;
+            $toId = isset($data['toCharacterId']) ? (int) $data['toCharacterId'] : 0;
+            $stars = isset($data['stars']) ? (int) $data['stars'] : -1;
+
+            $result = $this->relationshipService->upsertRelationshipStars($fromId, $toId, $stars);
+            return new JsonResponse($result, 200);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['message' => 'Server error'], 500);
+        }
+    }
+
     #[Route('/characters/{id}/candidates', name: 'api_mj_character_candidates', methods: ['GET'])]
     public function candidates(int $id): JsonResponse
     {
@@ -42,36 +61,29 @@ final class MjRelationshipController extends AbstractController
         }
     }
 
-   #[Route('/characters/{id}/known', name: 'api_mj_character_add_known', methods: ['POST'])]
-public function addKnown(int $id, Request $request): JsonResponse
-{
-    try {
-        $data = json_decode($request->getContent(), true) ?? [];
-        $toId = isset($data['toCharacterId']) ? (int) $data['toCharacterId'] : 0;
-        $type = isset($data['type']) ? (string) $data['type'] : null;
-
-        $out = $this->relationshipService->addKnown($id, $toId, $type);
-        return new JsonResponse($out, 201);
-    } catch (\InvalidArgumentException $e) {
-        return new JsonResponse(['message' => $e->getMessage()], 400);
-    } catch (\Throwable $e) {
-        return new JsonResponse(['message' => 'Server error'], 500);
-    }
-}
-
-
-    #[Route('/relationships', name: 'api_mj_relationship_upsert', methods: ['PATCH'])]
-    public function upsert(Request $request): JsonResponse
+    #[Route('/characters/{id}/known', name: 'api_mj_character_add_known', methods: ['POST'])]
+    public function addKnown(int $id, Request $request): JsonResponse
     {
         try {
             $data = json_decode($request->getContent(), true) ?? [];
+            $toId = (int) ($data['toCharacterId'] ?? 0);
+            $type = isset($data['type']) ? (string) $data['type'] : 'neutral';
 
-            $fromId = isset($data['fromCharacterId']) ? (int) $data['fromCharacterId'] : 0;
-            $toId = isset($data['toCharacterId']) ? (int) $data['toCharacterId'] : 0;
-            $stars = isset($data['stars']) ? (int) $data['stars'] : -1;
+            $out = $this->relationshipService->addKnown($id, $toId, $type);
+            return new JsonResponse($out, 201);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['message' => 'Server error'], 500);
+        }
+    }
 
-            $result = $this->relationshipService->upsertRelationshipStars($fromId, $toId, $stars);
-            return new JsonResponse($result, 200);
+    #[Route('/characters/{fromId}/known/{toId}', name: 'api_mj_character_remove_known', methods: ['DELETE'])]
+    public function removeKnown(int $fromId, int $toId): JsonResponse
+    {
+        try {
+            $this->relationshipService->removeKnown($fromId, $toId);
+            return new JsonResponse(['ok' => true], 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
         } catch (\Throwable $e) {

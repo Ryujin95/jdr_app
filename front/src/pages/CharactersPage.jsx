@@ -17,6 +17,7 @@ function CharactersPage() {
   const [showAddModalFor, setShowAddModalFor] = useState(null);
   const [candidateMap, setCandidateMap] = useState({});
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
+  const [selectedRelationType, setSelectedRelationType] = useState("neutral");
 
   const [hoverStarsKey, setHoverStarsKey] = useState(null);
   const [hoverStarsValue, setHoverStarsValue] = useState(0);
@@ -40,6 +41,21 @@ function CharactersPage() {
     if (url.startsWith("uploads/")) return `${BACK_BASE_URL}/${url}`;
 
     return `${BACK_BASE_URL}/image/${url}`;
+  };
+
+  const formatRelationType = (t) => {
+    const v = String(t || "").trim().toLowerCase();
+    if (v === "ami" || v === "friend") return "Ami";
+    if (v === "ennemi" || v === "enemy") return "Ennemi";
+    if (v === "neutre" || v === "neutral" || v === "") return "Neutre";
+    return v.charAt(0).toUpperCase() + v.slice(1);
+  };
+
+  const normalizeTypeForApi = (t) => {
+    const v = String(t || "").trim().toLowerCase();
+    if (v === "ami") return "ami";
+    if (v === "ennemi") return "ennemi";
+    return "neutral";
   };
 
   const renderStarsReadOnly = (value) => {
@@ -161,14 +177,31 @@ function CharactersPage() {
   );
 
   const addKnownCharacter = useCallback(
-    async (fromId, toId) => {
+    async (fromId, toId, type) => {
       const res = await fetch(`${API_URL}/mj/characters/${fromId}/known`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ toCharacterId: toId }),
+        body: JSON.stringify({ toCharacterId: toId, type }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Erreur HTTP ${res.status}`);
+      }
+
+      await res.json().catch(() => null);
+    },
+    [token]
+  );
+
+  const removeKnownCharacter = useCallback(
+    async (fromId, toId) => {
+      const res = await fetch(`${API_URL}/mj/characters/${fromId}/known/${toId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -329,6 +362,7 @@ function CharactersPage() {
       try {
         setError(null);
         setSelectedCandidateId("");
+        setSelectedRelationType("neutral");
         setShowAddModalFor(fromId);
 
         const candidates = await fetchCandidatesFor(fromId);
@@ -341,14 +375,6 @@ function CharactersPage() {
     [fetchCandidatesFor]
   );
 
-  const formatRelationType = (t) => {
-    const v = String(t || "").trim().toLowerCase();
-    if (v === "ami" || v === "friend") return "Ami";
-    if (v === "ennemi" || v === "enemy") return "Ennemi";
-    if (v === "neutre" || v === "neutral" || v === "") return "Neutre";
-    return v.charAt(0).toUpperCase() + v.slice(1);
-  };
-
   const confirmAddKnown = useCallback(async () => {
     try {
       if (!showAddModalFor) return;
@@ -358,7 +384,8 @@ function CharactersPage() {
 
       setError(null);
 
-      await addKnownCharacter(fromId, toId);
+      const type = normalizeTypeForApi(selectedRelationType);
+      await addKnownCharacter(fromId, toId, type);
 
       const known = await fetchKnownFor(fromId);
       setKnownMap((prev) => ({ ...prev, [fromId]: known }));
@@ -368,10 +395,49 @@ function CharactersPage() {
 
       setShowAddModalFor(null);
       setSelectedCandidateId("");
+      setSelectedRelationType("neutral");
     } catch (e) {
       setError(e.message || "Erreur lors de l'ajout du connu.");
     }
-  }, [showAddModalFor, selectedCandidateId, addKnownCharacter, fetchKnownFor, fetchCandidatesFor]);
+  }, [
+    showAddModalFor,
+    selectedCandidateId,
+    selectedRelationType,
+    addKnownCharacter,
+    fetchKnownFor,
+    fetchCandidatesFor,
+  ]);
+
+  const confirmRemoveKnown = useCallback(
+    async (fromId, toId) => {
+      const ok = window.confirm("Supprimer cette connaissance ?");
+      if (!ok) return;
+
+      try {
+        setError(null);
+
+        setKnownMap((prev) => {
+          const current = Array.isArray(prev[fromId]) ? prev[fromId] : [];
+          return { ...prev, [fromId]: current.filter((k) => k.id !== toId) };
+        });
+
+        await removeKnownCharacter(fromId, toId);
+
+        const candidates = await fetchCandidatesFor(fromId);
+        setCandidateMap((prev) => ({ ...prev, [fromId]: candidates }));
+      } catch (e) {
+        setError(e.message || "Erreur lors de la suppression du connu.");
+
+        try {
+          const known = await fetchKnownFor(fromId);
+          setKnownMap((prev) => ({ ...prev, [fromId]: known }));
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [removeKnownCharacter, fetchCandidatesFor, fetchKnownFor]
+  );
 
   if (!token) return <p style={{ padding: "2rem" }}>Connecte-toi pour voir les personnages.</p>;
   if (loading) return <p style={{ padding: "2rem" }}>Chargement des personnages...</p>;
@@ -390,7 +456,6 @@ function CharactersPage() {
             {clanCharacters.map((char) => {
               const avatarSrc = resolveAvatarUrl(char.avatarUrl);
 
-              // ✅ RESTAURÉ: label owner à côté de Joueur
               const ownerLabel =
                 char.owner?.username ||
                 char.owner?.email ||
@@ -502,17 +567,35 @@ function CharactersPage() {
                                 )}
 
                                 <div className="mini-info compact">
-                                <div className="mini-title compact">
-                                  {known.nickname}
-                                  <span className="mini-type"> · {formatRelationType(known.type)}</span>
-                                </div>
-                                  <StarsEditor
-                                    value={known.relationshipStars}
-                                    hoverKey={key}
-                                    onChange={(stars) =>
-                                      updateRelationshipStars(char.id, known.id, stars)
-                                    }
-                                  />
+                                  <div className="mini-title compact">
+                                    {known.nickname}
+                                    <span className="mini-type">
+                                      {" "}
+                                      · {formatRelationType(known.type)}
+                                    </span>
+                                  </div>
+
+                                  <div className="mini-row">
+                                    <StarsEditor
+                                      value={known.relationshipStars}
+                                      hoverKey={key}
+                                      onChange={(stars) =>
+                                        updateRelationshipStars(char.id, known.id, stars)
+                                      }
+                                    />
+
+                                    <button
+                                      type="button"
+                                      className="mini-remove-button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        confirmRemoveKnown(char.id, known.id);
+                                      }}
+                                      title="Supprimer ce connu"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -544,6 +627,16 @@ function CharactersPage() {
                   {c.nickname} {c.clan ? `(${c.clan})` : ""}
                 </option>
               ))}
+            </select>
+
+            <select
+              className="modal-select"
+              value={selectedRelationType}
+              onChange={(e) => setSelectedRelationType(e.target.value)}
+            >
+              <option value="neutral">Neutre</option>
+              <option value="ami">Ami</option>
+              <option value="ennemi">Ennemi</option>
             </select>
 
             <div className="modal-actions">
