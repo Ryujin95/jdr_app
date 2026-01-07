@@ -6,6 +6,7 @@ import "../CSS/Characters.css";
 
 function CharactersPage() {
   const { token, user } = useContext(AuthContext);
+
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -132,7 +133,7 @@ function CharactersPage() {
       const data = await res.json();
       setCharacters(Array.isArray(data) ? data : []);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || "Erreur de chargement.");
     } finally {
       setLoading(false);
     }
@@ -216,14 +217,13 @@ function CharactersPage() {
 
   const updateRelationshipStars = useCallback(
     async (fromId, toId, stars) => {
+      // Optimistic UI
       setKnownMap((prev) => {
         const current = Array.isArray(prev[fromId]) ? prev[fromId] : [];
         return {
           ...prev,
           [fromId]: current.map((c) =>
-            c.id === toId
-              ? { ...c, relationshipStars: stars, affinityScore: stars * 20 }
-              : c
+            c.id === toId ? { ...c, relationshipStars: stars, affinityScore: stars * 20 } : c
           ),
         };
       });
@@ -258,11 +258,7 @@ function CharactersPage() {
               ...prev,
               [fromId]: current.map((c) =>
                 c.id === toId
-                  ? {
-                      ...c,
-                      relationshipStars: updated.relationshipStars,
-                      affinityScore: updated.affinityScore,
-                    }
+                  ? { ...c, relationshipStars: updated.relationshipStars, affinityScore: updated.affinityScore }
                   : c
               ),
             };
@@ -270,9 +266,17 @@ function CharactersPage() {
         }
       } catch (e) {
         setError(e.message || "Erreur lors de la mise à jour de la relation.");
+
+        // rollback: re-fetch fiable
+        try {
+          const known = await fetchKnownFor(fromId);
+          setKnownMap((prev) => ({ ...prev, [fromId]: known }));
+        } catch {
+          // ignore
+        }
       }
     },
-    [token]
+    [token, fetchKnownFor]
   );
 
   const handleCardSingleClick = useCallback(
@@ -378,6 +382,7 @@ function CharactersPage() {
   const confirmAddKnown = useCallback(async () => {
     try {
       if (!showAddModalFor) return;
+
       const fromId = showAddModalFor;
       const toId = Number(selectedCandidateId);
       if (!toId) return;
@@ -416,6 +421,7 @@ function CharactersPage() {
       try {
         setError(null);
 
+        // optimistic UI
         setKnownMap((prev) => {
           const current = Array.isArray(prev[fromId]) ? prev[fromId] : [];
           return { ...prev, [fromId]: current.filter((k) => k.id !== toId) };
@@ -423,11 +429,13 @@ function CharactersPage() {
 
         await removeKnownCharacter(fromId, toId);
 
+        // refresh candidates
         const candidates = await fetchCandidatesFor(fromId);
         setCandidateMap((prev) => ({ ...prev, [fromId]: candidates }));
       } catch (e) {
         setError(e.message || "Erreur lors de la suppression du connu.");
 
+        // rollback fiable
         try {
           const known = await fetchKnownFor(fromId);
           setKnownMap((prev) => ({ ...prev, [fromId]: known }));
@@ -465,12 +473,13 @@ function CharactersPage() {
               const knownList = panelOpen ? knownMap[char.id] : null;
 
               return (
-                <div key={char.id} className="character-card-wrapper">
-                  <div
-                    className="character-card"
-                    onClick={() => handleCardSingleClick(char.id)}
-                    onDoubleClick={() => handleCardDoubleClick(char.id)}
-                  >
+                <div
+                  key={char.id}
+                  className={`character-card ${panelOpen ? "open" : ""}`}
+                  onClick={() => handleCardSingleClick(char.id)}
+                  onDoubleClick={() => handleCardDoubleClick(char.id)}
+                >
+                  <div className="character-card-top">
                     <div className="character-avatar-wrapper">
                       {avatarSrc ? (
                         <img
@@ -527,7 +536,7 @@ function CharactersPage() {
                   </div>
 
                   {panelOpen && (
-                    <div className="relationship-panel" onClick={(e) => e.stopPropagation()}>
+                    <div className="relationship-panel inside" onClick={(e) => e.stopPropagation()}>
                       <div className="relationship-panel-header">
                         <div className="relationship-panel-title">Relations</div>
 
@@ -543,9 +552,7 @@ function CharactersPage() {
                       {!Array.isArray(knownList) ? (
                         <p style={{ margin: 0, opacity: 0.8 }}>Chargement...</p>
                       ) : knownList.length === 0 ? (
-                        <p style={{ margin: 0, opacity: 0.8 }}>
-                          Aucun personnage connu pour l’instant.
-                        </p>
+                        <p style={{ margin: 0, opacity: 0.8 }}>Aucun personnage connu pour l’instant.</p>
                       ) : (
                         <div className="relationship-mini-grid">
                           {knownList.map((known) => {
@@ -569,19 +576,14 @@ function CharactersPage() {
                                 <div className="mini-info compact">
                                   <div className="mini-title compact">
                                     {known.nickname}
-                                    <span className="mini-type">
-                                      {" "}
-                                      · {formatRelationType(known.type)}
-                                    </span>
+                                    <span className="mini-type"> · {formatRelationType(known.type)}</span>
                                   </div>
 
                                   <div className="mini-row">
                                     <StarsEditor
                                       value={known.relationshipStars}
                                       hoverKey={key}
-                                      onChange={(stars) =>
-                                        updateRelationshipStars(char.id, known.id, stars)
-                                      }
+                                      onChange={(stars) => updateRelationshipStars(char.id, known.id, stars)}
                                     />
 
                                     <button
@@ -640,7 +642,11 @@ function CharactersPage() {
             </select>
 
             <div className="modal-actions">
-              <button type="button" className="modal-cancel" onClick={() => setShowAddModalFor(null)}>
+              <button
+                type="button"
+                className="modal-cancel"
+                onClick={() => setShowAddModalFor(null)}
+              >
                 Annuler
               </button>
 
