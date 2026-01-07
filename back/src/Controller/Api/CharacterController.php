@@ -24,6 +24,7 @@ class CharacterController extends AbstractController
         $locationId = is_numeric($locationId) ? (int) $locationId : null;
 
         $cards = $this->characterService->getCharacterCardsForCurrentUser($locationId);
+
         return new JsonResponse($cards, 200);
     }
 
@@ -36,6 +37,7 @@ class CharacterController extends AbstractController
         }
 
         $data = $this->characterService->getCharacterDetailForCurrentUser($character);
+
         return new JsonResponse($data, 200);
     }
 
@@ -46,6 +48,7 @@ class CharacterController extends AbstractController
             $character = $this->characterService->createFromRequest($request);
 
             $data = $this->characterService->getCharacterDetailForCurrentUser($character);
+
             return new JsonResponse($data, 201);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
@@ -66,6 +69,7 @@ class CharacterController extends AbstractController
             $character = $this->characterService->updateFromRequest($character, $request);
 
             $data = $this->characterService->getCharacterDetailForCurrentUser($character);
+
             return new JsonResponse($data, 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
@@ -78,6 +82,7 @@ class CharacterController extends AbstractController
     public function charactersByLocation(int $locationId): JsonResponse
     {
         $cards = $this->characterService->getCharacterCardsForCurrentUser($locationId);
+
         return new JsonResponse($cards, 200);
     }
 }

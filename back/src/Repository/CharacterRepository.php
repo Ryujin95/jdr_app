@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Character;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -22,7 +23,7 @@ class CharacterRepository extends ServiceEntityRepository
     public function findAllActive(): array
     {
         return $this->createQueryBuilder('c')
-            ->leftJoin('c.owner', 'o')->addSelect('o') // ✅ AJOUT (évite N+1)
+            ->leftJoin('c.owner', 'o')->addSelect('o')
             ->andWhere('c.deleted = :deleted')
             ->setParameter('deleted', false)
             ->orderBy('c.id', 'ASC')
@@ -36,7 +37,7 @@ class CharacterRepository extends ServiceEntityRepository
     public function findAllDeleted(): array
     {
         return $this->createQueryBuilder('c')
-            ->leftJoin('c.owner', 'o')->addSelect('o') // ✅ AJOUT (optionnel mais cohérent)
+            ->leftJoin('c.owner', 'o')->addSelect('o')
             ->andWhere('c.deleted = :deleted')
             ->setParameter('deleted', true)
             ->orderBy('c.id', 'ASC')
@@ -51,7 +52,7 @@ class CharacterRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->leftJoin('c.location', 'l')
-            ->leftJoin('c.owner', 'o')->addSelect('o') // ✅ AJOUT (évite N+1)
+            ->leftJoin('c.owner', 'o')->addSelect('o')
             ->andWhere('c.deleted = :deleted')
             ->setParameter('deleted', false)
             ->andWhere('l.id = :locationId')
@@ -59,5 +60,22 @@ class CharacterRepository extends ServiceEntityRepository
             ->orderBy('c.id', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Le perso joueur actif lié à un user (1 seul perso par user)
+     */
+    public function findActivePlayerCharacterByOwner(User $owner): ?Character
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.deleted = :deleted')
+            ->setParameter('deleted', false)
+            ->andWhere('c.isPlayer = :isPlayer')
+            ->setParameter('isPlayer', true)
+            ->andWhere('c.owner = :owner')
+            ->setParameter('owner', $owner)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }

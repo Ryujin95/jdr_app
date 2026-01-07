@@ -8,6 +8,7 @@ use App\Entity\Location;
 use App\Entity\User;
 use App\Repository\CharacterAttributesRepository;
 use App\Repository\CharacterKnowledgeRepository;
+use App\Repository\CharacterRelationshipRepository;
 use App\Repository\CharacterRepository;
 use App\Repository\CharacterSkillValueRepository;
 use App\Repository\LocationRepository;
@@ -28,166 +29,196 @@ class CharacterService
         private CharacterAttributesRepository $attributesRepository,
         private CharacterSkillValueRepository $skillValueRepository,
         private CharacterKnowledgeRepository $knowledgeRepository,
+        private CharacterRelationshipRepository $relationshipRepository, // ✅ AJOUT
         private string $projectDir, // injecte %kernel.project_dir%
     ) {}
 
     public function getCharacterCardsForCurrentUser(?int $locationId = null): array
-{
-    /** @var User|null $user */
-    $user = $this->security->getUser();
-    if (!$user) {
-        return [];
-    }
+    {
+        /** @var User|null $user */
+        $user = $this->security->getUser();
+        if (!$user) {
+            return [];
+        }
 
-    $characters = $locationId !== null
-        ? $this->characterRepository->findByLocationIdActive($locationId)
-        : $this->characterRepository->findAllActive();
+        $characters = $locationId !== null
+            ? $this->characterRepository->findByLocationIdActive($locationId)
+            : $this->characterRepository->findAllActive();
 
-    $cards = [];
-    foreach ($characters as $character) {
+        // ✅ perso joueur du user connecté (1 seul)
+        $myCharacter = $this->characterRepository->findActivePlayerCharacterByOwner($user);
 
-        // ✅ owner uniquement pour perso joueur
-        $ownerPayload = null;
-        if (
-            $character->isPlayer()
-            && method_exists($character, 'getOwner')
-            && $character->getOwner()
-        ) {
-            $o = $character->getOwner();
-            $ownerPayload = [
-                'id' => $o->getId(),
-                'username' => method_exists($o, 'getUsername') ? $o->getUsername() : null,
-                'email' => method_exists($o, 'getEmail') ? $o->getEmail() : null,
+        // ✅ AJOUT: récupérer toutes les relations en une seule requête (évite N+1)
+        $affinityMap = [];
+        if ($myCharacter) {
+            $toIds = [];
+            foreach ($characters as $c) {
+                if ($c->getId() !== $myCharacter->getId()) {
+                    $toIds[] = $c->getId();
+                }
+            }
+            $affinityMap = $this->relationshipRepository->findAffinityScoresFrom($myCharacter, $toIds);
+        }
+
+        $cards = [];
+        foreach ($characters as $character) {
+            // ✅ owner uniquement pour perso joueur
+            $ownerPayload = null;
+            if (
+                $character->isPlayer()
+                && method_exists($character, 'getOwner')
+                && $character->getOwner()
+            ) {
+                $o = $character->getOwner();
+                $ownerPayload = [
+                    'id' => $o->getId(),
+                    'username' => method_exists($o, 'getUsername') ? $o->getUsername() : null,
+                    'email' => method_exists($o, 'getEmail') ? $o->getEmail() : null,
+                ];
+            }
+
+            // ✅ MODIF NECESSAIRE: plus de findOneByFromTo() dans la boucle
+            $affinityScore = null;
+            $relationshipStars = null;
+
+            if ($myCharacter && $myCharacter->getId() !== $character->getId()) {
+                $score = (int) ($affinityMap[$character->getId()] ?? 0);
+                $affinityScore = $score;
+                $relationshipStars = $this->scoreToStars($score);
+            }
+
+            $cards[] = [
+                'id'        => $character->getId(),
+                'nickname'  => $character->getNickname(),
+                'firstname' => $character->getFirstname(),
+                'lastname'  => $character->getLastname(),
+                'age'       => $character->getAge(),
+                'avatarUrl' => $character->getAvatarUrl(),
+                'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl') ? $character->getTransitionVideoUrl() : null,
+                'isPlayer'  => $character->isPlayer(),
+                'clan'      => $character->getClan(),
+                'owner'     => $ownerPayload,
+
+                // champ que tu avais déjà
+                'affinityScore' => $affinityScore,
+
+                // ✅ AJOUT: champ direct pour afficher les étoiles (0..5)
+                'relationshipStars' => $relationshipStars,
             ];
         }
 
-        $cards[] = [
+        return $cards;
+    }
+
+    // ✅ AJOUT: conversion score -> étoiles (0..5)
+    private function scoreToStars(int $score): int
+    {
+        $score = max(0, min(100, $score));
+
+        if ($score === 0) return 0;
+        if ($score <= 20) return 1;
+        if ($score <= 40) return 2;
+        if ($score <= 60) return 3;
+        if ($score <= 80) return 4;
+        return 5;
+    }
+
+    public function getCharacterDetailForCurrentUser(Character $character): array
+    {
+        /** @var User|null $user */
+        $user = $this->security->getUser();
+        if (!$user) {
+            throw new AccessDeniedException('Authentication required');
+        }
+
+        $isAdminOrMj =
+            $this->security->isGranted('ROLE_ADMIN')
+            || $this->security->isGranted('ROLE_MJ');
+
+        $data = [
             'id'        => $character->getId(),
             'nickname'  => $character->getNickname(),
             'firstname' => $character->getFirstname(),
             'lastname'  => $character->getLastname(),
             'age'       => $character->getAge(),
             'avatarUrl' => $character->getAvatarUrl(),
-            'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl') ? $character->getTransitionVideoUrl() : null,
+            'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl')
+                ? $character->getTransitionVideoUrl()
+                : null,
             'isPlayer'  => $character->isPlayer(),
             'clan'      => $character->getClan(),
-            'owner'     => $ownerPayload, // ✅ AJOUT
         ];
-    }
 
-    return $cards;
-}
-
-
-    public function getCharacterDetailForCurrentUser(Character $character): array
-{
-    /** @var User|null $user */
-    $user = $this->security->getUser();
-    if (!$user) {
-        throw new AccessDeniedException('Authentication required');
-    }
-
-    $isAdminOrMj =
-        $this->security->isGranted('ROLE_ADMIN')
-        || $this->security->isGranted('ROLE_MJ');
-
-    $data = [
-        'id'        => $character->getId(),
-        'nickname'  => $character->getNickname(),
-        'firstname' => $character->getFirstname(),
-        'lastname'  => $character->getLastname(),
-        'age'       => $character->getAge(),
-        'avatarUrl' => $character->getAvatarUrl(),
-        'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl')
-            ? $character->getTransitionVideoUrl()
-            : null,
-        'isPlayer'  => $character->isPlayer(),
-        'clan'      => $character->getClan(),
-    ];
-
-    // ✅ AJOUT : owner uniquement pour personnage joueur
-    if (
-        $character->isPlayer()
-        && method_exists($character, 'getOwner')
-        && $character->getOwner()
-    ) {
-        $o = $character->getOwner();
-        $data['owner'] = [
-            'id' => $o->getId(),
-            'username' => method_exists($o, 'getUsername') ? $o->getUsername() : null,
-            'email' => method_exists($o, 'getEmail') ? $o->getEmail() : null,
-        ];
-    } else {
-        $data['owner'] = null;
-    }
-
-    if ($isAdminOrMj) {
-        $data['biography']  = $character->getBiography();
-        $data['strengths']  = $character->getStrengths();
-        $data['weaknesses'] = $character->getWeaknesses();
-    } else {
-        $knowledgeList = $this->knowledgeRepository->findBy([
-            'viewer' => $user,
-            'target' => $character,
-        ]);
-
-        $allowed = [];
-        foreach ($knowledgeList as $k) {
-            $allowed[$k->getField()] = true;
+        // ✅ owner uniquement pour personnage joueur
+        if (
+            $character->isPlayer()
+            && method_exists($character, 'getOwner')
+            && $character->getOwner()
+        ) {
+            $o = $character->getOwner();
+            $data['owner'] = [
+                'id' => $o->getId(),
+                'username' => method_exists($o, 'getUsername') ? $o->getUsername() : null,
+                'email' => method_exists($o, 'getEmail') ? $o->getEmail() : null,
+            ];
+        } else {
+            $data['owner'] = null;
         }
 
-        if (isset($allowed['biography'])) {
-            $data['biography'] = $character->getBiography();
-        }
-        if (isset($allowed['strengths'])) {
-            $data['strengths'] = $character->getStrengths();
-        }
-        if (isset($allowed['weaknesses'])) {
+        if ($isAdminOrMj) {
+            $data['biography']  = $character->getBiography();
+            $data['strengths']  = $character->getStrengths();
             $data['weaknesses'] = $character->getWeaknesses();
+        } else {
+            $knowledgeList = $this->knowledgeRepository->findBy([
+                'viewer' => $user,
+                'target' => $character,
+            ]);
+
+            $allowed = [];
+            foreach ($knowledgeList as $k) {
+                $allowed[$k->getField()] = true;
+            }
+
+            if (isset($allowed['biography']))  $data['biography']  = $character->getBiography();
+            if (isset($allowed['strengths']))  $data['strengths']  = $character->getStrengths();
+            if (isset($allowed['weaknesses'])) $data['weaknesses'] = $character->getWeaknesses();
         }
+
+        $attributes = $this->attributesRepository->findOneBy(['character' => $character]);
+        if ($attributes) {
+            $data['attributes'] = [
+                'strength' => $attributes->getStrength(),
+                'agility'  => $attributes->getAgility(),
+                'wits'     => $attributes->getWits(),
+                'empathy'  => $attributes->getEmpathy(),
+            ];
+        }
+
+        $skillValues = $this->skillValueRepository->findBy(['owner' => $character]);
+        $skills = [];
+        foreach ($skillValues as $sv) {
+            $skill = $sv->getSkill();
+            $skills[] = [
+                'id'              => $skill->getId(),
+                'name'            => $skill->getName(),
+                'parentAttribute' => $skill->getParentAttribute(),
+                'level'           => $sv->getLevel(),
+            ];
+        }
+        $data['skills'] = $skills;
+
+        if (method_exists($character, 'getLocation') && $character->getLocation()) {
+            $data['location'] = [
+                'id' => $character->getLocation()->getId(),
+                'name' => $character->getLocation()->getName(),
+            ];
+        } else {
+            $data['location'] = null;
+        }
+
+        return $data;
     }
-
-    $attributes = $this->attributesRepository->findOneBy([
-        'character' => $character
-    ]);
-
-    if ($attributes) {
-        $data['attributes'] = [
-            'strength' => $attributes->getStrength(),
-            'agility'  => $attributes->getAgility(),
-            'wits'     => $attributes->getWits(),
-            'empathy'  => $attributes->getEmpathy(),
-        ];
-    }
-
-    $skillValues = $this->skillValueRepository->findBy([
-        'owner' => $character
-    ]);
-
-    $skills = [];
-    foreach ($skillValues as $sv) {
-        $skill = $sv->getSkill();
-        $skills[] = [
-            'id'              => $skill->getId(),
-            'name'            => $skill->getName(),
-            'parentAttribute' => $skill->getParentAttribute(),
-            'level'           => $sv->getLevel(),
-        ];
-    }
-    $data['skills'] = $skills;
-
-    if (method_exists($character, 'getLocation') && $character->getLocation()) {
-        $data['location'] = [
-            'id'   => $character->getLocation()->getId(),
-            'name' => $character->getLocation()->getName(),
-        ];
-    } else {
-        $data['location'] = null;
-    }
-
-    return $data;
-}
-
 
     public function createFromRequest(Request $request): Character
     {
@@ -210,7 +241,6 @@ class CharacterService
         return $character;
     }
 
-    // ✅ AJOUT : attribuer / retirer un owner (Admin/MJ)
     public function assignOwner(Character $character, ?int $userId): array
     {
         $isAdminOrMj = $this->security->isGranted('ROLE_ADMIN') || $this->security->isGranted('ROLE_MJ');
@@ -312,7 +342,6 @@ class CharacterService
             }
         }
 
-        // ---------- AVATAR (déjà existant chez toi) ----------
         $avatarFile = $request->files->get('avatar');
         if ($avatarFile) {
             $ext = strtolower($avatarFile->guessExtension() ?: '');
@@ -347,9 +376,6 @@ class CharacterService
             $character->setAvatarUrl('/image/' . $filename);
         }
 
-        // ---------- VIDEO TRANSITION (nouveau) ----------
-        // ✅ côté front: FormData.append('transitionVideo', file)
-        // ✅ côté back: stocke /video/xxx.mp4 en base
         $videoFile = $request->files->get('transitionVideo');
         if ($videoFile) {
             $ext = strtolower($videoFile->guessExtension() ?: '');
@@ -359,8 +385,7 @@ class CharacterService
                 throw new \InvalidArgumentException('Format vidéo non autorisé (mp4, webm).');
             }
 
-            // limite taille (ajuste si tu veux)
-            $maxBytes = 25 * 1024 * 1024; // 25 Mo
+            $maxBytes = 25 * 1024 * 1024;
             $size = $videoFile->getSize();
             if ($size !== null && $size > $maxBytes) {
                 throw new \InvalidArgumentException('Vidéo trop lourde (max 25 Mo).');
@@ -389,7 +414,6 @@ class CharacterService
                 throw new \RuntimeException('Erreur upload vidéo');
             }
 
-            // nécessite ton champ transitionVideoUrl dans l'entity
             if (method_exists($character, 'setTransitionVideoUrl')) {
                 $character->setTransitionVideoUrl('/video/' . $filename);
             }

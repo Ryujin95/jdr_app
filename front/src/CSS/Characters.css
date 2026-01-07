@@ -1,120 +1,123 @@
 .characters-page {
-    padding: 2rem;
-    background: #0f172a;
-    min-height: 100vh;
-    color: #e5e7eb;
-  }
-  
-  .characters-page h1 {
-    margin-bottom: 1.5rem;
-  }
-  
-  .characters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1.5rem;
-  }
-  
-  .character-card {
-    background: #111827;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    cursor: pointer;
-    display: flex;
-    gap: 1rem;
-    border: 1px solid #1f2937;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  }
-  
-  .character-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-    border-color: #4b5563;
-  }
-  
-  .character-avatar-wrapper {
-    flex-shrink: 0;
-  }
-  
-  .character-avatar {
-    width: 72px;
-    height: 72px;
-    border-radius: 999px;
-    object-fit: cover;
-    border: 2px solid #4b5563;
-  }
-  
-  .character-avatar.placeholder {
-    width: 72px;
-    height: 72px;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #1f2937;
-    border: 2px solid #374151;
-    font-size: 1.5rem;
-    font-weight: 600;
-  }
-  
-  .character-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  
-  .character-nickname {
-    margin: 0;
-    font-size: 1.2rem;
-  }
-  
-  .character-name {
-    margin: 0.25rem 0;
-    color: #9ca3af;
-  }
-  
-  .character-age {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #d1d5db;
-  }
-  
-  .character-badge {
-    margin-top: 0.5rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    display: inline-block;
-  }
-  
-  .player-badge {
-    background: #10b98122;
-    color: #6ee7b7;
-    border: 1px solid #10b981;
-  }
-  
-  .npc-badge {
-    background: #3b82f622;
-    color: #93c5fd;
-    border: 1px solid #3b82f6;
-  }
-  .clan-section {
-    margin-top: 2rem;
-  }
-  
-  .clan-title {
-    margin: 0 0 0.75rem 0;
-    font-size: 1.4rem;
-    color: #e5e7eb;
-    font-weight: 600;
-  }
-  
-  /* petit séparateur visuel si tu veux renforcer le découpage */
-  .clan-section + .clan-section {
-    border-top: 1px solid #1f2937;
-    padding-top: 2rem;
-  }
-  .character-trash-button {
+  padding: 2rem;
+  background: #0f172a;
+  min-height: 100vh;
+  color: #e5e7eb;
+}
+
+.characters-page h1 {
+  margin-bottom: 1.5rem;
+}
+
+.characters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.character-card {
+  background: #111827;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  cursor: pointer;
+  display: flex;
+  gap: 1rem;
+  border: 1px solid #1f2937;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.character-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+  border-color: #4b5563;
+}
+
+.character-avatar-wrapper {
+  flex-shrink: 0;
+}
+
+.character-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid #4b5563;
+}
+
+.character-avatar.placeholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1f2937;
+  border: 2px solid #374151;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.character-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.character-nickname {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.character-name {
+  margin: 0.25rem 0;
+  color: #9ca3af;
+}
+
+.character-age {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #d1d5db;
+}
+
+.character-badge {
+  margin-top: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  display: inline-block;
+}
+
+.player-badge {
+  background: #10b98122;
+  color: #6ee7b7;
+  border: 1px solid #10b981;
+}
+
+.npc-badge {
+  background: #3b82f622;
+  color: #93c5fd;
+  border: 1px solid #3b82f6;
+}
+
+.clan-section {
+  margin-top: 2rem;
+}
+
+.clan-title {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.4rem;
+  color: #e5e7eb;
+  font-weight: 600;
+}
+
+.clan-section + .clan-section {
+  border-top: 1px solid #1f2937;
+  padding-top: 2rem;
+}
+
+/* ===== Boutons ===== */
+
+.character-trash-button {
   margin-top: 0.5rem;
   padding: 6px 12px;
   background: #e74c3c;
@@ -141,4 +144,187 @@
   font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.character-edit-button:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+/* ===== Étoiles (lecture + édition) ===== */
+
+.relationship-stars {
+  line-height: 1;
+}
+
+.relationship-stars.editor .star,
+.relationship-stars.readonly {
+  user-select: none;
+}
+
+.relationship-stars.editor .star {
+  cursor: pointer;
+  font-size: 14px;
+  transition: transform 0.05s ease;
+}
+
+.relationship-stars.editor .star:hover {
+  transform: scale(1.05);
+}
+
+.relationship-stars .full {
+  color: gold;
+}
+
+.relationship-stars .empty {
+  color: #555;
+}
+
+.relationship-stars.readonly {
+  font-size: 14px;
+}
+
+/* ===== Panneau relations MJ ===== */
+
+.relationship-panel {
+  margin-top: 0.75rem;
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.relationship-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.relationship-panel-title {
+  font-weight: 600;
+}
+
+.relationship-add-button {
+  background: #22c55e;
+  color: #052e16;
+  border: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.relationship-add-button:hover {
+  background: #16a34a;
+}
+
+/* ===== Mini-cards relations (compactes) ===== */
+
+.relationship-mini-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mini-character-card.compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: #141414;
+  border-radius: 6px;
+  min-width: 150px;
+  border: 1px solid #1f2937;
+}
+
+.mini-avatar.compact {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mini-avatar.compact.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1f2937;
+  color: #ccc;
+  font-size: 14px;
+}
+
+.mini-info.compact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mini-title.compact {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ===== Modale ===== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: #020617;
+  border: 1px solid #1f2937;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  width: 300px;
+}
+
+.modal-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.modal-select {
+  width: 100%;
+  padding: 0.5rem;
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #1f2937;
+  border-radius: 0.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.modal-cancel {
+  background: transparent;
+  color: #9ca3af;
+  border: none;
+  cursor: pointer;
+}
+
+.modal-confirm {
+  background: #22c55e;
+  color: #052e16;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.modal-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
