@@ -6,6 +6,7 @@ use App\Repository\LocationRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Campaign;
 
 #[ORM\Entity(repositoryClass: LocationRepository::class)]
 class Location
@@ -26,6 +27,13 @@ class Location
     // Soft delete : lieu envoyé à la corbeille
     #[ORM\Column]
     private bool $deleted = false;
+
+    /**
+     * Liaison campagne (nullable au début pour ne rien casser)
+     */
+    #[ORM\ManyToOne(targetEntity: Campaign::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Campaign $campaign = null;
 
     /**
      * @var Collection<int, Character>
@@ -74,6 +82,17 @@ class Location
     public function setDeleted(bool $deleted): static
     {
         $this->deleted = $deleted;
+        return $this;
+    }
+
+    public function getCampaign(): ?Campaign
+    {
+        return $this->campaign;
+    }
+
+    public function setCampaign(?Campaign $campaign): static
+    {
+        $this->campaign = $campaign;
         return $this;
     }
 

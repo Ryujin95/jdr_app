@@ -15,7 +15,7 @@ function Header() {
 
   return (
     <header className="header">
-      <h1 className="logo">JDR The Walking Dead</h1>
+      <h1 className="logo">JDR</h1>
 
       <nav className="nav">
         <Link to="/" className="nav-link">
@@ -24,6 +24,11 @@ function Header() {
 
         {isAuthenticated && (
           <>
+            {/* ✅ NOUVEAU : lien Mes JDR */}
+            <Link to="/dashboard" className="nav-link">
+              Mes JDR
+            </Link>
+
             <Link to="/characters" className="nav-link">
               Personnages
             </Link>

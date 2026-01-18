@@ -27,7 +27,8 @@ function LoginPage() {
         message: "Connexion réussie, bienvenue !",
       });
 
-      navigate("/");
+      // ✅ redirection vers le dashboard après connexion
+      navigate("/dashboard");
     } catch (err) {
       const raw = err?.message || "";
       let msg = raw || "Erreur de connexion";
@@ -48,9 +49,6 @@ function LoginPage() {
   return (
     <main className="login-container">
       <h2 className="login-title">Se connecter</h2>
-
-      {/* tu gardes l’erreur en JS (pour les notifs) mais tu ne l’affiches plus ici */}
-      {/* {error && <p className="login-error">{error}</p>} */}
 
       <form className="login-form" onSubmit={handleLogin}>
         <input
@@ -85,11 +83,7 @@ function LoginPage() {
                 setShowPassword((v) => !v);
               }
             }}
-            title={
-              showPassword
-                ? "Masquer le mot de passe"
-                : "Afficher le mot de passe"
-            }
+            title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
             aria-label="Afficher ou masquer le mot de passe"
           >
             {showPassword ? "⚫" : "👁"}

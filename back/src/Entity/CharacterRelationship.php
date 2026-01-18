@@ -13,11 +13,11 @@ class CharacterRelationship
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(inversedBy: 'characterRelationships')]
+    #[ORM\ManyToOne(inversedBy: 'relationshipsFrom')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Character $fromCharacter = null;
 
-    #[ORM\ManyToOne(inversedBy: 'characterRelationships')]
+    #[ORM\ManyToOne(inversedBy: 'relationshipsTo')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Character $toCharacter = null;
 
@@ -43,7 +43,6 @@ class CharacterRelationship
     public function setFromCharacter(?Character $fromCharacter): static
     {
         $this->fromCharacter = $fromCharacter;
-
         return $this;
     }
 
@@ -55,7 +54,6 @@ class CharacterRelationship
     public function setToCharacter(?Character $toCharacter): static
     {
         $this->toCharacter = $toCharacter;
-
         return $this;
     }
 
@@ -67,7 +65,6 @@ class CharacterRelationship
     public function setType(string $type): static
     {
         $this->type = $type;
-
         return $this;
     }
 
@@ -79,7 +76,6 @@ class CharacterRelationship
     public function setAffinityScore(?int $affinityScore): static
     {
         $this->affinityScore = $affinityScore;
-
         return $this;
     }
 
@@ -91,7 +87,6 @@ class CharacterRelationship
     public function setNotes(?string $notes): static
     {
         $this->notes = $notes;
-
         return $this;
     }
 }

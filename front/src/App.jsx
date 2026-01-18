@@ -19,6 +19,8 @@ import TrashPanel from "./components/TrashPanel.jsx";
 import EditorPage from "./pages/EditorPage.jsx";
 import LocationCharactersPage from "./pages/LocationCharactersPage.jsx";
 import CharacterEditPage from "./pages/CharacterEditPage.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import CreateCampaignPage from "./pages/CreateCampaignPage.jsx";
 
 function App() {
   return (
@@ -31,6 +33,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -42,6 +45,7 @@ function App() {
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/locations/:locationId/characters" element={<LocationCharactersPage />} />
         <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
+        <Route path="/campaigns/create" element={<CreateCampaignPage />} />
       </Routes>
 
       <TrashPanel />

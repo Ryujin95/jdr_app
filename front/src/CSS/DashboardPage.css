@@ -1,0 +1,169 @@
+/* src/CSS/DashboardPage.css */
+.dash {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 22px 18px 60px;
+}
+
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dash-title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #111;
+}
+
+.dash-subtitle {
+  margin: 0;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.45;
+  font-size: 13px;
+  max-width: 680px;
+}
+
+.dash-create {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #111;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.dash-state {
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dash-state--error {
+  border-color: rgba(200, 0, 0, 0.2);
+  color: rgba(200, 0, 0, 0.9);
+}
+
+.empty {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.empty-card {
+  width: min(640px, 100%);
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  display: grid;
+  gap: 10px;
+}
+
+.empty-title {
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.empty-text {
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.card {
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.tag {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 800;
+}
+
+.role {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.role-mj {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.role-player {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+}
+
+.card-meta {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.card-action {
+  font-size: 13px;
+  font-weight: 900;
+  color: #111;
+  margin-top: 2px;
+}
+
+@media (max-width: 980px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .dash-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .empty-hint {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+}

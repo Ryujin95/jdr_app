@@ -9,6 +9,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\User;
 use App\Entity\Location;
+use App\Entity\Campaign;
 
 #[ORM\Entity(repositoryClass: CharacterRepository::class)]
 #[ORM\Table(name: '`character`')]
@@ -43,7 +44,6 @@ class Character
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $avatarUrl = null;
 
-    // ✅ AJOUT VIDEO TRANSITION (même principe que avatarUrl)
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $transitionVideoUrl = null;
 
@@ -61,12 +61,18 @@ class Character
     #[ORM\JoinColumn(nullable: true)]
     private ?Location $location = null;
 
-    // SOFT DELETE
     #[ORM\Column]
     private bool $deleted = false;
 
     #[ORM\OneToOne(mappedBy: 'character', targetEntity: CharacterAttributes::class, cascade: ['persist', 'remove'])]
     private ?CharacterAttributes $attributes = null;
+
+    /**
+     * Liaison campagne (on met nullable pour ne rien casser au début)
+     */
+    #[ORM\ManyToOne(targetEntity: Campaign::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Campaign $campaign = null;
 
     /**
      * @var Collection<int, CharacterSkillValue>
@@ -75,10 +81,18 @@ class Character
     private Collection $characterSkillValues;
 
     /**
+     * Relations sortantes (ce personnage → autres)
      * @var Collection<int, CharacterRelationship>
      */
     #[ORM\OneToMany(targetEntity: CharacterRelationship::class, mappedBy: 'fromCharacter')]
-    private Collection $characterRelationships;
+    private Collection $relationshipsFrom;
+
+    /**
+     * Relations entrantes (autres → ce personnage)
+     * @var Collection<int, CharacterRelationship>
+     */
+    #[ORM\OneToMany(targetEntity: CharacterRelationship::class, mappedBy: 'toCharacter')]
+    private Collection $relationshipsTo;
 
     /**
      * @var Collection<int, CharacterKnowledge>
@@ -89,7 +103,8 @@ class Character
     public function __construct()
     {
         $this->characterSkillValues = new ArrayCollection();
-        $this->characterRelationships = new ArrayCollection();
+        $this->relationshipsFrom = new ArrayCollection();
+        $this->relationshipsTo = new ArrayCollection();
         $this->characterKnowledge = new ArrayCollection();
         $this->deleted = false;
     }
@@ -187,7 +202,6 @@ class Character
         return $this;
     }
 
-    // ✅ GET/SET VIDEO TRANSITION
     public function getTransitionVideoUrl(): ?string
     {
         return $this->transitionVideoUrl;
@@ -199,6 +213,7 @@ class Character
         return $this;
     }
 
+    // ✅ IMPORTANT : c’est ce que ton CharacterService appelle
     public function isPlayer(): ?bool
     {
         return $this->isPlayer;
@@ -251,6 +266,65 @@ class Character
     public function setDeleted(bool $deleted): static
     {
         $this->deleted = $deleted;
+        return $this;
+    }
+
+    public function getAttributes(): ?CharacterAttributes
+    {
+        return $this->attributes;
+    }
+
+    public function setAttributes(?CharacterAttributes $attributes): static
+    {
+        // garder la synchro du OneToOne
+        if ($attributes !== null && $attributes->getCharacter() !== $this) {
+            $attributes->setCharacter($this);
+        }
+
+        $this->attributes = $attributes;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, CharacterSkillValue>
+     */
+    public function getCharacterSkillValues(): Collection
+    {
+        return $this->characterSkillValues;
+    }
+
+    /**
+     * @return Collection<int, CharacterRelationship>
+     */
+    public function getRelationshipsFrom(): Collection
+    {
+        return $this->relationshipsFrom;
+    }
+
+    /**
+     * @return Collection<int, CharacterRelationship>
+     */
+    public function getRelationshipsTo(): Collection
+    {
+        return $this->relationshipsTo;
+    }
+
+    /**
+     * @return Collection<int, CharacterKnowledge>
+     */
+    public function getCharacterKnowledge(): Collection
+    {
+        return $this->characterKnowledge;
+    }
+
+    public function getCampaign(): ?Campaign
+    {
+        return $this->campaign;
+    }
+
+    public function setCampaign(?Campaign $campaign): static
+    {
+        $this->campaign = $campaign;
         return $this;
     }
 }

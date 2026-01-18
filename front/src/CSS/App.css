@@ -5,23 +5,55 @@
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: #f5f7fa;
   color: #333;
   line-height: 1.5;
-  width: 88rem;
-  margin-left: 17rem;
+
+  width: 100%;
+  margin: 0;
+
+  display: flex;
+  justify-content: center;
+
+  padding: 60px 0;
 }
 
 /* Container principal */
 .app {
-  max-width: 1500px;
-  margin: 60px auto;
+  width: 80vw;              /* ✅ 80% de la largeur écran */
+  max-width: 1500px;        /* ✅ limite sur très grands écrans */
+  min-width: 320px;         /* ✅ évite les écrans trop étroits */
+
   padding: 30px;
   background: white;
   border-radius: 14px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+/* Responsive tablette */
+@media (max-width: 1024px) {
+  .app {
+    width: 90vw;
+  }
+}
+
+/* Responsive mobile */
+@media (max-width: 768px) {
+  body {
+    padding: 24px 0;
+  }
+
+  .app {
+    width: 95vw;
+    padding: 18px;
+    border-radius: 12px;
+  }
 }
 
 /* Titres */
