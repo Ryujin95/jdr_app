@@ -22,6 +22,10 @@ class Campaign
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $theme = null;
 
+    // Code pour rejoindre une campagne (ex: 758h62)
+    #[ORM\Column(length: 12, unique: true, nullable: true)]
+    private ?string $joinCode = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -54,6 +58,18 @@ class Campaign
     public function setTheme(?string $theme): self
     {
         $this->theme = $theme;
+        $this->touch();
+        return $this;
+    }
+
+    public function getJoinCode(): ?string
+    {
+        return $this->joinCode;
+    }
+
+    public function setJoinCode(?string $joinCode): self
+    {
+        $this->joinCode = $joinCode;
         $this->touch();
         return $this;
     }

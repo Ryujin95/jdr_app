@@ -1,5 +1,6 @@
 // src/App.jsx
-import { Routes, Route } from "react-router-dom";
+import { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Header from "./components/Header.jsx";
 import Footer from "./components/Footer.jsx";
@@ -10,7 +11,6 @@ import ProfilePage from "./pages/ProfilePage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import NotificationBox from "./components/NotificationBox.jsx";
-import TestApiPage from "./pages/TestApiPage.jsx";
 import CharactersPage from "./pages/CharactersPage.jsx";
 import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
 import TransitionVideo from "./pages/TransitionVideo.jsx";
@@ -21,8 +21,14 @@ import LocationCharactersPage from "./pages/LocationCharactersPage.jsx";
 import CharacterEditPage from "./pages/CharacterEditPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import CreateCampaignPage from "./pages/CreateCampaignPage.jsx";
+import CampaignPage from "./pages/CampaignPage.jsx";
+import CampaignWallPage from "./pages/CampaignWallPage.jsx";
+import CampaignCharactersPage from "./pages/CampaignCharactersPage.jsx";
+import CampaignMapPage from "./pages/CampaignMapPage.jsx";
 
 function App() {
+  const [trashOpen, setTrashOpen] = useState(false);
+
   return (
     <div className="app">
       <Header />
@@ -37,7 +43,6 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/test-api" element={<TestApiPage />} />
         <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
@@ -45,7 +50,18 @@ function App() {
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/locations/:locationId/characters" element={<LocationCharactersPage />} />
         <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
+
         <Route path="/campaigns/create" element={<CreateCampaignPage />} />
+
+        <Route
+          path="/campaigns/:id"
+          element={<CampaignPage onOpenTrash={() => setTrashOpen(true)} />}
+        >
+          <Route index element={<Navigate to="wall" replace />} />
+          <Route path="wall" element={<CampaignWallPage />} />
+          <Route path="characters" element={<CampaignCharactersPage />} />
+          <Route path="map" element={<CampaignMapPage />} />
+        </Route>
       </Routes>
 
       <TrashPanel />

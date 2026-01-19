@@ -1,23 +1,29 @@
 // src/components/TrashPanel.jsx
-import { useContext, useEffect, useState, useCallback } from "react";
+import { useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { API_URL } from "../config";
 import "../CSS/TrashPanel.css";
 
-function TrashPanel() {
+function TrashPanel({ open, setOpen }) {
   const { token, user } = useContext(AuthContext);
 
-  // ✅ visible uniquement ADMIN ou MJ
-  const isAdminOrMj =
-    Array.isArray(user?.roles) &&
-    (user.roles.includes("ROLE_ADMIN") || user.roles.includes("ROLE_MJ"));
+  const hasGlobalRights = useMemo(() => {
+    const roles = Array.isArray(user?.roles) ? user.roles : [];
+    return roles.includes("ROLE_ADMIN") || roles.includes("ROLE_MJ");
+  }, [user]);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const hasCampaignRights = useMemo(() => {
+    return localStorage.getItem("activeCampaignRole") === "MJ";
+  }, []);
+
+  const canSeeTrash = token && (hasGlobalRights || hasCampaignRights);
+
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = typeof open === "boolean" ? open : internalOpen;
+  const setIsOpen = typeof setOpen === "function" ? setOpen : setInternalOpen;
+
   const [loading, setLoading] = useState(false);
-  const [trash, setTrash] = useState({
-    characters: [],
-    locations: [],
-  });
+  const [trash, setTrash] = useState({ characters: [], locations: [] });
   const [error, setError] = useState(null);
 
   const fetchTrash = useCallback(async () => {
@@ -34,9 +40,7 @@ function TrashPanel() {
         },
       });
 
-      if (!res.ok) {
-        throw new Error("Erreur lors du chargement de la corbeille");
-      }
+      if (!res.ok) throw new Error("Erreur lors du chargement de la corbeille");
 
       const data = await res.json();
       setTrash({
@@ -54,17 +58,13 @@ function TrashPanel() {
     if (isOpen) fetchTrash();
   }, [isOpen, fetchTrash]);
 
-  // ✅ si pas connecté OU pas ADMIN/MJ -> rien
-  if (!token || !isAdminOrMj) return null;
+  if (!canSeeTrash) return null;
 
   const totalCount = trash.characters.length + trash.locations.length;
 
   return (
     <div className="trash-footer-container">
-      <button
-        className="trash-footer-toggle"
-        onClick={() => setIsOpen((p) => !p)}
-      >
+      <button className="trash-footer-toggle" onClick={() => setIsOpen((p) => !p)}>
         Corbeille
         <span className="trash-footer-count">{totalCount}</span>
       </button>
@@ -76,31 +76,22 @@ function TrashPanel() {
 
           {!loading && !error && (
             <div className="trash-footer-content">
-              {/* Persos */}
               <div className="trash-footer-section">
                 <h4>Persos</h4>
-                {trash.characters.length === 0 && (
-                  <p className="trash-empty">Aucun.</p>
-                )}
+                {trash.characters.length === 0 && <p className="trash-empty">Aucun.</p>}
                 {trash.characters.map((c) => (
                   <div key={`character-${c.id}`} className="trash-footer-item">
-                    <span className="trash-footer-label">
-                      {c.nickname || "(sans pseudo)"}
-                    </span>
+                    <span className="trash-footer-label">{c.nickname || "(sans pseudo)"}</span>
                     <div className="trash-footer-actions">
                       <button
                         className="trash-btn trash-btn-restore"
-                        onClick={() =>
-                          handleRestore("character", c.id, token, fetchTrash, setError)
-                        }
+                        onClick={() => handleRestore("character", c.id, token, fetchTrash, setError)}
                       >
                         Remettre
                       </button>
                       <button
                         className="trash-btn trash-btn-delete"
-                        onClick={() =>
-                          handleForceDelete("character", c.id, token, fetchTrash, setError)
-                        }
+                        onClick={() => handleForceDelete("character", c.id, token, fetchTrash, setError)}
                       >
                         Supprimer
                       </button>
@@ -109,29 +100,22 @@ function TrashPanel() {
                 ))}
               </div>
 
-              {/* Lieux */}
               <div className="trash-footer-section">
                 <h4>Lieux</h4>
-                {trash.locations.length === 0 && (
-                  <p className="trash-empty">Aucun.</p>
-                )}
+                {trash.locations.length === 0 && <p className="trash-empty">Aucun.</p>}
                 {trash.locations.map((l) => (
                   <div key={`location-${l.id}`} className="trash-footer-item">
                     <span className="trash-footer-label">{l.name}</span>
                     <div className="trash-footer-actions">
                       <button
                         className="trash-btn trash-btn-restore"
-                        onClick={() =>
-                          handleRestore("location", l.id, token, fetchTrash, setError)
-                        }
+                        onClick={() => handleRestore("location", l.id, token, fetchTrash, setError)}
                       >
                         Remettre
                       </button>
                       <button
                         className="trash-btn trash-btn-delete"
-                        onClick={() =>
-                          handleForceDelete("location", l.id, token, fetchTrash, setError)
-                        }
+                        onClick={() => handleForceDelete("location", l.id, token, fetchTrash, setError)}
                       >
                         Supprimer
                       </button>
@@ -152,10 +136,7 @@ async function handleRestore(type, id, token, fetchTrash, setError) {
     setError(null);
     const res = await fetch(`${API_URL}/trash/restore/${type}/${id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error("Impossible de restaurer cet élément");
     await fetchTrash();
@@ -171,10 +152,7 @@ async function handleForceDelete(type, id, token, fetchTrash, setError) {
     setError(null);
     const res = await fetch(`${API_URL}/trash/force/${type}/${id}`, {
       method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error("Impossible de supprimer définitivement cet élément");
     await fetchTrash();

@@ -28,14 +28,6 @@ function Header() {
             <Link to="/dashboard" className="nav-link">
               Mes JDR
             </Link>
-
-            <Link to="/characters" className="nav-link">
-              Personnages
-            </Link>
-
-            <Link to="/map" className="nav-link">
-              Carte
-            </Link>
           </>
         )}
 

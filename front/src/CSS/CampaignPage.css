@@ -1,0 +1,94 @@
+/* CampaignPage.css */
+
+.campaign-page {
+  padding: 2rem 3rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header campagne */
+.campaign-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+.campaign-title {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.campaign-subtitle {
+  font-size: 0.95rem;
+  color: #666;
+}
+
+/* Onglets */
+.campaign-tabs {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.campaign-tab {
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px 10px 0 0;
+  background: #f6f6f6;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.campaign-tab:hover {
+  background: #ececec;
+}
+
+.campaign-tab.active {
+  background: #ffffff;
+  color: #000;
+  border: 1px solid #e5e5e5;
+  border-bottom: 1px solid #ffffff;
+}
+
+/* Contenu */
+.campaign-content {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  min-height: 300px;
+}
+
+/* Mur (placeholder pour plus tard) */
+.campaign-wall-placeholder {
+  text-align: center;
+  color: #777;
+  font-size: 1rem;
+}
+
+.campaign-wall-placeholder strong {
+  display: block;
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .campaign-page {
+    padding: 1.5rem 1.2rem;
+  }
+
+  .campaign-tabs {
+    overflow-x: auto;
+  }
+
+  .campaign-tab {
+    white-space: nowrap;
+  }
+}
