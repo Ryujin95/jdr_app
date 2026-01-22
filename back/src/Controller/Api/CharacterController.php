@@ -57,26 +57,28 @@ class CharacterController extends AbstractController
         }
     }
 
-    #[Route('/characters/{id}', name: 'api_characters_update', methods: ['POST', 'PUT', 'PATCH'])]
-    public function update(int $id, Request $request): JsonResponse
-    {
-        $character = $this->characterRepository->find($id);
-        if (!$character) {
-            return new JsonResponse(['message' => 'Character not found'], 404);
-        }
-
-        try {
-            $character = $this->characterService->updateFromRequest($character, $request);
-
-            $data = $this->characterService->getCharacterDetailForCurrentUser($character);
-
-            return new JsonResponse($data, 200);
-        } catch (\InvalidArgumentException $e) {
-            return new JsonResponse(['message' => $e->getMessage()], 400);
-        } catch (\Throwable $e) {
-            return new JsonResponse(['message' => 'Server error'], 500);
-        }
+   #[Route('/characters/{id}', name: 'api_characters_update', methods: ['POST', 'PUT', 'PATCH'])]
+public function update(int $id, Request $request): JsonResponse
+{
+    $character = $this->characterRepository->find($id);
+    if (!$character) {
+        return new JsonResponse(['message' => 'Character not found'], 404);
     }
+
+    try {
+        $character = $this->characterService->updateFromRequest($character, $request);
+        $data = $this->characterService->getCharacterDetailForCurrentUser($character);
+        return new JsonResponse($data, 200);
+    } catch (\InvalidArgumentException $e) {
+        return new JsonResponse(['message' => $e->getMessage()], 400);
+    } catch (\Throwable $e) {
+        // DEBUG TEMPORAIRE
+        return new JsonResponse([
+            'message' => $e->getMessage(),
+            'type' => get_class($e),
+        ], 500);
+    }
+}
 
     #[Route('/locations/{locationId}/characters', name: 'api_characters_by_location', methods: ['GET'])]
     public function charactersByLocation(int $locationId): JsonResponse

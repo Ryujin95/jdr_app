@@ -3,6 +3,7 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\User; // ✅ AJOUT
 use App\Service\CampaignService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,6 +42,8 @@ class CampaignController extends AbstractController
             'title' => $campaign->getTitle(),
             'theme' => $campaign->getTheme(),
             'joinCode' => method_exists($campaign, 'getJoinCode') ? $campaign->getJoinCode() : null,
+            'role' => 'MJ', // ✅ AJOUT (créateur = MJ)
+            'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM), // ✅ AJOUT (cohérence)
         ], 201);
     }
 
@@ -61,6 +64,8 @@ class CampaignController extends AbstractController
                 'title' => $campaign->getTitle(),
                 'theme' => $campaign->getTheme(),
                 'joinCode' => method_exists($campaign, 'getJoinCode') ? $campaign->getJoinCode() : null,
+                'role' => 'Player', // ✅ AJOUT (join = Player)
+                'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM), // ✅ AJOUT
             ], 200);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
@@ -69,27 +74,26 @@ class CampaignController extends AbstractController
         }
     }
 
-        #[Route('/api/campaigns/{id}', name: 'api_campaign_show', methods: ['GET'])]
-    public function show(int $id): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+   // back/src/Controller/Api/CampaignController.php
 
-        try {
-            $campaign = $this->campaignService->getForUser($user, $id);
-
-            return $this->json([
-                'id' => $campaign->getId(),
-                'title' => $campaign->getTitle(),
-                'theme' => $campaign->getTheme(),
-                'joinCode' => method_exists($campaign, 'getJoinCode') ? $campaign->getJoinCode() : null,
-                'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM),
-            ], 200);
-        } catch (\RuntimeException $e) {
-            return $this->json(['message' => $e->getMessage()], 404);
-        } catch (\InvalidArgumentException $e) {
-            return $this->json(['message' => $e->getMessage()], 403);
-        }
+#[Route('/api/campaigns/{id}', name: 'api_campaign_show', methods: ['GET'])]
+public function show(int $id): JsonResponse
+{
+    $user = $this->getUser();
+    if (!$user) {
+        return $this->json(['message' => 'Unauthorized'], 401);
     }
+
+    try {
+        // ✅ MODIF: renvoie aussi "role" (MJ/Player) pour éviter le décalage côté front
+        $data = $this->campaignService->getForUserData($user, $id);
+
+        return $this->json($data, 200);
+    } catch (\RuntimeException $e) {
+        return $this->json(['message' => $e->getMessage()], 404);
+    } catch (\InvalidArgumentException $e) {
+        return $this->json(['message' => $e->getMessage()], 403);
+    }
+}
 
 }

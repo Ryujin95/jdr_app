@@ -29,8 +29,8 @@ class CharacterService
         private CharacterAttributesRepository $attributesRepository,
         private CharacterSkillValueRepository $skillValueRepository,
         private CharacterKnowledgeRepository $knowledgeRepository,
-        private CharacterRelationshipRepository $relationshipRepository, // ✅ AJOUT
-        private string $projectDir, // injecte %kernel.project_dir%
+        private CharacterRelationshipRepository $relationshipRepository,
+        private string $projectDir,
     ) {}
 
     public function getCharacterCardsForCurrentUser(?int $locationId = null): array
@@ -45,10 +45,8 @@ class CharacterService
             ? $this->characterRepository->findByLocationIdActive($locationId)
             : $this->characterRepository->findAllActive();
 
-        // ✅ perso joueur du user connecté (1 seul)
         $myCharacter = $this->characterRepository->findActivePlayerCharacterByOwner($user);
 
-        // ✅ AJOUT: récupérer toutes les relations en une seule requête (évite N+1)
         $affinityMap = [];
         if ($myCharacter) {
             $toIds = [];
@@ -62,7 +60,6 @@ class CharacterService
 
         $cards = [];
         foreach ($characters as $character) {
-            // ✅ owner uniquement pour perso joueur
             $ownerPayload = null;
             if (
                 $character->isPlayer()
@@ -77,7 +74,6 @@ class CharacterService
                 ];
             }
 
-            // ✅ MODIF NECESSAIRE: plus de findOneByFromTo() dans la boucle
             $affinityScore = null;
             $relationshipStars = null;
 
@@ -98,11 +94,7 @@ class CharacterService
                 'isPlayer'  => $character->isPlayer(),
                 'clan'      => $character->getClan(),
                 'owner'     => $ownerPayload,
-
-                // champ que tu avais déjà
                 'affinityScore' => $affinityScore,
-
-                // ✅ AJOUT: champ direct pour afficher les étoiles (0..5)
                 'relationshipStars' => $relationshipStars,
             ];
         }
@@ -110,11 +102,9 @@ class CharacterService
         return $cards;
     }
 
-    // ✅ AJOUT: conversion score -> étoiles (0..5)
     private function scoreToStars(int $score): int
     {
         $score = max(0, min(100, $score));
-
         if ($score === 0) return 0;
         if ($score <= 20) return 1;
         if ($score <= 40) return 2;
@@ -131,10 +121,6 @@ class CharacterService
             throw new AccessDeniedException('Authentication required');
         }
 
-        $isAdminOrMj =
-            $this->security->isGranted('ROLE_ADMIN')
-            || $this->security->isGranted('ROLE_MJ');
-
         $data = [
             'id'        => $character->getId(),
             'nickname'  => $character->getNickname(),
@@ -147,9 +133,13 @@ class CharacterService
                 : null,
             'isPlayer'  => $character->isPlayer(),
             'clan'      => $character->getClan(),
+
+            // ✅ sans MJ: on renvoie toujours ces champs (si connecté)
+            'biography'  => $character->getBiography(),
+            'strengths'  => $character->getStrengths(),
+            'weaknesses' => $character->getWeaknesses(),
         ];
 
-        // ✅ owner uniquement pour personnage joueur
         if (
             $character->isPlayer()
             && method_exists($character, 'getOwner')
@@ -163,26 +153,6 @@ class CharacterService
             ];
         } else {
             $data['owner'] = null;
-        }
-
-        if ($isAdminOrMj) {
-            $data['biography']  = $character->getBiography();
-            $data['strengths']  = $character->getStrengths();
-            $data['weaknesses'] = $character->getWeaknesses();
-        } else {
-            $knowledgeList = $this->knowledgeRepository->findBy([
-                'viewer' => $user,
-                'target' => $character,
-            ]);
-
-            $allowed = [];
-            foreach ($knowledgeList as $k) {
-                $allowed[$k->getField()] = true;
-            }
-
-            if (isset($allowed['biography']))  $data['biography']  = $character->getBiography();
-            if (isset($allowed['strengths']))  $data['strengths']  = $character->getStrengths();
-            if (isset($allowed['weaknesses'])) $data['weaknesses'] = $character->getWeaknesses();
         }
 
         $attributes = $this->attributesRepository->findOneBy(['character' => $character]);
@@ -223,7 +193,6 @@ class CharacterService
     public function createFromRequest(Request $request): Character
     {
         $character = new Character();
-
         $this->applyRequestToCharacter($request, $character, true);
 
         $this->em->persist($character);
@@ -235,7 +204,6 @@ class CharacterService
     public function updateFromRequest(Character $character, Request $request): Character
     {
         $this->applyRequestToCharacter($request, $character, false);
-
         $this->em->flush();
 
         return $character;
@@ -243,13 +211,15 @@ class CharacterService
 
     public function assignOwner(Character $character, ?int $userId): array
     {
-        $isAdminOrMj = $this->security->isGranted('ROLE_ADMIN') || $this->security->isGranted('ROLE_MJ');
-        if (!$isAdminOrMj) {
-            throw new AccessDeniedException('Admin/MJ only');
+        // ✅ sans MJ: on garde au minimum ROLE_ADMIN pour éviter n'importe qui
+        if (!$this->security->isGranted('ROLE_ADMIN')) {
+            throw new AccessDeniedException('Admin only');
         }
 
         if ($userId === null) {
-            $character->setOwner(null);
+            if (method_exists($character, 'setOwner')) {
+                $character->setOwner(null);
+            }
             $this->em->flush();
 
             return [
@@ -264,7 +234,9 @@ class CharacterService
             throw new \InvalidArgumentException('Utilisateur introuvable');
         }
 
-        $character->setOwner($user);
+        if (method_exists($character, 'setOwner')) {
+            $character->setOwner($user);
+        }
         $this->em->flush();
 
         return [
@@ -275,6 +247,20 @@ class CharacterService
                 'email' => method_exists($user, 'getEmail') ? $user->getEmail() : null,
             ],
         ];
+    }
+
+    private function setterAllowsNull(object $obj, string $method): bool
+    {
+        if (!method_exists($obj, $method)) return false;
+
+        try {
+            $rm = new \ReflectionMethod($obj, $method);
+            $params = $rm->getParameters();
+            if (count($params) < 1) return false;
+            return $params[0]->allowsNull();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function applyRequestToCharacter(Request $request, Character $character, bool $isCreate): void
@@ -320,7 +306,17 @@ class CharacterService
         $clan = $request->request->get('clan', null);
         if ($clan !== null) {
             $clan = trim((string) $clan);
-            $character->setClan($clan === '' ? null : $clan);
+
+            // ✅ évite TypeError si setClan n'accepte pas null
+            if ($clan === '') {
+                if ($this->setterAllowsNull($character, 'setClan')) {
+                    $character->setClan(null);
+                } else {
+                    $character->setClan('');
+                }
+            } else {
+                $character->setClan($clan);
+            }
         }
 
         $isPlayerRaw = $request->request->get('isPlayer', null);
@@ -332,7 +328,10 @@ class CharacterService
         $locationIdRaw = $request->request->get('locationId', null);
         if (method_exists($character, 'setLocation')) {
             if ($locationIdRaw === null || $locationIdRaw === '') {
-                $character->setLocation(null);
+                // ✅ évite TypeError si setLocation n'accepte pas null
+                if ($this->setterAllowsNull($character, 'setLocation')) {
+                    $character->setLocation(null);
+                }
             } elseif (is_numeric($locationIdRaw)) {
                 /** @var Location|null $loc */
                 $loc = $this->locationRepository->find((int) $locationIdRaw);
@@ -342,81 +341,93 @@ class CharacterService
             }
         }
 
-        $avatarFile = $request->files->get('avatar');
-        if ($avatarFile) {
-            $ext = strtolower($avatarFile->guessExtension() ?: '');
-            $allowed = ['jpg', 'jpeg', 'png', 'webp'];
-            if (!in_array($ext, $allowed, true)) {
-                throw new \InvalidArgumentException('Format image non autorisé (jpg, jpeg, png, webp).');
-            }
+    $avatarFile = $request->files->get('avatar');
+if ($avatarFile) {
+    $clientExt = strtolower((string) $avatarFile->getClientOriginalExtension());
 
-            $originalBase = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
-            $safeBase = (string) $this->slugger->slug($originalBase)->lower();
+    $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+    if (!in_array($clientExt, $allowedExt, true)) {
+        throw new \InvalidArgumentException('Format image non autorisé (jpg, jpeg, png, webp).');
+    }
 
-            $targetDir = rtrim($this->projectDir, '/') . '/public/image';
-            if (!is_dir($targetDir)) {
-                if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-                    throw new \RuntimeException('Impossible de créer le dossier public/image');
-                }
-            }
+    $ext = $clientExt === 'jpeg' ? 'jpg' : $clientExt;
 
-            $filename = $safeBase . '.' . $ext;
-            $i = 2;
-            while (file_exists($targetDir . '/' . $filename)) {
-                $filename = $safeBase . '-' . $i . '.' . $ext;
-                $i++;
-            }
+    $originalBase = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
+    $safeBase = (string) $this->slugger->slug($originalBase)->lower();
 
-            try {
-                $avatarFile->move($targetDir, $filename);
-            } catch (\Symfony\Component\HttpFoundation\File\Exception\FileException $e) {
-                throw new \RuntimeException('Erreur upload avatar');
-            }
-
-            $character->setAvatarUrl('/image/' . $filename);
+    $targetDir = rtrim($this->projectDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'image';
+    if (!is_dir($targetDir)) {
+        if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            throw new \RuntimeException('Impossible de créer le dossier public/image');
         }
+    }
 
-        $videoFile = $request->files->get('transitionVideo');
-        if ($videoFile) {
-            $ext = strtolower($videoFile->guessExtension() ?: '');
-            $allowed = ['mp4', 'webm'];
+    $filename = $safeBase . '.' . $ext;
+    $i = 2;
+    while (file_exists($targetDir . DIRECTORY_SEPARATOR . $filename)) {
+        $filename = $safeBase . '-' . $i . '.' . $ext;
+        $i++;
+    }
 
-            if (!in_array($ext, $allowed, true)) {
-                throw new \InvalidArgumentException('Format vidéo non autorisé (mp4, webm).');
-            }
+    try {
+        $avatarFile->move($targetDir, $filename);
+    } catch (\Throwable $e) {
+        throw new \RuntimeException('Erreur upload avatar: ' . $e->getMessage());
+    }
 
-            $maxBytes = 25 * 1024 * 1024;
-            $size = $videoFile->getSize();
-            if ($size !== null && $size > $maxBytes) {
-                throw new \InvalidArgumentException('Vidéo trop lourde (max 25 Mo).');
-            }
+    $character->setAvatarUrl('/image/' . $filename);
+}
 
-            $originalBase = pathinfo($videoFile->getClientOriginalName(), PATHINFO_FILENAME);
-            $safeBase = (string) $this->slugger->slug($originalBase)->lower();
 
-            $targetDir = rtrim($this->projectDir, '/') . '/public/video';
-            if (!is_dir($targetDir)) {
-                if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-                    throw new \RuntimeException('Impossible de créer le dossier public/video');
-                }
-            }
+$videoFile = $request->files->get('transitionVideo');
+if ($videoFile) {
+    $mime = $videoFile->getMimeType() ?: '';
+    $clientExt = strtolower((string) $videoFile->getClientOriginalExtension());
+    $guessedExt = strtolower((string) ($videoFile->guessExtension() ?: ''));
 
-            $filename = $safeBase . '.' . $ext;
-            $i = 2;
-            while (file_exists($targetDir . '/' . $filename)) {
-                $filename = $safeBase . '-' . $i . '.' . $ext;
-                $i++;
-            }
+    $ext = $guessedExt !== '' ? $guessedExt : $clientExt;
 
-            try {
-                $videoFile->move($targetDir, $filename);
-            } catch (\Symfony\Component\HttpFoundation\File\Exception\FileException $e) {
-                throw new \RuntimeException('Erreur upload vidéo');
-            }
+    $allowedMime = ['video/mp4', 'video/webm', 'application/octet-stream'];
+    $allowedExt  = ['mp4', 'webm'];
 
-            if (method_exists($character, 'setTransitionVideoUrl')) {
-                $character->setTransitionVideoUrl('/video/' . $filename);
-            }
+    if (!in_array($mime, $allowedMime, true) && !in_array($ext, $allowedExt, true)) {
+        throw new \InvalidArgumentException('Format vidéo non autorisé (mp4, webm).');
+    }
+
+    if ($ext === '') $ext = 'mp4';
+
+    $maxBytes = 25 * 1024 * 1024;
+    $size = $videoFile->getSize();
+    if ($size !== null && $size > $maxBytes) {
+        throw new \InvalidArgumentException('Vidéo trop lourde (max 25 Mo).');
+    }
+
+    $originalBase = pathinfo($videoFile->getClientOriginalName(), PATHINFO_FILENAME);
+    $safeBase = (string) $this->slugger->slug($originalBase)->lower();
+
+    $targetDir = rtrim($this->projectDir, '/') . '/public/video';
+    if (!is_dir($targetDir)) {
+        if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            throw new \RuntimeException('Impossible de créer le dossier public/video');
         }
+    }
+
+    $filename = $safeBase . '.' . $ext;
+    $i = 2;
+    while (file_exists($targetDir . '/' . $filename)) {
+        $filename = $safeBase . '-' . $i . '.' . $ext;
+        $i++;
+    }
+
+    try {
+        $videoFile->move($targetDir, $filename);
+    } catch (\Symfony\Component\HttpFoundation\File\Exception\FileException) {
+        throw new \RuntimeException('Erreur upload vidéo');
+    }
+
+    if (method_exists($character, 'setTransitionVideoUrl')) {
+        $character->setTransitionVideoUrl('/video/' . $filename);
+    }
+}
     }
 }

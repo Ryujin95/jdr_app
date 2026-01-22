@@ -30,7 +30,10 @@ class CampaignService
                 'updatedAt' => $r['updatedAt'] instanceof \DateTimeInterface
                     ? $r['updatedAt']->format(\DateTimeInterface::ATOM)
                     : null,
-                'joinCode' => $r['joinCode'] ?? null,
+
+                // ✅ MODIF: joinCode ne peut exister ici QUE si le repository le SELECT.
+                // Si ton repository n’a pas joinCode, laisse null (ou corrige le repo).
+                'joinCode' => array_key_exists('joinCode', $r) ? $r['joinCode'] : null,
             ];
         }, $rows);
     }
@@ -41,14 +44,14 @@ class CampaignService
         $campaign->setTitle($title);
         $campaign->setTheme($theme);
 
-        // Génère automatiquement un code unique (ex: 75J867)
-        if (method_exists($campaign, 'setJoinCode')) {
-            $campaign->setJoinCode($this->generateUniqueJoinCode(6));
-        }
+        // ✅ MODIF: ton entité Campaign a bien getJoinCode/setJoinCode, donc pas besoin de method_exists.
+        $campaign->setJoinCode($this->generateUniqueJoinCode(6));
 
         $member = new CampaignMember();
         $member->setUser($creator);
-        $member->setRole(CampaignMember::ROLE_MJ);
+
+        // ✅ MODIF: ton CampaignMember stocke 'MJ' / 'Player' (string). Pas de constantes dans ton fichier.
+        $member->setRole('MJ');
 
         $campaign->addMember($member);
 
@@ -71,7 +74,6 @@ class CampaignService
             throw new \RuntimeException('Campagne introuvable.');
         }
 
-        // Déjà membre ? on renvoie la campagne sans re-créer
         foreach ($campaign->getMembers() as $m) {
             if ($m->getUser() && $m->getUser()->getId() === $user->getId()) {
                 return $campaign;
@@ -80,7 +82,9 @@ class CampaignService
 
         $member = new CampaignMember();
         $member->setUser($user);
-        $member->setRole(CampaignMember::ROLE_PLAYER);
+
+        // ✅ MODIF: pareil, role en string
+        $member->setRole('Player');
 
         $campaign->addMember($member);
 
@@ -92,7 +96,7 @@ class CampaignService
 
     private function generateUniqueJoinCode(int $length = 6): string
     {
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // évite 0/O/I/1
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $maxTries = 50;
 
         for ($try = 0; $try < $maxTries; $try++) {
@@ -108,7 +112,7 @@ class CampaignService
         throw new \RuntimeException('Impossible de générer un code unique.');
     }
 
-        public function getForUser(User $user, int $campaignId): Campaign
+    public function getForUser(User $user, int $campaignId): Campaign
     {
         $campaign = $this->campaignRepo->find($campaignId);
         if (!$campaign) {
@@ -129,5 +133,34 @@ class CampaignService
 
         return $campaign;
     }
+
+    // ✅ MODIF (optionnel mais très utile): si tu veux faire "tout en un coup" côté front,
+    // tu peux appeler CE service pour renvoyer joinCode + role en même temps,
+    // sans faire 2 fetch et sans fusion côté React.
+    /** @return array<string, mixed> */
+    // back/src/Service/CampaignService.php
+
+public function getForUserData(User $user, int $campaignId): array
+{
+    // ✅ MODIF: on récupère campagne + role en 1 requête (pas besoin de faire /campaigns puis /campaigns/{id})
+    $row = $this->campaignRepo->findOneForUser($user, $campaignId);
+
+    if (!$row) {
+        // soit campagne inexistante, soit pas membre
+        // on peut distinguer, mais là on fait simple
+        throw new \InvalidArgumentException('Forbidden');
+    }
+
+    return [
+        'id' => (int) $row['id'],
+        'title' => (string) $row['title'],
+        'theme' => $row['theme'] !== null ? (string) $row['theme'] : null,
+        'joinCode' => $row['joinCode'] !== null ? (string) $row['joinCode'] : null,
+        'updatedAt' => $row['updatedAt'] instanceof \DateTimeInterface
+            ? $row['updatedAt']->format(\DateTimeInterface::ATOM)
+            : null,
+        'role' => (string) $row['role'], // ✅ clé: MJ / Player
+    ];
+}
 
 }

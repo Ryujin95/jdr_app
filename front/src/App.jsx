@@ -14,9 +14,7 @@ import NotificationBox from "./components/NotificationBox.jsx";
 import CharactersPage from "./pages/CharactersPage.jsx";
 import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
 import TransitionVideo from "./pages/TransitionVideo.jsx";
-import MapPage from "./pages/MapPage.jsx";
 import TrashPanel from "./components/TrashPanel.jsx";
-import EditorPage from "./pages/EditorPage.jsx";
 import LocationCharactersPage from "./pages/LocationCharactersPage.jsx";
 import CharacterEditPage from "./pages/CharacterEditPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -25,6 +23,7 @@ import CampaignPage from "./pages/CampaignPage.jsx";
 import CampaignWallPage from "./pages/CampaignWallPage.jsx";
 import CampaignCharactersPage from "./pages/CampaignCharactersPage.jsx";
 import CampaignMapPage from "./pages/CampaignMapPage.jsx";
+import CampaignEditorPage from "./pages/CampaignEditorPage.jsx";
 
 function App() {
   const [trashOpen, setTrashOpen] = useState(false);
@@ -46,8 +45,6 @@ function App() {
         <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/editor" element={<EditorPage />} />
         <Route path="/locations/:locationId/characters" element={<LocationCharactersPage />} />
         <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
 
@@ -61,6 +58,7 @@ function App() {
           <Route path="wall" element={<CampaignWallPage />} />
           <Route path="characters" element={<CampaignCharactersPage />} />
           <Route path="map" element={<CampaignMapPage />} />
+          <Route path="editor" element={<CampaignEditorPage />} />
         </Route>
       </Routes>
 

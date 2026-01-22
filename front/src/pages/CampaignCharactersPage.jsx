@@ -1,9 +1,9 @@
 // src/pages/CampaignCharactersPage.jsx
 import { useEffect, useState, useContext, useMemo, useCallback, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
-import { useOutletContext } from "react-router-dom";
+import "../CSS/CampaignPage.css"; // ✅ AJOUT: demandé (même si c'est pas le CSS principal de cette page)
 import "../CSS/Characters.css";
 
 function CampaignCharactersPage() {
@@ -11,11 +11,19 @@ function CampaignCharactersPage() {
   const navigate = useNavigate();
   const { id: campaignIdParam } = useParams();
 
-  const campaignId = Number(campaignIdParam);
+  // ✅ on prend campaignId depuis Outlet en priorité (source de vérité), sinon fallback sur l'URL
+  const outlet = useOutletContext() || {};
+  const campaignIdFromOutlet = outlet.campaignId ? Number(outlet.campaignId) : null;
+  const campaignId = Number.isFinite(campaignIdFromOutlet)
+    ? campaignIdFromOutlet
+    : Number(campaignIdParam);
 
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+  // ✅ on sépare l’erreur de chargement des persos (bloquante) et les erreurs d’actions (non bloquantes)
+  const [loadError, setLoadError] = useState(null);
+  const [uiError, setUiError] = useState(null);
 
   const [openPanelId, setOpenPanelId] = useState(null);
   const [knownMap, setKnownMap] = useState({});
@@ -29,21 +37,19 @@ function CampaignCharactersPage() {
   const [hoverStarsKey, setHoverStarsKey] = useState(null);
   const [hoverStarsValue, setHoverStarsValue] = useState(0);
 
-  const { isMjInThisCampaign } = useOutletContext();
-const isAdminOrMj = !!isMjInThisCampaign;
+  const isOwnerInThisCampaign = !!outlet.isMjInThisCampaign;
+  const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ROLE_ADMIN");
+  const isAdminOrOwner = isAdmin || isOwnerInThisCampaign;
 
   const BACK_BASE_URL = API_URL.replace(/\/api\/?$/, "");
 
   const resolveAvatarUrl = (avatarUrl) => {
     if (!avatarUrl) return null;
-
     const url = String(avatarUrl).trim();
-
     if (/^https?:\/\//i.test(url)) return url;
     if (url.startsWith("/")) return `${BACK_BASE_URL}${url}`;
     if (url.startsWith("image/")) return `${BACK_BASE_URL}/${url}`;
     if (url.startsWith("uploads/")) return `${BACK_BASE_URL}/${url}`;
-
     return `${BACK_BASE_URL}/image/${url}`;
   };
 
@@ -64,11 +70,9 @@ const isAdminOrMj = !!isMjInThisCampaign;
 
   const renderStarsReadOnly = (value) => {
     if (value === null || value === undefined) return null;
-
     const v = Math.max(0, Math.min(5, Number(value) || 0));
     const full = "★".repeat(v);
     const empty = "☆".repeat(5 - v);
-
     return (
       <div className="relationship-stars readonly" aria-label={`${v} sur 5`}>
         {full}
@@ -126,14 +130,18 @@ const isAdminOrMj = !!isMjInThisCampaign;
   const fetchCharacters = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
+      setLoadError(null);
+      setUiError(null);
 
-      if (!campaignId) {
-        throw new Error("Campagne invalide.");
-      }
+      if (!campaignId) throw new Error("Campagne invalide.");
+
+      // ✅ MODIF: AbortController pour éviter setState si l’utilisateur change d’onglet vite
+      const controller = new AbortController();
+      const { signal } = controller;
 
       const res = await fetch(`${API_URL}/characters${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal,
       });
 
       if (!res.ok) {
@@ -141,21 +149,39 @@ const isAdminOrMj = !!isMjInThisCampaign;
         throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => []);
       setCharacters(Array.isArray(data) ? data : []);
+
+      return () => controller.abort();
     } catch (e) {
-      setError(e.message || "Erreur de chargement.");
+      if (e?.name === "AbortError") return;
+      setLoadError(e.message || "Erreur de chargement.");
     } finally {
       setLoading(false);
     }
   }, [token, qs, campaignId]);
 
   useEffect(() => {
-    if (token) fetchCharacters();
-  }, [token, fetchCharacters]);
+    if (token && campaignId) {
+      const cleanupPromise = fetchCharacters();
+      return () => {
+        if (typeof cleanupPromise === "function") cleanupPromise();
+      };
+    }
+  }, [token, campaignId, fetchCharacters]);
+
+  const assertCanUseMjEndpoints = useCallback(() => {
+    if (!isAdminOrOwner) {
+      const err = new Error("Accès refusé: campaign owner only");
+      err.status = 403;
+      throw err;
+    }
+  }, [isAdminOrOwner]);
 
   const fetchKnownFor = useCallback(
     async (fromId) => {
+      assertCanUseMjEndpoints();
+
       const res = await fetch(`${API_URL}/mj/characters/${fromId}/known${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -165,14 +191,16 @@ const isAdminOrMj = !!isMjInThisCampaign;
         throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => []);
       return Array.isArray(data) ? data : [];
     },
-    [token, qs]
+    [token, qs, assertCanUseMjEndpoints]
   );
 
   const fetchCandidatesFor = useCallback(
     async (fromId) => {
+      assertCanUseMjEndpoints();
+
       const res = await fetch(`${API_URL}/mj/characters/${fromId}/candidates${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -182,14 +210,16 @@ const isAdminOrMj = !!isMjInThisCampaign;
         throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
-      const data = await res.json();
+      const data = await res.json().catch(() => []);
       return Array.isArray(data) ? data : [];
     },
-    [token, qs]
+    [token, qs, assertCanUseMjEndpoints]
   );
 
   const addKnownCharacter = useCallback(
     async (fromId, toId, type) => {
+      assertCanUseMjEndpoints();
+
       const res = await fetch(`${API_URL}/mj/characters/${fromId}/known${qs}`, {
         method: "POST",
         headers: {
@@ -206,11 +236,16 @@ const isAdminOrMj = !!isMjInThisCampaign;
 
       await res.json().catch(() => null);
     },
-    [token, qs]
+    [token, qs, assertCanUseMjEndpoints]
   );
 
   const removeKnownCharacter = useCallback(
     async (fromId, toId) => {
+      assertCanUseMjEndpoints();
+
+      // ✅ MODIF IMPORTANT: ta route console = /api/mj/characters/{fromId}/known/{toId}
+      // Là tu avais /known/${toId} mais dans certains essais tu avais aussi une variante.
+      // Je force le format EXACT de ton debug:router.
       const res = await fetch(`${API_URL}/mj/characters/${fromId}/known/${toId}${qs}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -223,11 +258,13 @@ const isAdminOrMj = !!isMjInThisCampaign;
 
       await res.json().catch(() => null);
     },
-    [token, qs]
+    [token, qs, assertCanUseMjEndpoints]
   );
 
   const updateRelationshipStars = useCallback(
     async (fromId, toId, stars) => {
+      assertCanUseMjEndpoints();
+
       setKnownMap((prev) => {
         const current = Array.isArray(prev[fromId]) ? prev[fromId] : [];
         return {
@@ -239,8 +276,6 @@ const isAdminOrMj = !!isMjInThisCampaign;
       });
 
       try {
-        setError(null);
-
         const res = await fetch(`${API_URL}/mj/relationships${qs}`, {
           method: "PATCH",
           headers: {
@@ -268,29 +303,32 @@ const isAdminOrMj = !!isMjInThisCampaign;
               ...prev,
               [fromId]: current.map((c) =>
                 c.id === toId
-                  ? { ...c, relationshipStars: updated.relationshipStars, affinityScore: updated.affinityScore }
+                  ? {
+                      ...c,
+                      relationshipStars: updated.relationshipStars,
+                      affinityScore: updated.affinityScore,
+                    }
                   : c
               ),
             };
           });
         }
       } catch (e) {
-        setError(e.message || "Erreur lors de la mise à jour de la relation.");
-
         try {
           const known = await fetchKnownFor(fromId);
           setKnownMap((prev) => ({ ...prev, [fromId]: known }));
         } catch {
           // ignore
         }
+        throw e;
       }
     },
-    [token, qs, fetchKnownFor]
+    [token, qs, fetchKnownFor, assertCanUseMjEndpoints]
   );
 
   const handleCardSingleClick = useCallback(
     (charId) => {
-      if (!isAdminOrMj) {
+      if (!isAdminOrOwner) {
         navigate(`/transition-video/${charId}`);
         return;
       }
@@ -298,24 +336,27 @@ const isAdminOrMj = !!isMjInThisCampaign;
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
 
       clickTimeoutRef.current = setTimeout(async () => {
+        if (openPanelId === charId) {
+          setOpenPanelId(null);
+          return;
+        }
+
+        setOpenPanelId(charId);
+
         try {
-          setError(null);
+          setUiError(null);
 
-          if (openPanelId === charId) {
-            setOpenPanelId(null);
-            return;
-          }
-
-          setOpenPanelId(charId);
+          if (Array.isArray(knownMap[charId])) return;
 
           const known = await fetchKnownFor(charId);
           setKnownMap((prev) => ({ ...prev, [charId]: known }));
         } catch (e) {
-          setError(e.message || "Erreur lors du chargement des relations.");
+          setKnownMap((prev) => ({ ...prev, [charId]: [] }));
+          setUiError(e.message || "Erreur lors du chargement des relations.");
         }
       }, 220);
     },
-    [isAdminOrMj, navigate, openPanelId, fetchKnownFor]
+    [isAdminOrOwner, navigate, openPanelId, fetchKnownFor, knownMap]
   );
 
   const handleCardDoubleClick = useCallback(
@@ -334,26 +375,34 @@ const isAdminOrMj = !!isMjInThisCampaign;
   const handleSendToTrash = async (event, id) => {
     event.stopPropagation();
 
+    if (!isAdminOrOwner) {
+      setUiError("Action refusée: seul le owner (ou admin) peut envoyer à la corbeille.");
+      return;
+    }
+
     const confirmDelete = window.confirm("Envoyer ce personnage dans la corbeille ?");
     if (!confirmDelete) return;
 
     try {
-      setError(null);
+      setUiError(null);
 
-      const res = await fetch(`${API_URL}/trash/move/character/${id}${qs}`, {
+      const res = await fetch(`${API_URL}/trash/move/character/${id}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ campaignId }),
       });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text || "Impossible d'envoyer ce personnage dans la corbeille.");
-      }
+      const text = await res.text().catch(() => "");
+      if (!res.ok) throw new Error(text || `Erreur HTTP ${res.status}`);
 
       setCharacters((prev) => prev.filter((c) => c.id !== id));
       setOpenPanelId((prev) => (prev === id ? null : prev));
     } catch (e) {
-      setError(e.message || "Erreur lors de l'envoi dans la corbeille.");
+      setUiError(e.message || "Erreur lors de l'envoi dans la corbeille.");
     }
   };
 
@@ -372,8 +421,10 @@ const isAdminOrMj = !!isMjInThisCampaign;
 
   const openAddKnownModal = useCallback(
     async (fromId) => {
+      if (!isAdminOrOwner) return;
+
       try {
-        setError(null);
+        setUiError(null);
         setSelectedCandidateId("");
         setSelectedRelationType("neutral");
         setShowAddModalFor(fromId);
@@ -381,11 +432,11 @@ const isAdminOrMj = !!isMjInThisCampaign;
         const candidates = await fetchCandidatesFor(fromId);
         setCandidateMap((prev) => ({ ...prev, [fromId]: candidates }));
       } catch (e) {
-        setError(e.message || "Erreur lors du chargement des personnages ajoutables.");
+        setUiError(e.message || "Erreur lors du chargement des personnages ajoutables.");
         setShowAddModalFor(null);
       }
     },
-    [fetchCandidatesFor]
+    [fetchCandidatesFor, isAdminOrOwner]
   );
 
   const confirmAddKnown = useCallback(async () => {
@@ -396,7 +447,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
       const toId = Number(selectedCandidateId);
       if (!toId) return;
 
-      setError(null);
+      setUiError(null);
 
       const type = normalizeTypeForApi(selectedRelationType);
       await addKnownCharacter(fromId, toId, type);
@@ -411,7 +462,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
       setSelectedCandidateId("");
       setSelectedRelationType("neutral");
     } catch (e) {
-      setError(e.message || "Erreur lors de l'ajout du connu.");
+      setUiError(e.message || "Erreur lors de l'ajout du connu.");
     }
   }, [
     showAddModalFor,
@@ -428,7 +479,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
       if (!ok) return;
 
       try {
-        setError(null);
+        setUiError(null);
 
         setKnownMap((prev) => {
           const current = Array.isArray(prev[fromId]) ? prev[fromId] : [];
@@ -440,7 +491,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
         const candidates = await fetchCandidatesFor(fromId);
         setCandidateMap((prev) => ({ ...prev, [fromId]: candidates }));
       } catch (e) {
-        setError(e.message || "Erreur lors de la suppression du connu.");
+        setUiError(e.message || "Erreur lors de la suppression du connu.");
 
         try {
           const known = await fetchKnownFor(fromId);
@@ -455,12 +506,19 @@ const isAdminOrMj = !!isMjInThisCampaign;
 
   if (!token) return <p style={{ padding: "2rem" }}>Connecte-toi pour voir les personnages.</p>;
   if (loading) return <p style={{ padding: "2rem" }}>Chargement des personnages...</p>;
-  if (error) return <p style={{ padding: "2rem", color: "red" }}>Erreur lors du chargement : {error}</p>;
+  if (loadError)
+    return (
+      <p style={{ padding: "2rem", color: "red" }}>
+        Erreur lors du chargement : {loadError}
+      </p>
+    );
   if (characters.length === 0) return <p style={{ padding: "2rem" }}>Aucun personnage pour l’instant.</p>;
 
   return (
     <div className="characters-page">
       <h1>Personnages</h1>
+
+      {uiError && <p style={{ padding: "0 0 1rem 0", color: "red" }}>{uiError}</p>}
 
       {charactersByClan.map(([clanName, clanCharacters]) => (
         <section key={clanName} className="clan-section">
@@ -475,7 +533,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
                 char.owner?.email ||
                 (char.owner?.id ? `User #${char.owner.id}` : null);
 
-              const panelOpen = isAdminOrMj && openPanelId === char.id;
+              const panelOpen = isAdminOrOwner && openPanelId === char.id;
               const knownList = panelOpen ? knownMap[char.id] : null;
 
               return (
@@ -499,7 +557,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
                         </div>
                       )}
 
-                      {!isAdminOrMj && renderStarsReadOnly(char.relationshipStars)}
+                      {!isAdminOrOwner && renderStarsReadOnly(char.relationshipStars)}
                     </div>
 
                     <div className="character-info">
@@ -519,7 +577,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
                         <span className="character-badge npc-badge">PNJ</span>
                       )}
 
-                      {isAdminOrMj && (
+                      {isAdminOrOwner && (
                         <div className="character-actions">
                           <button
                             type="button"
@@ -558,7 +616,9 @@ const isAdminOrMj = !!isMjInThisCampaign;
                       {!Array.isArray(knownList) ? (
                         <p style={{ margin: 0, opacity: 0.8 }}>Chargement...</p>
                       ) : knownList.length === 0 ? (
-                        <p style={{ margin: 0, opacity: 0.8 }}>Aucun personnage connu pour l’instant.</p>
+                        <p style={{ margin: 0, opacity: 0.8 }}>
+                          Aucun personnage connu pour l’instant.
+                        </p>
                       ) : (
                         <div className="relationship-mini-grid">
                           {knownList.map((known) => {
@@ -589,7 +649,11 @@ const isAdminOrMj = !!isMjInThisCampaign;
                                     <StarsEditor
                                       value={known.relationshipStars}
                                       hoverKey={key}
-                                      onChange={(stars) => updateRelationshipStars(char.id, known.id, stars)}
+                                      onChange={(stars) =>
+                                        updateRelationshipStars(char.id, known.id, stars).catch((e) =>
+                                          setUiError(e.message || "Erreur relation.")
+                                        )
+                                      }
                                     />
 
                                     <button
@@ -619,7 +683,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
         </section>
       ))}
 
-      {isAdminOrMj && showAddModalFor && (
+      {isAdminOrOwner && showAddModalFor && (
         <div className="modal-overlay" onClick={() => setShowAddModalFor(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Ajouter un connu</div>
@@ -648,11 +712,7 @@ const isAdminOrMj = !!isMjInThisCampaign;
             </select>
 
             <div className="modal-actions">
-              <button
-                type="button"
-                className="modal-cancel"
-                onClick={() => setShowAddModalFor(null)}
-              >
+              <button type="button" className="modal-cancel" onClick={() => setShowAddModalFor(null)}>
                 Annuler
               </button>
 

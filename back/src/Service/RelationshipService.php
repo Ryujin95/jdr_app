@@ -4,6 +4,9 @@
 namespace App\Service;
 
 use App\Entity\CharacterRelationship;
+use App\Entity\User;
+use App\Repository\CampaignMemberRepository;
+use App\Repository\CampaignRepository;
 use App\Repository\CharacterRelationshipRepository;
 use App\Repository\CharacterRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,11 +20,51 @@ final class RelationshipService
         private EntityManagerInterface $em,
         private CharacterRepository $characterRepository,
         private CharacterRelationshipRepository $relationshipRepository,
+        private CampaignRepository $campaignRepository,
+        private CampaignMemberRepository $campaignMemberRepository,
     ) {}
 
-    public function getKnownMiniCardsForCharacter(int $fromCharacterId): array
+    private function assertCampaignMjOrAdmin(int $campaignId): void
     {
-        $this->assertAdminOrMj();
+        $user = $this->security->getUser();
+
+        if (!$user) {
+            throw new AccessDeniedException('Authentication required');
+        }
+
+        if (!$user instanceof User) {
+            throw new AccessDeniedException('Invalid user');
+        }
+
+        if ($this->security->isGranted('ROLE_ADMIN')) {
+            return;
+        }
+
+        $campaign = $this->campaignRepository->find($campaignId);
+        if (!$campaign) {
+            throw new \InvalidArgumentException('Campaign not found');
+        }
+
+        $member = $this->campaignMemberRepository->findOneBy([
+            'campaign' => $campaign,
+            'user' => $user,
+        ]);
+
+        if (!$member) {
+            throw new AccessDeniedException('Not a campaign member');
+        }
+
+        // adapte le getter si ton CampaignMember n'a pas getRole()
+        $role = method_exists($member, 'getRole') ? $member->getRole() : null;
+
+        if ($role !== 'MJ') {
+            throw new AccessDeniedException('MJ only');
+        }
+    }
+
+    public function getKnownMiniCardsForCharacter(int $campaignId, int $fromCharacterId): array
+    {
+        $this->assertCampaignMjOrAdmin($campaignId);
 
         $from = $this->characterRepository->find($fromCharacterId);
         if (!$from) {
@@ -33,12 +76,10 @@ final class RelationshipService
         $items = [];
         foreach ($rels as $rel) {
             $to = $rel->getToCharacter();
-            if (!$to) {
-                continue;
-            }
+            if (!$to) continue;
 
             $score = (int) ($rel->getAffinityScore() ?? 0);
-            $type = $rel->getType() ?? 'neutral';
+            $type  = $rel->getType() ?? 'neutral';
 
             $items[] = [
                 'id' => $to->getId(),
@@ -58,28 +99,23 @@ final class RelationshipService
         return $items;
     }
 
-    // ✅ C’EST ÇA QUI MANQUAIT
-    public function getCandidatesFor(int $fromCharacterId): array
+    public function getCandidatesFor(int $campaignId, int $fromCharacterId): array
     {
-        $this->assertAdminOrMj();
+        $this->assertCampaignMjOrAdmin($campaignId);
 
         $from = $this->characterRepository->find($fromCharacterId);
         if (!$from) {
             throw new \InvalidArgumentException('Character not found');
         }
 
-        // connus actuels (relations sortantes)
         $rels = $this->relationshipRepository->findKnownCharactersWithScore($from);
         $knownIds = [];
+
         foreach ($rels as $rel) {
             $to = $rel->getToCharacter();
-            if ($to) {
-                $knownIds[] = $to->getId();
-            }
+            if ($to) $knownIds[] = $to->getId();
         }
 
-        // IMPORTANT: tu dois avoir findAllActive() dans CharacterRepository
-        // Si chez toi la méthode s'appelle autrement, change ici.
         $all = $this->characterRepository->findAllActive();
 
         $candidates = [];
@@ -98,83 +134,73 @@ final class RelationshipService
         return $candidates;
     }
 
-    public function addKnown(int $fromCharacterId, int $toCharacterId, ?string $type = null): array
-{
-    $this->assertAdminOrMj();
-
-    if ($fromCharacterId <= 0 || $toCharacterId <= 0 || $fromCharacterId === $toCharacterId) {
-        throw new \InvalidArgumentException('Paramètres invalides');
-    }
-
-    $from = $this->characterRepository->find($fromCharacterId);
-    $to = $this->characterRepository->find($toCharacterId);
-    if (!$from || !$to) {
-        throw new \InvalidArgumentException('Character not found');
-    }
-
-    $type = trim((string) $type);
-    if ($type === '') {
-        $type = 'neutral';
-    }
-
-    $existing = $this->relationshipRepository->findOneByFromTo($from, $to);
-    if (!$existing) {
-        $rel = new CharacterRelationship();
-        $rel->setFromCharacter($from);
-        $rel->setToCharacter($to);
-        $rel->setType($type);
-        $rel->setAffinityScore(0);
-        $this->em->persist($rel);
-    } else {
-        $existing->setType($type);
-    }
-
-    $existingBack = $this->relationshipRepository->findOneByFromTo($to, $from);
-    if (!$existingBack) {
-        $relBack = new CharacterRelationship();
-        $relBack->setFromCharacter($to);
-        $relBack->setToCharacter($from);
-        $relBack->setType($type);
-        $relBack->setAffinityScore(0);
-        $this->em->persist($relBack);
-    } else {
-        $existingBack->setType($type);
-    }
-
-    $this->em->flush();
-
-    return ['ok' => true];
-}
-
-public function removeKnown(int $fromCharacterId, int $toCharacterId): void
-{
-    $this->assertAdminOrMj();
-
-    $from = $this->characterRepository->find($fromCharacterId);
-    $to = $this->characterRepository->find($toCharacterId);
-
-    if (!$from || !$to) {
-        throw new \InvalidArgumentException('Character not found');
-    }
-
-    $rel = $this->relationshipRepository->findOneByFromTo($from, $to);
-    if ($rel) {
-        $this->em->remove($rel);
-    }
-
-    // relation inverse si tu veux du mutuel
-    $relBack = $this->relationshipRepository->findOneByFromTo($to, $from);
-    if ($relBack) {
-        $this->em->remove($relBack);
-    }
-
-    $this->em->flush();
-}
-
-
-    public function upsertRelationshipStars(int $fromId, int $toId, int $stars): array
+    public function addKnown(int $campaignId, int $fromCharacterId, int $toCharacterId, ?string $type = null): array
     {
-        $this->assertAdminOrMj();
+        $this->assertCampaignMjOrAdmin($campaignId);
+
+        if ($fromCharacterId <= 0 || $toCharacterId <= 0 || $fromCharacterId === $toCharacterId) {
+            throw new \InvalidArgumentException('Paramètres invalides');
+        }
+
+        $from = $this->characterRepository->find($fromCharacterId);
+        $to   = $this->characterRepository->find($toCharacterId);
+        if (!$from || !$to) {
+            throw new \InvalidArgumentException('Character not found');
+        }
+
+        $type = trim((string) $type);
+        if ($type === '') $type = 'neutral';
+
+        $existing = $this->relationshipRepository->findOneByFromTo($from, $to);
+        if (!$existing) {
+            $rel = new CharacterRelationship();
+            $rel->setFromCharacter($from);
+            $rel->setToCharacter($to);
+            $rel->setType($type);
+            $rel->setAffinityScore(0);
+            $this->em->persist($rel);
+        } else {
+            $existing->setType($type);
+        }
+
+        $existingBack = $this->relationshipRepository->findOneByFromTo($to, $from);
+        if (!$existingBack) {
+            $relBack = new CharacterRelationship();
+            $relBack->setFromCharacter($to);
+            $relBack->setToCharacter($from);
+            $relBack->setType($type);
+            $relBack->setAffinityScore(0);
+            $this->em->persist($relBack);
+        } else {
+            $existingBack->setType($type);
+        }
+
+        $this->em->flush();
+        return ['ok' => true];
+    }
+
+    public function removeKnown(int $campaignId, int $fromCharacterId, int $toCharacterId): void
+    {
+        $this->assertCampaignMjOrAdmin($campaignId);
+
+        $from = $this->characterRepository->find($fromCharacterId);
+        $to   = $this->characterRepository->find($toCharacterId);
+        if (!$from || !$to) {
+            throw new \InvalidArgumentException('Character not found');
+        }
+
+        $rel = $this->relationshipRepository->findOneByFromTo($from, $to);
+        if ($rel) $this->em->remove($rel);
+
+        $relBack = $this->relationshipRepository->findOneByFromTo($to, $from);
+        if ($relBack) $this->em->remove($relBack);
+
+        $this->em->flush();
+    }
+
+    public function upsertRelationshipStars(int $campaignId, int $fromId, int $toId, int $stars): array
+    {
+        $this->assertCampaignMjOrAdmin($campaignId);
 
         if ($fromId <= 0 || $toId <= 0 || $fromId === $toId) {
             throw new \InvalidArgumentException('Paramètres invalides');
@@ -184,7 +210,7 @@ public function removeKnown(int $fromCharacterId, int $toCharacterId): void
         }
 
         $from = $this->characterRepository->find($fromId);
-        $to = $this->characterRepository->find($toId);
+        $to   = $this->characterRepository->find($toId);
         if (!$from || !$to) {
             throw new \InvalidArgumentException('Character not found');
         }
@@ -194,7 +220,7 @@ public function removeKnown(int $fromCharacterId, int $toCharacterId): void
             $rel = new CharacterRelationship();
             $rel->setFromCharacter($from);
             $rel->setToCharacter($to);
-            $rel->setType('neutral'); // ✅ obligatoire
+            $rel->setType('neutral');
             $this->em->persist($rel);
         }
 
@@ -210,17 +236,6 @@ public function removeKnown(int $fromCharacterId, int $toCharacterId): void
             'affinityScore' => $score,
             'relationshipStars' => $stars,
         ];
-    }
-
-    private function assertAdminOrMj(): void
-    {
-        $isAdminOrMj =
-            $this->security->isGranted('ROLE_ADMIN') ||
-            $this->security->isGranted('ROLE_MJ');
-
-        if (!$isAdminOrMj) {
-            throw new AccessDeniedException('Admin/MJ only');
-        }
     }
 
     private function scoreToStars(int $score): int

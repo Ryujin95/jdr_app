@@ -33,16 +33,22 @@ security:
       provider: app_user_provider
 
   access_control:
-  - { path: ^/api/login_check, roles: PUBLIC_ACCESS }
+    - { path: ^/api/login_check, roles: PUBLIC_ACCESS }
 
-  - { path: ^/api/auth/reset-password-info$, roles: PUBLIC_ACCESS }
-  - { path: ^/api/auth/reset-password$, roles: PUBLIC_ACCESS }
-  - { path: ^/api/auth/forgot-password$, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/reset-password-info$, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/reset-password$, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/forgot-password$, roles: PUBLIC_ACCESS }
 
-  - { path: ^/api/users, roles: PUBLIC_ACCESS } # si tu veux vraiment laisser ça public
+    # Si tu veux protéger /api/users, mets IS_AUTHENTICATED_FULLY au lieu de PUBLIC_ACCESS
+    # - { path: ^/api/users, roles: IS_AUTHENTICATED_FULLY }
+    - { path: ^/api/users, roles: PUBLIC_ACCESS }
 
-  - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+    # Optionnel mais clair: la corbeille nécessite juste d'être connecté
+    - { path: ^/api/trash, roles: IS_AUTHENTICATED_FULLY }
+
+    # Tout le reste de l'API nécessite d'être connecté
+    - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
   role_hierarchy:
-        ROLE_MJ:    [ROLE_USER]
-        ROLE_ADMIN: [ROLE_MJ, ROLE_USER]
+    ROLE_MJ: [ROLE_USER]
+    ROLE_ADMIN: [ROLE_MJ, ROLE_USER]

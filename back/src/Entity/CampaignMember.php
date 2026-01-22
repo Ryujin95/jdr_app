@@ -1,5 +1,6 @@
 <?php
-// back/src/Entity/CampaignMember.php
+// src/Entity/CampaignMember.php
+// (Je te le donne complet uniquement si tu n’en as pas, sinon compare juste les noms: campaign, user, role + getRole())
 
 namespace App\Entity;
 
@@ -7,12 +8,8 @@ use App\Repository\CampaignMemberRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CampaignMemberRepository::class)]
-#[ORM\UniqueConstraint(name: 'uniq_campaign_user', columns: ['campaign_id', 'user_id'])]
 class CampaignMember
 {
-    public const ROLE_MJ = 'MJ';
-    public const ROLE_PLAYER = 'PLAYER';
-
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -27,15 +24,7 @@ class CampaignMember
     private ?User $user = null;
 
     #[ORM\Column(length: 20)]
-    private string $role = self::ROLE_PLAYER;
-
-    #[ORM\Column]
-    private \DateTimeImmutable $joinedAt;
-
-    public function __construct()
-    {
-        $this->joinedAt = new \DateTimeImmutable();
-    }
+    private string $role = 'Player'; // 'MJ' ou 'Player'
 
     public function getId(): ?int { return $this->id; }
 
@@ -59,6 +48,4 @@ class CampaignMember
         $this->role = $role;
         return $this;
     }
-
-    public function getJoinedAt(): \DateTimeImmutable { return $this->joinedAt; }
 }

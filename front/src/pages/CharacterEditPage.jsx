@@ -43,17 +43,13 @@ function CharacterEditPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [videoName, setVideoName] = useState("");
 
-  // ✅ AJOUT : liste users + owner select
-  const [users, setUsers] = useState([]);
-  const [ownerUserId, setOwnerUserId] = useState(""); // "" = aucun
-  const [usersLoading, setUsersLoading] = useState(false);
-
   useEffect(() => {
     if (!token) return;
 
     const fetchCharacter = async () => {
       setLoading(true);
       setError(null);
+
       try {
         const res = await fetch(`${API_URL}/characters/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -81,11 +77,6 @@ function CharacterEditPage() {
 
         setAvatarPreview(buildAssetUrl(c.avatarUrl));
         setVideoName(c.transitionVideoUrl ? (c.transitionVideoUrl.split("/").pop() || "") : "");
-
-        // ✅ AJOUT : si ton API renvoie owner (optionnel), on pré-sélectionne
-        if (c.owner?.id != null) {
-          setOwnerUserId(String(c.owner.id));
-        }
       } catch (e) {
         setError(e.message);
       } finally {
@@ -95,34 +86,6 @@ function CharacterEditPage() {
 
     fetchCharacter();
   }, [id, token]);
-
-  // ✅ AJOUT : fetch users pour remplir le select
-  useEffect(() => {
-    if (!token) return;
-
-    const fetchUsers = async () => {
-      setUsersLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/admin/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!res.ok) {
-          setUsers([]);
-          return;
-        }
-
-        const data = await res.json().catch(() => []);
-        setUsers(Array.isArray(data) ? data : []);
-      } catch (_) {
-        setUsers([]);
-      } finally {
-        setUsersLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, [token]);
 
   useEffect(() => {
     if (!avatarFile) return;
@@ -151,16 +114,20 @@ function CharacterEditPage() {
     setSuccess(null);
 
     try {
+      if (!form.nickname || !String(form.nickname).trim()) {
+        throw new Error("Le surnom (nickname) est obligatoire.");
+      }
+
       const fd = new FormData();
 
-      fd.append("nickname", form.nickname);
-      fd.append("firstname", form.firstname);
-      fd.append("lastname", form.lastname);
-      fd.append("age", String(form.age));
-      fd.append("biography", form.biography);
-      fd.append("strengths", form.strengths);
-      fd.append("weaknesses", form.weaknesses);
-      fd.append("clan", form.clan);
+      fd.append("nickname", String(form.nickname).trim());
+      fd.append("firstname", form.firstname ?? "");
+      fd.append("lastname", form.lastname ?? "");
+      fd.append("age", String(form.age ?? ""));
+      fd.append("biography", form.biography ?? "");
+      fd.append("strengths", form.strengths ?? "");
+      fd.append("weaknesses", form.weaknesses ?? "");
+      fd.append("clan", form.clan ?? "");
       fd.append("isPlayer", form.isPlayer ? "true" : "false");
       fd.append("locationId", form.locationId || "");
 
@@ -168,38 +135,55 @@ function CharacterEditPage() {
       if (transitionVideoFile) fd.append("transitionVideo", transitionVideoFile);
 
       const res = await fetch(`${API_URL}/characters/${id}`, {
-        method: "POST", // on ne touche pas à ta logique actuelle
+        method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
 
+      const text = await res.text().catch(() => "");
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.message || `Erreur HTTP ${res.status}`);
+        let msg = text;
+        try {
+          const json = text ? JSON.parse(text) : null;
+          msg = json?.message || json?.detail || msg;
+        } catch {
+          // ignore
+        }
+        throw new Error(msg || `Erreur HTTP ${res.status}`);
       }
 
-      // ✅ AJOUT : attribution owner via route admin (si sélection)
-      // si ownerUserId === "" -> on retire l'owner (null)
-      const ownerPayload = { userId: ownerUserId === "" ? null : Number(ownerUserId) };
+      let updated = null;
+      try {
+        updated = text ? JSON.parse(text) : null;
+      } catch {
+        updated = null;
+      }
 
-      const r2 = await fetch(`${API_URL}/admin/characters/${id}/owner`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(ownerPayload),
-      });
+      if (updated && typeof updated === "object") {
+        setForm((p) => ({
+          ...p,
+          nickname: updated.nickname ?? p.nickname,
+          firstname: updated.firstname ?? p.firstname,
+          lastname: updated.lastname ?? p.lastname,
+          age: updated.age ?? p.age,
+          biography: updated.biography ?? p.biography,
+          strengths: updated.strengths ?? p.strengths,
+          weaknesses: updated.weaknesses ?? p.weaknesses,
+          clan: updated.clan ?? p.clan,
+          isPlayer: typeof updated.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
+          locationId: updated.location?.id ? String(updated.location.id) : p.locationId,
+        }));
 
-      if (!r2.ok) {
-        const t2 = await r2.text().catch(() => "");
-        throw new Error(t2 || "Modif OK, mais attribution joueur impossible.");
+        setAvatarPreview(buildAssetUrl(updated.avatarUrl));
+        setVideoName(
+          updated.transitionVideoUrl ? (updated.transitionVideoUrl.split("/").pop() || "") : ""
+        );
       }
 
       setSuccess("Modifications enregistrées.");
       setTimeout(() => navigate(`/characters/${id}`), 450);
-    } catch (e2) {
-      setError(e2.message);
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement.");
     } finally {
       setSaving(false);
     }
@@ -265,23 +249,6 @@ function CharacterEditPage() {
           <label className="edit-field edit-checkbox">
             <input type="checkbox" name="isPlayer" checked={form.isPlayer} onChange={onChange} />
             <span>Personnage joueur</span>
-          </label>
-
-          {/* ✅ AJOUT : attribution joueur */}
-          <label className="edit-field">
-            <span>Attribuer à un joueur</span>
-            <select
-              value={ownerUserId}
-              onChange={(e) => setOwnerUserId(e.target.value)}
-              disabled={usersLoading}
-            >
-              <option value="">{usersLoading ? "Chargement…" : "Aucun"}</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.username || u.email || `User #${u.id}`}
-                </option>
-              ))}
-            </select>
           </label>
         </div>
 

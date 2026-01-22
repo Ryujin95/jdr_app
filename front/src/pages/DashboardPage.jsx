@@ -12,7 +12,6 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Join modal
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
@@ -56,7 +55,10 @@ export default function DashboardPage() {
 
   const openCampaign = (c) => {
     localStorage.setItem("activeCampaignId", String(c.id));
-    navigate(`/campaigns/${c.id}`);
+
+    // ✅ MODIF: on passe la campagne en state pour que CampaignPage ait le role tout de suite
+    // ✅ MODIF: on va direct sur /wall (comme ton App.jsx redirect index -> wall, mais là c'est direct)
+    navigate(`/campaigns/${c.id}/wall`, { state: { campaign: c } });
   };
 
   const openJoin = () => {
@@ -82,8 +84,6 @@ export default function DashboardPage() {
 
     setJoinLoading(true);
     try {
-      // Endpoint attendu côté back: POST /api/campaigns/join
-      // Body: { code: "75J867" }
       const res = await fetch(`${API_URL}/campaigns/join`, {
         method: "POST",
         headers: authHeaders,
@@ -97,15 +97,9 @@ export default function DashboardPage() {
 
       const data = await res.json().catch(() => null);
 
-      // On accepte plusieurs formats de réponse possibles
-      const campaignId =
-        data?.campaignId ??
-        data?.id ??
-        data?.campaign?.id ??
-        null;
+      const campaignId = data?.campaignId ?? data?.id ?? data?.campaign?.id ?? null;
 
       if (!campaignId) {
-        // si le back renvoie juste "ok", on refresh la liste
         await fetchCampaigns();
         setJoinOpen(false);
         return;
@@ -113,11 +107,14 @@ export default function DashboardPage() {
 
       localStorage.setItem("activeCampaignId", String(campaignId));
       setJoinOpen(false);
-      navigate(`/campaigns/${campaignId}`);
+
+      // ✅ MODIF: on passe ce que le back renvoie (souvent title/theme/joinCode) en state
+      // et surtout si le back renvoie "role", CampaignPage l'a direct.
+      // Si le back ne renvoie pas role ici, CampaignPage restera instantané uniquement quand on vient du dashboard list.
+      navigate(`/campaigns/${campaignId}/wall`, { state: { campaign: data } });
     } catch (err) {
       const msg = String(err?.message || "Impossible de rejoindre la campagne.");
 
-      // Quand Symfony renvoie du HTML (404), ça commence souvent par "<!DOCTYPE"
       if (msg.includes("<!DOCTYPE") || msg.includes("No route found")) {
         setJoinError("Route join inexistante côté backend (POST /api/campaigns/join).");
       } else if (msg.includes("JWT") || msg.includes("Unauthorized") || msg.includes("401")) {
@@ -150,7 +147,6 @@ export default function DashboardPage() {
 
       {!loading && (
         <section className="grid">
-          {/* Card fixe: Créer */}
           <article
             className="card card-create"
             onClick={() => navigate("/campaigns/create")}
@@ -166,13 +162,7 @@ export default function DashboardPage() {
             <div className="card-action">Créer</div>
           </article>
 
-          {/* Card fixe: Rejoindre */}
-          <article
-            className="card card-join"
-            onClick={openJoin}
-            role="button"
-            tabIndex={0}
-          >
+          <article className="card card-join" onClick={openJoin} role="button" tabIndex={0}>
             <div className="card-top">
               <span className="tag">Code</span>
               <span className="role role-player">Player</span>
@@ -182,15 +172,8 @@ export default function DashboardPage() {
             <div className="card-action">Rejoindre</div>
           </article>
 
-          {/* Campagnes existantes */}
           {campaigns.map((c) => (
-            <article
-              key={c.id}
-              className="card"
-              onClick={() => openCampaign(c)}
-              role="button"
-              tabIndex={0}
-            >
+            <article key={c.id} className="card" onClick={() => openCampaign(c)} role="button" tabIndex={0}>
               <div className="card-top">
                 <span className="tag">{c.theme || "Thème libre"}</span>
                 <span className={`role ${c.role === "MJ" ? "role-mj" : "role-player"}`}>
@@ -210,7 +193,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Modal rejoindre */}
       {joinOpen && (
         <div className="modal-overlay" onClick={closeJoin}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -233,20 +215,11 @@ export default function DashboardPage() {
               />
 
               <div className="modal-actions" style={{ marginTop: "12px" }}>
-                <button
-                  type="button"
-                  className="modal-cancel"
-                  onClick={closeJoin}
-                  disabled={joinLoading}
-                >
+                <button type="button" className="modal-cancel" onClick={closeJoin} disabled={joinLoading}>
                   Annuler
                 </button>
 
-                <button
-                  type="submit"
-                  className="modal-confirm"
-                  disabled={joinLoading}
-                >
+                <button type="submit" className="modal-confirm" disabled={joinLoading}>
                   {joinLoading ? "Connexion…" : "Rejoindre"}
                 </button>
               </div>

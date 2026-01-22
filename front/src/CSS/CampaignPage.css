@@ -5,6 +5,38 @@
   max-width: 1400px;
   margin: 0 auto;
 }
+/* --- Code d'invitation campagne --- */
+.campaign-invite {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.campaign-invite-code {
+  display: inline-block;
+  padding: 0.4rem 0.9rem;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: #e5e7eb; /* gris clair */
+  background: linear-gradient(145deg, #0f172a, #020617); /* bleu nuit */
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  user-select: all;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.campaign-invite-code:hover {
+  background: linear-gradient(145deg, #020617, #020617);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.campaign-invite-code:empty::after {
+  content: "—";
+  opacity: 0.5;
+}
 
 /* Header campagne */
 .campaign-header {

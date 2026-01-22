@@ -19,7 +19,8 @@ class CampaignRepository extends ServiceEntityRepository
     public function findForUser(User $user): array
     {
         return $this->createQueryBuilder('c')
-            ->select('c.id, c.title, c.theme, c.updatedAt, m.role')
+            // MODIF: ajout joinCode pour éviter un 2e appel juste pour le code
+            ->select('c.id, c.title, c.theme, c.joinCode, c.updatedAt, m.role')
             ->innerJoin('c.members', 'm')
             ->andWhere('m.user = :user')
             ->setParameter('user', $user)
@@ -27,4 +28,22 @@ class CampaignRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
     }
+
+   // back/src/Repository/CampaignRepository.php
+
+/** @return array<string, mixed>|null */
+public function findOneForUser(User $user, int $campaignId): ?array
+{
+    return $this->createQueryBuilder('c')
+        ->select('c.id, c.title, c.theme, c.joinCode, c.updatedAt, m.role')
+        ->innerJoin('c.members', 'm')
+        ->andWhere('c.id = :id')
+        ->andWhere('m.user = :user')
+        ->setParameter('id', $campaignId)
+        ->setParameter('user', $user)
+        ->setMaxResults(1)
+        ->getQuery()
+        ->getOneOrNullResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
+}
+
 }

@@ -1,13 +1,18 @@
-// src/pages/EditorPage.jsx
-import { useContext, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/CampaignEditorPage.jsx
+import { useContext, useEffect, useMemo, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { API_URL } from "../config";
 import "../CSS/Editor.css";
 
-function EditorPage() {
-  const { token } = useContext(AuthContext);
+function CampaignEditorPage() {
   const navigate = useNavigate();
+  const { token } = useContext(AuthContext);
+
+  // Récupère le contexte depuis CampaignPage.jsx
+  const outlet = useOutletContext() || {};
+  const campaignId = outlet.campaignId ? String(outlet.campaignId) : null;
+  const isMjInThisCampaign = !!outlet.isMjInThisCampaign;
 
   const [mode, setMode] = useState("character");
 
@@ -29,7 +34,7 @@ function EditorPage() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
 
-  // --- AJOUT : attribution à un utilisateur ---
+  // Attribution (si ton back le permet)
   const [users, setUsers] = useState([]);
   const [ownerUserId, setOwnerUserId] = useState(""); // "" = aucun
 
@@ -37,63 +42,17 @@ function EditorPage() {
   const [locationName, setLocationName] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
 
-  // --- NOUVEAU : select suppression lieu ---
+  // --- select suppression lieu ---
   const [deleteLocationId, setDeleteLocationId] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
-  // Charger les lieux existants (select perso + select suppression lieu)
-  useEffect(() => {
-    if (!token) return;
-
-    const fetchLocations = async () => {
-      try {
-        const res = await fetch(`${API_URL}/locations`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : [];
-        setLocations(list);
-
-        if (!deleteLocationId && list.length > 0) {
-          setDeleteLocationId(String(list[0].id));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-
-    fetchLocations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  // AJOUT : charger les utilisateurs pour pouvoir attribuer un perso à un user
-  useEffect(() => {
-    if (!token) return;
-
-    const fetchUsers = async () => {
-      try {
-        const res = await fetch(`${API_URL}/admin/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          setUsers([]);
-          return;
-        }
-
-        const data = await res.json().catch(() => []);
-        setUsers(Array.isArray(data) ? data : []);
-      } catch (e) {
-        console.error(e);
-        setUsers([]);
-      }
-    };
-
-    fetchUsers();
+  const authHeaders = useMemo(() => {
+    const h = {};
+    if (token) h.Authorization = `Bearer ${token}`;
+    return h;
   }, [token]);
 
   // cleanup preview URL quand on change d'image
@@ -117,11 +76,15 @@ function EditorPage() {
   };
 
   const refreshLocations = async () => {
+    if (!token || !campaignId) return;
+
     try {
-      const r = await fetch(`${API_URL}/locations`, {
-        headers: { Authorization: `Bearer ${token}` },
+      // On garde la même route, on ajoute juste campaignId en query (si ton back le prend en compte)
+      const r = await fetch(`${API_URL}/locations?campaignId=${encodeURIComponent(campaignId)}`, {
+        headers: authHeaders,
       });
       if (!r.ok) return;
+
       const data = await r.json();
       const list = Array.isArray(data) ? data : [];
       setLocations(list);
@@ -129,13 +92,71 @@ function EditorPage() {
       if (deleteLocationId && !list.some((l) => String(l.id) === String(deleteLocationId))) {
         setDeleteLocationId(list.length > 0 ? String(list[0].id) : "");
       }
-    } catch (_) {}
+    } catch {
+      // ignore
+    }
   };
+
+  // Charger les lieux existants (dans la campagne)
+  useEffect(() => {
+    if (!token || !campaignId) return;
+
+    const fetchLocations = async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/locations?campaignId=${encodeURIComponent(campaignId)}`,
+          { headers: authHeaders }
+        );
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : [];
+        setLocations(list);
+
+        if (!deleteLocationId && list.length > 0) {
+          setDeleteLocationId(String(list[0].id));
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchLocations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, campaignId]);
+
+  // Charger les users (optionnel : si le back autorise MJ)
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch(`${API_URL}/admin/users`, { headers: authHeaders });
+
+        if (!res.ok) {
+          setUsers([]);
+          return;
+        }
+
+        const data = await res.json().catch(() => []);
+        setUsers(Array.isArray(data) ? data : []);
+      } catch {
+        setUsers([]);
+      }
+    };
+
+    fetchUsers();
+  }, [token, authHeaders]);
 
   const handleSubmitCharacter = async (e) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
+
+    if (!campaignId) {
+      setError("CampaignId manquant (ouvre une campagne puis l’onglet Éditeur).");
+      return;
+    }
 
     if (!nickname.trim()) {
       setError("Le surnom est obligatoire pour le personnage.");
@@ -146,6 +167,8 @@ function EditorPage() {
 
     try {
       const formData = new FormData();
+      formData.append("campaignId", campaignId);
+
       formData.append("firstname", firstname);
       formData.append("lastname", lastname);
       formData.append("nickname", nickname);
@@ -157,53 +180,69 @@ function EditorPage() {
       formData.append("isPlayer", isPlayer ? "1" : "0");
       formData.append("secret", secret);
 
-      if (locationId) {
-        formData.append("locationId", locationId);
-      }
+      if (locationId) formData.append("locationId", locationId);
 
       if (avatarFile && avatarFile instanceof File && avatarFile.size > 0) {
         formData.append("avatar", avatarFile);
       }
 
-      const res = await fetch(`${API_URL}/admin/characters`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      // On tente d’abord la route existante (si ton back la permet), sinon fallback
+      const tryEndpoints = [`${API_URL}/admin/characters`, `${API_URL}/characters`];
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.log("BACK ERROR STATUS:", res.status);
-        console.log("BACK ERROR BODY:", text);
-        throw new Error(text || `Erreur HTTP ${res.status}`);
+      let res = null;
+      let lastText = "";
+      for (const url of tryEndpoints) {
+        res = await fetch(url, {
+          method: "POST",
+          headers: authHeaders,
+          body: formData,
+        });
+
+        if (res.ok) break;
+
+        lastText = await res.text().catch(() => "");
+      }
+
+      if (!res || !res.ok) {
+        throw new Error(lastText || `Erreur création personnage (HTTP ${res?.status || "?"})`);
       }
 
       const created = await res.json().catch(() => null);
 
-      // AJOUT : si un user est choisi, on attribue le perso via PATCH /admin/characters/{id}/owner
+      // Attribution (si dispo)
       const chosenOwnerId = ownerUserId ? Number(ownerUserId) : null;
       const createdId = created?.id;
 
-      if (createdId && (chosenOwnerId !== null || ownerUserId === "")) {
-        if (chosenOwnerId !== null) {
-          const r2 = await fetch(`${API_URL}/admin/characters/${createdId}/owner`, {
+      if (createdId && chosenOwnerId !== null) {
+        const tryOwnerEndpoints = [
+          `${API_URL}/admin/characters/${createdId}/owner`,
+          `${API_URL}/characters/${createdId}/owner`,
+        ];
+
+        let r2 = null;
+        let t2 = "";
+        for (const url of tryOwnerEndpoints) {
+          r2 = await fetch(url, {
             method: "PATCH",
             headers: {
+              ...authHeaders,
               "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({ userId: chosenOwnerId }),
           });
 
-          if (!r2.ok) {
-            const t2 = await r2.text().catch(() => "");
-            console.log("ASSIGN OWNER ERROR STATUS:", r2.status);
-            console.log("ASSIGN OWNER ERROR BODY:", t2);
-            throw new Error(t2 || "Le personnage a été créé, mais l'attribution au joueur a échoué.");
-          }
-
-          await r2.json().catch(() => null);
+          if (r2.ok) break;
+          t2 = await r2.text().catch(() => "");
         }
+
+        if (!r2 || !r2.ok) {
+          throw new Error(
+            t2 ||
+              "Le personnage a été créé, mais l'attribution au joueur a échoué (route owner non autorisée)."
+          );
+        }
+
+        await r2.json().catch(() => null);
       }
 
       setInfo("Personnage créé avec succès.");
@@ -236,6 +275,11 @@ function EditorPage() {
     setError(null);
     setInfo(null);
 
+    if (!campaignId) {
+      setError("CampaignId manquant (ouvre une campagne puis l’onglet Éditeur).");
+      return;
+    }
+
     if (!locationName.trim()) {
       setError("Le nom du lieu est obligatoire.");
       return;
@@ -247,19 +291,18 @@ function EditorPage() {
       const res = await fetch(`${API_URL}/locations`, {
         method: "POST",
         headers: {
+          ...authHeaders,
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          campaignId: Number(campaignId),
           name: locationName,
           description: locationDescription,
         }),
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        console.log("BACK ERROR STATUS:", res.status);
-        console.log("BACK ERROR BODY:", text);
+        const text = await res.text().catch(() => "");
         throw new Error(text || `Erreur HTTP ${res.status}`);
       }
 
@@ -297,7 +340,7 @@ function EditorPage() {
 
       const res = await fetch(`${API_URL}/trash/move/location/${deleteLocationId}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders,
       });
 
       if (!res.ok) {
@@ -318,6 +361,14 @@ function EditorPage() {
     return <p style={{ padding: "2rem" }}>Tu dois être connecté pour utiliser l’éditeur.</p>;
   }
 
+  if (!campaignId) {
+    return <p style={{ padding: "2rem" }}>Aucune campagne active (ouvre une campagne).</p>;
+  }
+
+  if (!isMjInThisCampaign) {
+    return <p style={{ padding: "2rem" }}>Tu n’es pas MJ sur cette campagne.</p>;
+  }
+
   return (
     <div className="character-form-page">
       <h1>Éditeur de contenu</h1>
@@ -332,6 +383,7 @@ function EditorPage() {
         >
           Personnage
         </button>
+
         <button
           type="button"
           className={mode === "location" ? "mode-button active" : "mode-button"}
@@ -413,19 +465,21 @@ function EditorPage() {
               </label>
             </div>
 
-            <div className="form-row">
-              <label>
-                Attribuer à un joueur
-                <select value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)}>
-                  <option value="">Aucun</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.username || u.email || `User #${u.id}`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            {!!users.length && (
+              <div className="form-row">
+                <label>
+                  Attribuer à un joueur
+                  <select value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)}>
+                    <option value="">Aucun</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.username || u.email || `User #${u.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="form-section">
@@ -522,10 +576,7 @@ function EditorPage() {
             <div className="form-row">
               <label>
                 Lieux existants
-                <select
-                  value={deleteLocationId}
-                  onChange={(e) => setDeleteLocationId(e.target.value)}
-                >
+                <select value={deleteLocationId} onChange={(e) => setDeleteLocationId(e.target.value)}>
                   {locations.length === 0 ? (
                     <option value="">Aucun lieu</option>
                   ) : (
@@ -569,4 +620,4 @@ function EditorPage() {
   );
 }
 
-export default EditorPage;
+export default CampaignEditorPage;

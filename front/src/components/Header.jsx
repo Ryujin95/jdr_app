@@ -23,12 +23,9 @@ function Header() {
         </Link>
 
         {isAuthenticated && (
-          <>
-            {/* ✅ NOUVEAU : lien Mes JDR */}
-            <Link to="/dashboard" className="nav-link">
-              Mes JDR
-            </Link>
-          </>
+          <Link to="/dashboard" className="nav-link">
+            Mes JDR
+          </Link>
         )}
 
         {isAuthenticated && canSeeEditor && (
@@ -57,7 +54,8 @@ function Header() {
               />
             </Link>
 
-            <RightSidebar open={panelOpen} setOpen={setPanelOpen} />
+            {/* ✅ MODIF: on monte RightSidebar seulement quand il est ouvert */}
+            {panelOpen && <RightSidebar open={panelOpen} setOpen={setPanelOpen} />}
           </div>
         )}
       </nav>
