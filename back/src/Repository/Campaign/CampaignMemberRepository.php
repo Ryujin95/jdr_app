@@ -1,7 +1,7 @@
 <?php
 // src/Repository/CampaignMemberRepository.php
 
-namespace App\Repository;
+namespace App\Repository\Campaign;
 
 use App\Entity\Campaign;
 use App\Entity\CampaignMember;

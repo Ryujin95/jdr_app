@@ -3,7 +3,7 @@
 namespace App\Service;
 
 use App\Repository\UserRepository;
-use App\Repository\CharacterRepository;
+use App\Repository\Character\CharacterRepository;
 use App\Repository\LocationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;

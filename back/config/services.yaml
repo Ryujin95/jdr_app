@@ -24,3 +24,12 @@ services:
   App\Service\CharacterService:
     arguments:
       $projectDir: '%kernel.project_dir%'
+
+  # 👉 Ajoutez cette configuration pour MapService
+  App\Service\MapService:
+    arguments:
+      $projectDir: '%kernel.project_dir%'
+
+  App\Service\CampaignService:
+    arguments:
+      $projectDir: '%kernel.project_dir%'

@@ -3,7 +3,7 @@
 
 namespace App\Controller\Api;
 
-use App\Entity\User; // ✅ AJOUT
+use App\Entity\User;
 use App\Service\CampaignService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,7 +18,9 @@ class CampaignController extends AbstractController
     public function list(): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
 
         return $this->json($this->campaignService->listForUser($user));
     }
@@ -27,13 +29,19 @@ class CampaignController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $title = trim((string)($data['title'] ?? ''));
-        $theme = isset($data['theme']) ? trim((string)$data['theme']) : null;
 
-        if ($title === '') return $this->json(['message' => 'Titre requis'], 400);
+        $title = trim((string)($data['title'] ?? ''));
+        $theme = array_key_exists('theme', $data) ? trim((string)$data['theme']) : null;
+        $theme = ($theme !== null && $theme !== '') ? $theme : null;
+
+        if ($title === '') {
+            return $this->json(['message' => 'Titre requis'], 400);
+        }
 
         $campaign = $this->campaignService->createCampaign($user, $title, $theme);
 
@@ -41,9 +49,9 @@ class CampaignController extends AbstractController
             'id' => $campaign->getId(),
             'title' => $campaign->getTitle(),
             'theme' => $campaign->getTheme(),
-            'joinCode' => method_exists($campaign, 'getJoinCode') ? $campaign->getJoinCode() : null,
-            'role' => 'MJ', // ✅ AJOUT (créateur = MJ)
-            'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM), // ✅ AJOUT (cohérence)
+            'joinCode' => $campaign->getJoinCode(),
+            'role' => 'MJ',
+            'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM),
         ], 201);
     }
 
@@ -51,7 +59,9 @@ class CampaignController extends AbstractController
     public function join(Request $request): JsonResponse
     {
         $user = $this->getUser();
-        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
 
         $data = json_decode($request->getContent(), true) ?? [];
         $code = (string)($data['code'] ?? '');
@@ -63,9 +73,9 @@ class CampaignController extends AbstractController
                 'id' => $campaign->getId(),
                 'title' => $campaign->getTitle(),
                 'theme' => $campaign->getTheme(),
-                'joinCode' => method_exists($campaign, 'getJoinCode') ? $campaign->getJoinCode() : null,
-                'role' => 'Player', // ✅ AJOUT (join = Player)
-                'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM), // ✅ AJOUT
+                'joinCode' => $campaign->getJoinCode(),
+                'role' => 'Player',
+                'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM),
             ], 200);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
@@ -74,26 +84,20 @@ class CampaignController extends AbstractController
         }
     }
 
-   // back/src/Controller/Api/CampaignController.php
+    #[Route('/api/campaigns/{id}', name: 'api_campaign_show', methods: ['GET'])]
+    public function show(int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
 
-#[Route('/api/campaigns/{id}', name: 'api_campaign_show', methods: ['GET'])]
-public function show(int $id): JsonResponse
-{
-    $user = $this->getUser();
-    if (!$user) {
-        return $this->json(['message' => 'Unauthorized'], 401);
+        try {
+            return $this->json($this->campaignService->getForUserData($user, $id), 200);
+        } catch (\RuntimeException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        }
     }
-
-    try {
-        // ✅ MODIF: renvoie aussi "role" (MJ/Player) pour éviter le décalage côté front
-        $data = $this->campaignService->getForUserData($user, $id);
-
-        return $this->json($data, 200);
-    } catch (\RuntimeException $e) {
-        return $this->json(['message' => $e->getMessage()], 404);
-    } catch (\InvalidArgumentException $e) {
-        return $this->json(['message' => $e->getMessage()], 403);
-    }
-}
-
 }

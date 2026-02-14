@@ -5,7 +5,7 @@ namespace App\Service;
 use App\Entity\Character;
 use App\Entity\CharacterKnowledge;
 use App\Entity\User;
-use App\Repository\CharacterKnowledgeRepository;
+use App\Repository\Character\CharacterKnowledgeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 class CharacterKnowledgeService

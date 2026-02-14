@@ -2,7 +2,7 @@
 
 namespace App\Controller\Api;
 
-use App\Repository\CharacterRepository;
+use App\Repository\Character\CharacterRepository;
 use App\Repository\UserRepository;
 use App\Service\CharacterKnowledgeService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;

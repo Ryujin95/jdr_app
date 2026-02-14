@@ -5,10 +5,10 @@ namespace App\Service;
 
 use App\Entity\CharacterRelationship;
 use App\Entity\User;
-use App\Repository\CampaignMemberRepository;
-use App\Repository\CampaignRepository;
-use App\Repository\CharacterRelationshipRepository;
-use App\Repository\CharacterRepository;
+use App\Repository\Campaign\CampaignMemberRepository;
+use App\Repository\Campaign\CampaignRepository;
+use App\Repository\Character\CharacterRelationshipRepository;
+use App\Repository\Character\CharacterRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;

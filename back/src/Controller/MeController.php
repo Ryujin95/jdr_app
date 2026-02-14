@@ -4,7 +4,7 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Repository\CampaignRepository;
+use App\Repository\Campaign\CampaignRepository;
 use App\Service\MeService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,7 +16,7 @@ class MeController extends AbstractController
 {
     public function __construct(
         private MeService $meService,
-        private CampaignRepository $campaignRepository, // ✅ MODIF: on injecte pour récupérer les rôles de campagnes
+        private CampaignRepository $campaignRepository
     ) {}
 
     #[Route('/me', name: 'api_me_get', methods: ['GET'])]
@@ -27,14 +27,12 @@ class MeController extends AbstractController
             return $this->json(['message' => 'Unauthorized'], 401);
         }
 
-        // ✅ MODIF: on renvoie aussi les rôles par campagne pour supprimer le décalage de l’onglet Éditeur
-        // Le front pourra faire: user.campaignRoles[id] === "MJ"
         $rows = $this->campaignRepository->findForUser($user);
 
         $campaignRoles = [];
         foreach ($rows as $r) {
             if (isset($r['id'], $r['role'])) {
-                $campaignRoles[(string) $r['id']] = (string) $r['role']; // ex: "MJ" ou "Player"
+                $campaignRoles[(string) $r['id']] = (string) $r['role'];
             }
         }
 
@@ -42,16 +40,10 @@ class MeController extends AbstractController
             'id' => $user->getId(),
             'username' => $user->getUsername(),
             'email' => $user->getEmail(),
-
-            // IMPORTANT: ton front s’appuie dessus (ROLE_ADMIN, etc.)
             'roles' => $user->getRoles(),
-
-            // préférence (dans ton User entity tu as: isDisableTransitions())
             'disableTransitions' => method_exists($user, 'isDisableTransitions')
                 ? (bool) $user->isDisableTransitions()
                 : false,
-
-            // ✅ MODIF: clé pour afficher l’onglet Éditeur instant (sans attendre CampaignPage)
             'campaignRoles' => $campaignRoles,
         ], 200);
     }
@@ -64,10 +56,9 @@ class MeController extends AbstractController
             return $this->json(['message' => 'Unauthorized'], 401);
         }
 
-        $data = json_decode($request->getContent(), true) ?? [];
+        $data = json_decode($request->getContent() ?: '', true) ?? [];
         $user = $this->meService->update($user, $data);
 
-        // ✅ MODIF: on renvoie aussi campaignRoles après update (pour garder le front cohérent)
         $rows = $this->campaignRepository->findForUser($user);
 
         $campaignRoles = [];
@@ -86,8 +77,6 @@ class MeController extends AbstractController
             'disableTransitions' => method_exists($user, 'isDisableTransitions')
                 ? (bool) $user->isDisableTransitions()
                 : false,
-
-            // ✅ MODIF
             'campaignRoles' => $campaignRoles,
         ], 200);
     }

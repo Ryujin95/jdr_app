@@ -1,7 +1,7 @@
 <?php
 // src/Repository/CharacterRelationshipRepository.php
 
-namespace App\Repository;
+namespace App\Repository\Character;
 
 use App\Entity\Character;
 use App\Entity\CharacterRelationship;

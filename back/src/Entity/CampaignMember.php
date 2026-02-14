@@ -4,7 +4,7 @@
 
 namespace App\Entity;
 
-use App\Repository\CampaignMemberRepository;
+use App\Repository\Campaign\CampaignMemberRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CampaignMemberRepository::class)]

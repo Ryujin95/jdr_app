@@ -1,14 +1,16 @@
 <?php
-// back/src/Entity/Campaign.php
+// back/src/Entity/Campaign/Campaign.php (ou garde ton chemin actuel si tu ne bouges pas les dossiers)
 
 namespace App\Entity;
 
-use App\Repository\CampaignRepository;
+use App\Repository\Campaign\CampaignRepository;
+use App\Entity\Map\Map;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CampaignRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Campaign
 {
     #[ORM\Id]
@@ -22,7 +24,6 @@ class Campaign
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $theme = null;
 
-    // Code pour rejoindre une campagne (ex: 758h62)
     #[ORM\Column(length: 12, unique: true, nullable: true)]
     private ?string $joinCode = null;
 
@@ -36,6 +37,11 @@ class Campaign
     #[ORM\OneToMany(mappedBy: 'campaign', targetEntity: CampaignMember::class, orphanRemoval: true)]
     private Collection $members;
 
+    // Une campagne a UNE map (obligatoire)
+    #[ORM\ManyToOne(targetEntity: Map::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Map $map = null;
+
     public function __construct()
     {
         $this->members = new ArrayCollection();
@@ -44,13 +50,26 @@ class Campaign
         $this->updatedAt = $now;
     }
 
+    #[ORM\PrePersist]
+    public function onPrePersist(): void
+    {
+        $now = new \DateTimeImmutable();
+        $this->createdAt = $now;
+        $this->updatedAt = $now;
+    }
+
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
     public function getId(): ?int { return $this->id; }
 
     public function getTitle(): string { return $this->title; }
     public function setTitle(string $title): self
     {
         $this->title = $title;
-        $this->touch();
         return $this;
     }
 
@@ -58,29 +77,18 @@ class Campaign
     public function setTheme(?string $theme): self
     {
         $this->theme = $theme;
-        $this->touch();
         return $this;
     }
 
-    public function getJoinCode(): ?string
-    {
-        return $this->joinCode;
-    }
-
+    public function getJoinCode(): ?string { return $this->joinCode; }
     public function setJoinCode(?string $joinCode): self
     {
         $this->joinCode = $joinCode;
-        $this->touch();
         return $this;
     }
 
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
-
-    public function touch(): void
-    {
-        $this->updatedAt = new \DateTimeImmutable();
-    }
 
     /** @return Collection<int, CampaignMember> */
     public function getMembers(): Collection { return $this->members; }
@@ -101,6 +109,13 @@ class Campaign
                 $member->setCampaign(null);
             }
         }
+        return $this;
+    }
+
+    public function getMap(): ?Map { return $this->map; }
+    public function setMap(?Map $map): self
+    {
+        $this->map = $map;
         return $this;
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Entity;
 
-use App\Repository\CharacterSkillValueRepository;
+use App\Repository\Character\CharacterSkillValueRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CharacterSkillValueRepository::class)]

@@ -71,19 +71,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $resetPasswordTokenExpiresAt = null;
 
-    /**
-     * @var Collection<int, CharacterKnowledge>
-     */
-    #[ORM\OneToMany(targetEntity: CharacterKnowledge::class, mappedBy: 'viewer')]
-    private Collection $characterKnowledge;
-
     // ✅ NOUVEAU : préférence utilisateur (désactiver la vidéo de transition)
     #[ORM\Column(options: ['default' => false])]
     private bool $disableTransitions = false;
 
     public function __construct()
     {
-        $this->characterKnowledge = new ArrayCollection();
         $this->deleted = false;
         $this->disableTransitions = false;
     }
@@ -189,35 +182,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setResetPasswordTokenExpiresAt(?\DateTimeImmutable $expiresAt): static
     {
         $this->resetPasswordTokenExpiresAt = $expiresAt;
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, CharacterKnowledge>
-     */
-    public function getCharacterKnowledge(): Collection
-    {
-        return $this->characterKnowledge;
-    }
-
-    public function addCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
-    {
-        if (!$this->characterKnowledge->contains($characterKnowledge)) {
-            $this->characterKnowledge->add($characterKnowledge);
-            $characterKnowledge->setViewer($this);
-        }
-
-        return $this;
-    }
-
-    public function removeCharacterKnowledge(CharacterKnowledge $characterKnowledge): static
-    {
-        if ($this->characterKnowledge->removeElement($characterKnowledge)) {
-            if ($characterKnowledge->getViewer() === $this) {
-                $characterKnowledge->setViewer(null);
-            }
-        }
-
         return $this;
     }
 

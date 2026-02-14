@@ -2,7 +2,7 @@
 
 namespace App\Entity;
 
-use App\Repository\CharacterRelationshipRepository;
+use App\Repository\Character\CharacterRelationshipRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CharacterRelationshipRepository::class)]
