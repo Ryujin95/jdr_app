@@ -1,5 +1,5 @@
 // src/pages/CampaignEditorPage.jsx
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { API_URL } from "../config";
@@ -9,14 +9,12 @@ function CampaignEditorPage() {
   const navigate = useNavigate();
   const { token } = useContext(AuthContext);
 
-  // Récupère le contexte depuis CampaignPage.jsx
   const outlet = useOutletContext() || {};
   const campaignId = outlet.campaignId ? String(outlet.campaignId) : null;
   const isMjInThisCampaign = !!outlet.isMjInThisCampaign;
 
   const [mode, setMode] = useState("character");
 
-  // --- états communs au formulaire personnage ---
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
   const [nickname, setNickname] = useState("");
@@ -34,20 +32,15 @@ function CampaignEditorPage() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
 
-  // Attribution (si ton back le permet)
-  const [users, setUsers] = useState([]);
-  const [ownerUserId, setOwnerUserId] = useState(""); // "" = aucun
-
-  // --- états du formulaire lieu ---
   const [locationName, setLocationName] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
-
-  // --- select suppression lieu ---
   const [deleteLocationId, setDeleteLocationId] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
+
+  const locationsAbortRef = useRef(null);
 
   const authHeaders = useMemo(() => {
     const h = {};
@@ -55,10 +48,10 @@ function CampaignEditorPage() {
     return h;
   }, [token]);
 
-  // cleanup preview URL quand on change d'image
   useEffect(() => {
     return () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+      if (locationsAbortRef.current) locationsAbortRef.current.abort();
     };
   }, [avatarPreview]);
 
@@ -78,75 +71,53 @@ function CampaignEditorPage() {
   const refreshLocations = async () => {
     if (!token || !campaignId) return;
 
-    try {
-      // On garde la même route, on ajoute juste campaignId en query (si ton back le prend en compte)
-      const r = await fetch(`${API_URL}/locations?campaignId=${encodeURIComponent(campaignId)}`, {
-        headers: authHeaders,
-      });
-      if (!r.ok) return;
+    if (locationsAbortRef.current) locationsAbortRef.current.abort();
+    const controller = new AbortController();
+    locationsAbortRef.current = controller;
 
-      const data = await r.json();
+    try {
+      const res = await fetch(
+        `${API_URL}/locations?campaignId=${encodeURIComponent(campaignId)}`,
+        { headers: authHeaders, signal: controller.signal }
+      );
+
+      if (!res.ok) return;
+
+      const data = await res.json().catch(() => []);
       const list = Array.isArray(data) ? data : [];
       setLocations(list);
 
-      if (deleteLocationId && !list.some((l) => String(l.id) === String(deleteLocationId))) {
-        setDeleteLocationId(list.length > 0 ? String(list[0].id) : "");
-      }
-    } catch {
-      // ignore
+      setDeleteLocationId((prev) => {
+        if (!prev) return list.length > 0 ? String(list[0].id) : "";
+        const stillExists = list.some((l) => String(l.id) === String(prev));
+        return stillExists ? prev : list.length > 0 ? String(list[0].id) : "";
+      });
+    } catch (e) {
+      if (e?.name === "AbortError") return;
     }
   };
 
-  // Charger les lieux existants (dans la campagne)
   useEffect(() => {
     if (!token || !campaignId) return;
-
-    const fetchLocations = async () => {
-      try {
-        const res = await fetch(
-          `${API_URL}/locations?campaignId=${encodeURIComponent(campaignId)}`,
-          { headers: authHeaders }
-        );
-        if (!res.ok) return;
-
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : [];
-        setLocations(list);
-
-        if (!deleteLocationId && list.length > 0) {
-          setDeleteLocationId(String(list[0].id));
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    fetchLocations();
+    refreshLocations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, campaignId]);
 
-  // Charger les users (optionnel : si le back autorise MJ)
-  useEffect(() => {
-    if (!token) return;
-
-    const fetchUsers = async () => {
-      try {
-        const res = await fetch(`${API_URL}/admin/users`, { headers: authHeaders });
-
-        if (!res.ok) {
-          setUsers([]);
-          return;
-        }
-
-        const data = await res.json().catch(() => []);
-        setUsers(Array.isArray(data) ? data : []);
-      } catch {
-        setUsers([]);
-      }
-    };
-
-    fetchUsers();
-  }, [token, authHeaders]);
+  const resetCharacterForm = () => {
+    setFirstname("");
+    setLastname("");
+    setNickname("");
+    setAge("");
+    setBiography("");
+    setStrengths("");
+    setWeaknesses("");
+    setClan("");
+    setIsPlayer(false);
+    setSecret("");
+    setLocationId("");
+    setAvatarFile(null);
+    setAvatarPreview(null);
+  };
 
   const handleSubmitCharacter = async (e) => {
     e.preventDefault();
@@ -186,85 +157,24 @@ function CampaignEditorPage() {
         formData.append("avatar", avatarFile);
       }
 
-      // On tente d’abord la route existante (si ton back la permet), sinon fallback
-      const tryEndpoints = [`${API_URL}/admin/characters`, `${API_URL}/characters`];
+      const res = await fetch(`${API_URL}/characters`, {
+        method: "POST",
+        headers: authHeaders,
+        body: formData,
+      });
 
-      let res = null;
-      let lastText = "";
-      for (const url of tryEndpoints) {
-        res = await fetch(url, {
-          method: "POST",
-          headers: authHeaders,
-          body: formData,
-        });
-
-        if (res.ok) break;
-
-        lastText = await res.text().catch(() => "");
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Erreur création personnage (HTTP ${res.status})`);
       }
 
-      if (!res || !res.ok) {
-        throw new Error(lastText || `Erreur création personnage (HTTP ${res?.status || "?"})`);
-      }
-
-      const created = await res.json().catch(() => null);
-
-      // Attribution (si dispo)
-      const chosenOwnerId = ownerUserId ? Number(ownerUserId) : null;
-      const createdId = created?.id;
-
-      if (createdId && chosenOwnerId !== null) {
-        const tryOwnerEndpoints = [
-          `${API_URL}/admin/characters/${createdId}/owner`,
-          `${API_URL}/characters/${createdId}/owner`,
-        ];
-
-        let r2 = null;
-        let t2 = "";
-        for (const url of tryOwnerEndpoints) {
-          r2 = await fetch(url, {
-            method: "PATCH",
-            headers: {
-              ...authHeaders,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ userId: chosenOwnerId }),
-          });
-
-          if (r2.ok) break;
-          t2 = await r2.text().catch(() => "");
-        }
-
-        if (!r2 || !r2.ok) {
-          throw new Error(
-            t2 ||
-              "Le personnage a été créé, mais l'attribution au joueur a échoué (route owner non autorisée)."
-          );
-        }
-
-        await r2.json().catch(() => null);
-      }
+      await res.json().catch(() => null);
 
       setInfo("Personnage créé avec succès.");
-
-      setFirstname("");
-      setLastname("");
-      setNickname("");
-      setAge("");
-      setBiography("");
-      setStrengths("");
-      setWeaknesses("");
-      setClan("");
-      setIsPlayer(false);
-      setSecret("");
-      setLocationId("");
-      setAvatarFile(null);
-      setAvatarPreview(null);
-      setOwnerUserId("");
-
+      resetCharacterForm();
       await refreshLocations();
     } catch (e2) {
-      setError(e2.message || "Erreur inconnue côté personnage.");
+      setError(e2?.message || "Erreur inconnue côté personnage.");
     } finally {
       setSubmitting(false);
     }
@@ -293,6 +203,7 @@ function CampaignEditorPage() {
         headers: {
           ...authHeaders,
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
           campaignId: Number(campaignId),
@@ -303,7 +214,7 @@ function CampaignEditorPage() {
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new Error(text || `Erreur HTTP ${res.status}`);
+        throw new Error(text || `Erreur création lieu (HTTP ${res.status})`);
       }
 
       await res.json().catch(() => null);
@@ -311,10 +222,9 @@ function CampaignEditorPage() {
       setInfo("Lieu créé avec succès.");
       setLocationName("");
       setLocationDescription("");
-
       await refreshLocations();
     } catch (e2) {
-      setError(e2.message || "Erreur inconnue côté lieu.");
+      setError(e2?.message || "Erreur inconnue côté lieu.");
     } finally {
       setSubmitting(false);
     }
@@ -331,13 +241,12 @@ function CampaignEditorPage() {
 
     const loc = locations.find((l) => String(l.id) === String(deleteLocationId));
     const label = loc?.name ? ` "${loc.name}"` : "";
-
     const ok = window.confirm(`Envoyer ce lieu${label} dans la corbeille ?`);
     if (!ok) return;
 
-    try {
-      setSubmitting(true);
+    setSubmitting(true);
 
+    try {
       const res = await fetch(`${API_URL}/trash/move/location/${deleteLocationId}`, {
         method: "PATCH",
         headers: authHeaders,
@@ -345,29 +254,21 @@ function CampaignEditorPage() {
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new Error(text || "Impossible d'envoyer ce lieu dans la corbeille.");
+        throw new Error(text || `Impossible d'envoyer ce lieu dans la corbeille (HTTP ${res.status}).`);
       }
 
       setInfo("Lieu envoyé dans la corbeille.");
       await refreshLocations();
     } catch (e) {
-      setError(e.message || "Erreur lors de l'envoi du lieu dans la corbeille.");
+      setError(e?.message || "Erreur lors de l'envoi du lieu dans la corbeille.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!token) {
-    return <p style={{ padding: "2rem" }}>Tu dois être connecté pour utiliser l’éditeur.</p>;
-  }
-
-  if (!campaignId) {
-    return <p style={{ padding: "2rem" }}>Aucune campagne active (ouvre une campagne).</p>;
-  }
-
-  if (!isMjInThisCampaign) {
-    return <p style={{ padding: "2rem" }}>Tu n’es pas MJ sur cette campagne.</p>;
-  }
+  if (!token) return <p style={{ padding: "2rem" }}>Tu dois être connecté pour utiliser l’éditeur.</p>;
+  if (!campaignId) return <p style={{ padding: "2rem" }}>Aucune campagne active (ouvre une campagne).</p>;
+  if (!isMjInThisCampaign) return <p style={{ padding: "2rem" }}>Tu n’es pas MJ sur cette campagne.</p>;
 
   return (
     <div className="character-form-page">
@@ -416,12 +317,7 @@ function CampaignEditorPage() {
             <div className="form-row">
               <label>
                 Surnom (obligatoire)
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  required
-                />
+                <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} required />
               </label>
 
               <label>
@@ -442,11 +338,7 @@ function CampaignEditorPage() {
               </label>
 
               <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={isPlayer}
-                  onChange={(e) => setIsPlayer(e.target.checked)}
-                />
+                <input type="checkbox" checked={isPlayer} onChange={(e) => setIsPlayer(e.target.checked)} />
                 Personnage joueur
               </label>
             </div>
@@ -464,22 +356,6 @@ function CampaignEditorPage() {
                 </select>
               </label>
             </div>
-
-            {!!users.length && (
-              <div className="form-row">
-                <label>
-                  Attribuer à un joueur
-                  <select value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)}>
-                    <option value="">Aucun</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.username || u.email || `User #${u.id}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            )}
           </div>
 
           <div className="form-section">
@@ -529,12 +405,7 @@ function CampaignEditorPage() {
           </div>
 
           <div className="form-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => navigate(-1)}
-              disabled={submitting}
-            >
+            <button type="button" className="secondary-button" onClick={() => navigate(-1)} disabled={submitting}>
               Annuler
             </button>
 
@@ -552,12 +423,7 @@ function CampaignEditorPage() {
 
             <label>
               Nom du lieu
-              <input
-                type="text"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                required
-              />
+              <input type="text" value={locationName} onChange={(e) => setLocationName(e.target.value)} required />
             </label>
 
             <label>
@@ -601,12 +467,7 @@ function CampaignEditorPage() {
           </div>
 
           <div className="form-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => navigate(-1)}
-              disabled={submitting}
-            >
+            <button type="button" className="secondary-button" onClick={() => navigate(-1)} disabled={submitting}>
               Annuler
             </button>
 

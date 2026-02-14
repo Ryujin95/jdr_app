@@ -37,7 +37,7 @@ class Campaign
     #[ORM\OneToMany(mappedBy: 'campaign', targetEntity: CampaignMember::class, orphanRemoval: true)]
     private Collection $members;
 
-    // Une campagne a UNE map (obligatoire)
+    // Une campagne peut avoir une map (nullable = pas de map au début)
     #[ORM\ManyToOne(targetEntity: Map::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Map $map = null;
@@ -64,34 +64,59 @@ class Campaign
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int { return $this->id; }
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
 
-    public function getTitle(): string { return $this->title; }
+    public function getTitle(): string
+    {
+        return $this->title;
+    }
+
     public function setTitle(string $title): self
     {
         $this->title = $title;
         return $this;
     }
 
-    public function getTheme(): ?string { return $this->theme; }
+    public function getTheme(): ?string
+    {
+        return $this->theme;
+    }
+
     public function setTheme(?string $theme): self
     {
         $this->theme = $theme;
         return $this;
     }
 
-    public function getJoinCode(): ?string { return $this->joinCode; }
+    public function getJoinCode(): ?string
+    {
+        return $this->joinCode;
+    }
+
     public function setJoinCode(?string $joinCode): self
     {
         $this->joinCode = $joinCode;
         return $this;
     }
 
-    public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
-    public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
+    public function getCreatedAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function getUpdatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
 
     /** @return Collection<int, CampaignMember> */
-    public function getMembers(): Collection { return $this->members; }
+    public function getMembers(): Collection
+    {
+        return $this->members;
+    }
 
     public function addMember(CampaignMember $member): self
     {
@@ -112,10 +137,22 @@ class Campaign
         return $this;
     }
 
-    public function getMap(): ?Map { return $this->map; }
+    public function getMap(): ?Map
+    {
+        return $this->map;
+    }
+
     public function setMap(?Map $map): self
     {
         $this->map = $map;
         return $this;
+    }
+
+    public function delete(): void
+    {
+        // IMPORTANT: ne pas modifier la collection pendant le foreach
+        foreach (new ArrayCollection($this->members->toArray()) as $member) {
+            $this->removeMember($member);
+        }
     }
 }

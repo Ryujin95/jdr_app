@@ -18,12 +18,20 @@ class LocationController extends AbstractController
     }
 
     #[Route('/locations', name: 'api_locations_index', methods: ['GET'])]
-    public function index(): JsonResponse
-    {
-        $locations = $this->locationService->getLocationsForCurrentUser();
+public function index(Request $request): JsonResponse
+{
+    $campaignId = $request->query->get('campaignId');
 
-        return new JsonResponse($locations, 200);
+    if (!$campaignId || !is_numeric($campaignId)) {
+        return new JsonResponse(['message' => 'campaignId requis'], 400);
     }
+
+    $locations = $this->locationService
+        ->getLocationsForCurrentUser((int) $campaignId);
+
+    return new JsonResponse($locations, 200);
+}
+
 
     #[Route('/locations', name: 'api_locations_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
@@ -44,4 +52,18 @@ class LocationController extends AbstractController
             return new JsonResponse(['message' => $e->getMessage()], 400);
         }
     }
+
+        #[Route('/api/locations', name: 'api_locations_list', methods: ['GET'])]
+        public function list(Request $request): JsonResponse
+        {
+            $campaignIdRaw = $request->query->get('campaignId');
+            $campaignId = is_numeric($campaignIdRaw) ? (int) $campaignIdRaw : null;
+
+            try {
+                return $this->json($this->locationService->getLocationsForCurrentUser($campaignId), 200);
+            } catch (\InvalidArgumentException $e) {
+                return $this->json(['message' => $e->getMessage()], 400);
+            }
+        }
+
 }

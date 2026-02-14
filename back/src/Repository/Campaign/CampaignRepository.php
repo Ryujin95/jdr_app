@@ -22,7 +22,17 @@ class CampaignRepository extends ServiceEntityRepository
             ->innerJoin('c.members', 'm')
             ->andWhere('m.user = :user')
             ->setParameter('user', $user)
-            ->select('c.id, c.title, c.theme, c.joinCode, c.updatedAt, m.role');
+            ->select([
+                'c.id AS id',
+                'c.title AS title',
+                'c.theme AS theme',
+                'c.updatedAt AS updatedAt',
+                'c.joinCode AS joinCode',
+                'm.role AS role',
+
+                // le point clé: récupérer l'id de la map liée à la campagne
+                'IDENTITY(c.map) AS mapId',
+            ]);
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -35,13 +45,17 @@ class CampaignRepository extends ServiceEntityRepository
     }
 
     /** @return array<string, mixed>|null */
-    public function findOneForUser(User $user, int $campaignId): ?array
-    {
-        return $this->qbForUser($user)
-            ->andWhere('c.id = :id')
-            ->setParameter('id', $campaignId)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
-    }
+   // back/src/Repository/Campaign/CampaignRepository.php
+public function findOneForUser(User $user, int $campaignId): ?array
+{
+    $row = $this->qbForUser($user)
+        ->andWhere('c.id = :cid')
+        ->setParameter('cid', $campaignId)
+        ->setMaxResults(1)
+        ->getQuery()
+        ->getOneOrNullResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
+
+    return is_array($row) ? $row : null;
+}
+
 }

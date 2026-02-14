@@ -1,5 +1,5 @@
 // src/pages/CampaignPage.jsx
-import { NavLink, Outlet, useParams, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useParams, useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState } from "react";
 import "../CSS/CampaignPage.css";
 import { API_URL } from "../config";
@@ -7,11 +7,16 @@ import { AuthContext } from "../context/AuthContext";
 
 export default function CampaignPage() {
   const { id } = useParams();
-  const { state } = useLocation(); // ✅ MODIF
+  const { state } = useLocation();
+  const navigate = useNavigate();
   const { token, user } = useContext(AuthContext);
 
-  // ✅ MODIF: on initialise avec la campagne passée depuis Dashboard (zéro décalage onglet Éditeur)
   const [campaign, setCampaign] = useState(() => state?.campaign ?? null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setCampaign(state?.campaign ?? null);
+  }, [id, state]);
 
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ROLE_ADMIN");
 
@@ -19,23 +24,19 @@ export default function CampaignPage() {
     if (!token || !id) return;
 
     const controller = new AbortController();
-    const { signal } = controller;
 
-    const load = async () => {
+    (async () => {
       try {
-        // ✅ MODIF: ici on n'a plus besoin de /campaigns pour connaitre le rôle si on vient du Dashboard
-        // On garde juste le show pour joinCode + infos à jour.
         const resShow = await fetch(`${API_URL}/campaigns/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
-          signal,
+          signal: controller.signal,
         });
 
         if (!resShow.ok) return;
 
         const fromShow = await resShow.json().catch(() => null);
-        if (!fromShow || !fromShow.id) return;
+        if (!fromShow?.id) return;
 
-        // ✅ MODIF: on garde le role déjà connu (state) si le show ne le renvoie pas
         setCampaign((prev) => ({
           ...(prev || {}),
           ...(fromShow || {}),
@@ -44,9 +45,8 @@ export default function CampaignPage() {
       } catch (e) {
         if (e?.name === "AbortError") return;
       }
-    };
+    })();
 
-    load();
     return () => controller.abort();
   }, [token, id]);
 
@@ -65,6 +65,41 @@ export default function CampaignPage() {
   const joinCode =
     campaign?.joinCode && String(campaign.joinCode).trim() !== "" ? String(campaign.joinCode) : "—";
 
+  const handleDeleteCampaign = async () => {
+    if (!token || !id) return;
+    if (!isMjInThisCampaign) return;
+    if (isDeleting) return;
+
+    const ok = window.confirm("Tu veux vraiment supprimer cette campagne ? Cette action est définitive.");
+    if (!ok) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/campaigns/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.status === 204 || res.ok) {
+        if (String(localStorage.getItem("activeCampaignId")) === String(id)) {
+          localStorage.removeItem("activeCampaignId");
+          localStorage.removeItem("activeCampaignRole");
+        }
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      const txt = await res.text().catch(() => "");
+      throw new Error(txt || `Erreur suppression (${res.status})`);
+    } catch (e) {
+      alert(e?.message || "Impossible de supprimer la campagne.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <main className="campaign">
       <div className="campaign-head">
@@ -74,6 +109,16 @@ export default function CampaignPage() {
           <span className="campaign-invite-label">Code de la partie</span>
           <code className="campaign-invite-code">{joinCode}</code>
         </div>
+
+        <button
+          className="delete-campaign-button"
+          type="button"
+          onClick={handleDeleteCampaign}
+          disabled={!isMjInThisCampaign || isDeleting}
+          title={!isMjInThisCampaign ? "Seul le MJ (ou un admin) peut supprimer cette campagne" : ""}
+        >
+          {isDeleting ? "Suppression..." : "Supprimer la campagne"}
+        </button>
       </div>
 
       <div className="campaign-tabs">

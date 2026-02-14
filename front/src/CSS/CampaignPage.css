@@ -56,6 +56,20 @@
   color: #666;
 }
 
+.delete-campaign-button {
+  margin-top: 1rem; 
+  align-self: center; 
+  padding: 0.6rem 1.2rem; 
+  font-size: 0.95rem; 
+  font-weight: 600; 
+  color: #fff; 
+  background-color: #e53e3e; /* rouge vif */ 
+  border: none; 
+  border-radius: 6px; 
+  cursor: pointer; 
+  transition: background-color 0.2s ease; } 
+
+
 /* Onglets */
 .campaign-tabs {
   display: flex;

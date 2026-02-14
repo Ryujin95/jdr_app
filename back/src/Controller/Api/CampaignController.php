@@ -100,4 +100,23 @@ class CampaignController extends AbstractController
             return $this->json(['message' => $e->getMessage()], 403);
         }
     }
+
+    #[Route('/api/campaigns/{id}', name: 'api_campaign_delete', methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
+
+        try {
+            $this->campaignService->deleteCampaign($user, $id);
+            return $this->json(['message' => 'Campagne supprimée'], 200);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\RuntimeException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        }
+    }
+
 }

@@ -18,29 +18,35 @@ class LocationService
     /**
      * Retourne la liste des lieux visibles pour l'utilisateur connecté.
      */
-    public function getLocationsForCurrentUser(): array
-    {
-        $user = $this->security->getUser();
-
-        if (!$user) {
-            return [];
-        }
-
-        // méthode perso dans ton repository
-        $locations = $this->locationRepository->findAllActive();
-
-        $data = [];
-
-        foreach ($locations as $location) {
-            $data[] = [
-                'id'          => $location->getId(),
-                'name'        => $location->getName(),
-                'description' => $location->getDescription(),
-            ];
-        }
-
-        return $data;
+   public function getLocationsForCurrentUser(?int $campaignId): array
+{
+    /** @var User|null $user */
+    $user = $this->security->getUser();
+    if (!$user) {
+        return [];
     }
+
+    if (!$campaignId) {
+        throw new \InvalidArgumentException('campaignId requis');
+    }
+
+    $locations = $this->locationRepository->findActiveByCampaignId($campaignId);
+
+    $data = [];
+    foreach ($locations as $location) {
+        $data[] = [
+            'id'          => $location->getId(),
+            'name'        => $location->getName(),
+            'description' => $location->getDescription(),
+            'campaignId'  => $location->getCampaign()?->getId(),
+        ];
+    }
+
+    return $data;
+}
+
+
+
 
     /**
      * Crée un nouveau lieu à partir des données envoyées par le front.

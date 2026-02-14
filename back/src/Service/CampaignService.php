@@ -42,6 +42,18 @@ class CampaignService
 
     }
 
+    public function deleteCampaign(User $user, int $campaignId): void
+    {
+        $campaign = $this->getForUser($user, $campaignId);
+
+        if (!$campaign) {
+            throw new \RuntimeException('Campagne introuvable.');
+        }
+
+        $this->em->remove($campaign);
+        $this->em->flush();
+    }
+
     // ✅ CAS SIMPLE: création campagne SANS map
    public function createCampaign(User $creator, string $title, ?string $theme): Campaign
 {
@@ -183,22 +195,28 @@ class CampaignService
     }
 
     /** @return array<string, mixed> */
-    public function getForUserData(User $user, int $campaignId): array
-    {
-        $row = $this->campaignRepo->findOneForUser($user, $campaignId);
-        if (!$row) {
-            throw new \InvalidArgumentException('Forbidden');
-        }
+   // back/src/Service/CampaignService.php
+// back/src/Service/CampaignService.php
 
-        return [
-            'id' => (int) $row['id'],
-            'title' => (string) $row['title'],
-            'theme' => $row['theme'] !== null ? (string) $row['theme'] : null,
-            'joinCode' => $row['joinCode'] !== null ? (string) $row['joinCode'] : null,
-            'updatedAt' => $row['updatedAt'] instanceof \DateTimeInterface
-                ? $row['updatedAt']->format(\DateTimeInterface::ATOM)
-                : null,
-            'role' => (string) $row['role'],
-        ];
+public function getForUserData(User $user, int $campaignId): array
+{
+    $row = $this->campaignRepo->findOneForUser($user, $campaignId);
+    if (!$row) {
+        throw new \InvalidArgumentException('Forbidden');
     }
+
+    return [
+        'id' => (int) $row['id'],
+        'title' => (string) $row['title'],
+        'theme' => $row['theme'] !== null ? (string) $row['theme'] : null,
+        'joinCode' => $row['joinCode'] !== null ? (string) $row['joinCode'] : null,
+        'updatedAt' => $row['updatedAt'] instanceof \DateTimeInterface
+            ? $row['updatedAt']->format(\DateTimeInterface::ATOM)
+            : null,
+        'role' => (string) $row['role'],
+        'mapId' => $row['mapId'] !== null ? (int) $row['mapId'] : null,
+    ];
+}
+
+
 }

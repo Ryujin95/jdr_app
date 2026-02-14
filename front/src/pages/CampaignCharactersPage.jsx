@@ -283,10 +283,10 @@ function CampaignCharactersPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            fromCharacterId: fromId,
-            toCharacterId: toId,
-            stars,
-          }),
+          fromCharacterId: fromId,
+          toCharacterId: toId,
+          relationshipStars: stars,
+        }),
         });
 
         if (!res.ok) {

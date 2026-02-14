@@ -1,56 +1,196 @@
 /* src/pages/MapPage.css */
 
 .map-page {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .map-title {
-    font-size: 24px;
-    text-align: center;
-    margin-bottom: 8px;
-  }
-  
-  .map-container {
-    position: relative;
-    max-width: 1200px;
-    margin: 0 auto;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
-  }
-  
-  .map-image {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-  
-  .map-zone {
-    position: absolute;
-    border: 2px solid rgba(255, 255, 255, 0.7);
-    background: rgba(0, 0, 0, 0.25);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
-  }
-  
-  .map-zone:hover {
-    transform: scale(1.05);
-    background: rgba(0, 0, 0, 0.45);
-    border-color: rgba(255, 255, 255, 0.95);
-  }
-  
-  .map-zone-label {
-    font-size: 12px;
-    color: #fff;
-    text-align: center;
-    padding: 4px 6px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 6px;
-  }
-  
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.map-title {
+  font-size: 24px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.map-container {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+  overflow: visible; /* IMPORTANT: sinon le hover peut être coupé */
+}
+
+/* si ton JSX a la classe map-container--relative, elle ne change rien ici mais on la laisse */
+.map-container--relative {
+  position: relative;
+}
+
+.map-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.map-zone {
+  position: absolute;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.map-zone:hover {
+  transform: scale(1.05);
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+.map-zone-label {
+  font-size: 12px;
+  color: #fff;
+  text-align: center;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 6px;
+  pointer-events: none; /* évite les effets bizarres au survol */
+}
+
+/* =========================
+   TOOLBAR (Edit mode)
+   (ne change rien à la carte, juste rend les boutons propres)
+   ========================= */
+
+.map-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0 auto;
+  max-width: 1200px;
+}
+
+.map-toolbar-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: #111;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, opacity 150ms ease;
+}
+
+.map-toolbar-btn:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.map-toolbar-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.map-toolbar-btn.danger {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.map-toolbar-hint {
+  font-size: 13px;
+  opacity: 0.75;
+  color: #111;
+}
+
+/* =========================
+   EDITING (déplacement / resize)
+   ========================= */
+
+.map-zone.editing {
+  border-style: dashed;
+}
+
+/* le JSX met data-editable="true" quand c’est déplaçable */
+.map-zone[data-editable="true"] {
+  cursor: move;
+}
+
+/* poignée de resize */
+.map-zone-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  cursor: nwse-resize;
+}
+
+/* =========================
+   HOVER (liste des persos dans le lieu)
+   ========================= */
+
+.map-zone-hover {
+  position: absolute;
+  transform: translate(-50%, -110%);
+  z-index: 1000;
+
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  min-width: 200px;
+  max-height: 160px;
+  overflow-y: auto;
+
+  pointer-events: none; /* le hover ne doit pas “capturer” la souris */
+}
+
+.map-zone-hover-title {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-bottom: 6px;
+  color: #fff;
+}
+
+.map-zone-hover-muted {
+  font-size: 13px;
+  opacity: 0.85;
+  color: #fff;
+}
+
+.map-zone-hover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-zone-hover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-zone-hover-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.map-zone-hover-avatar.placeholder {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.map-zone-hover-nickname {
+  font-size: 13px;
+  color: #fff;
+}

@@ -20,12 +20,10 @@ services:
       $frontBaseUrl: '%app.front_base_url%'
       $ttlMinutes: 240
 
-  # 👉 injection explicite du projectDir pour l’upload avatar
   App\Service\CharacterService:
     arguments:
       $projectDir: '%kernel.project_dir%'
 
-  # 👉 Ajoutez cette configuration pour MapService
   App\Service\MapService:
     arguments:
       $projectDir: '%kernel.project_dir%'

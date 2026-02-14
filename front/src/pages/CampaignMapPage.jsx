@@ -1,53 +1,112 @@
 // src/pages/CampaignMapPage.jsx
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { API_URL } from "../config";
+import { AuthContext } from "../context/AuthContext";
 import "../CSS/MapPage.css";
 
 export default function CampaignMapPage() {
-  const navigate = useNavigate();
-  const { campaignId } = useOutletContext();
+  const outlet = useOutletContext() || {};
+  const { campaignId, campaign } = outlet;
+  const { token } = useContext(AuthContext);
 
-  // mapping aligné avec ta BDD
-  const zones = [
-    { id: "zone-rouge", label: "Zone rouge", locationId: 2, top: "15%", left: "10%", width: "22%", height: "22%" },
-    { id: "le-qg", label: "Le QG", locationId: 1, top: "55%", left: "15%", width: "12%", height: "12%" },
-    { id: "la-faille", label: "La Faille", locationId: 3, top: "75%", left: "13%", width: "16%", height: "12%" },
+  const [mapData, setMapData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-    { id: "centre-eglise", label: "Centre-ville : Église", locationId: 4, top: "75%", left: "44%", width: "10%", height: "9%" },
-    { id: "centre-commissariat", label: "Centre-ville : Commissariat", locationId: 5, top: "85%", left: "44%", width: "10%", height: "9%" },
-    { id: "centre-hopital", label: "Centre-ville : Hôpital", locationId: 6, top: "85%", left: "57%", width: "10%", height: "9%" },
-    { id: "centre-mall", label: "Centre-ville : Centre commercial", locationId: 7, top: "75%", left: "57%", width: "10%", height: "9%" },
+  const mapId = useMemo(() => {
+    const v = campaign?.mapId;
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [campaign?.mapId]);
 
-    { id: "foret-cramoisie", label: "Forêt cramoisie", locationId: 8, top: "65%", left: "70%", width: "20%", height: "18%" },
-    { id: "enclave-silencieuse", label: "L'enclave silencieuse", locationId: 9, top: "25%", left: "65%", width: "24%", height: "18%" },
-  ];
+  const BACK_BASE_URL = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
 
-  const handleZoneClick = (zone) => {
-    if (campaignId) {
-      localStorage.setItem("activeCampaignId", String(campaignId));
-    }
-
-    // on garde la route existante, on ajoute juste le campaignId en query
-    navigate(`/locations/${zone.locationId}/characters?campaignId=${encodeURIComponent(String(campaignId || ""))}`);
+  const resolveUrl = (path) => {
+    if (!path) return null;
+    const url = String(path).trim();
+    if (/^https?:\/\//i.test(url)) return url;
+    if (url.startsWith("/")) return `${BACK_BASE_URL}${url}`;
+    return `${BACK_BASE_URL}/${url}`;
   };
+
+  useEffect(() => {
+    setMapData(null);
+    setError("");
+
+    if (!token) return;
+    if (!mapId) return;
+
+    const controller = new AbortController();
+    setLoading(true);
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/maps/${mapId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          setError(txt || "Impossible de charger la map.");
+          return;
+        }
+
+        const data = await res.json().catch(() => null);
+        setMapData(data);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        setError(e?.message || "Erreur");
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [token, mapId, campaignId]);
+
+  if (!mapId) {
+    return (
+      <div className="map-page">
+        <h1 className="map-title">Carte</h1>
+        <div className="map-empty">Aucune map pour cette campagne.</div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="map-page">
+        <h1 className="map-title">Carte</h1>
+        <div className="map-empty">Chargement…</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="map-page">
+        <h1 className="map-title">Carte</h1>
+        <div className="map-empty">{error}</div>
+      </div>
+    );
+  }
+
+  const img = resolveUrl(mapData?.imagePath);
 
   return (
     <div className="map-page">
-      <h1 className="map-title">Carte d'Atlanta</h1>
+      <h1 className="map-title">{mapData?.name ? `Carte : ${mapData.name}` : "Carte"}</h1>
 
-      <div className="map-container">
-        <img src="/images/map.png" alt="Carte d'Atlanta" className="map-image" />
-
-        {zones.map((zone) => (
-          <div
-            key={zone.id}
-            className="map-zone"
-            style={{ top: zone.top, left: zone.left, width: zone.width, height: zone.height }}
-            onClick={() => handleZoneClick(zone)}
-          >
-            <span className="map-zone-label">{zone.label}</span>
-          </div>
-        ))}
-      </div>
+      {!img ? (
+        <div className="map-empty">Map sans image.</div>
+      ) : (
+        <div className="map-container map-container--relative">
+          <img src={img} alt={mapData?.name || "Carte"} className="map-image" draggable={false} />
+        </div>
+      )}
     </div>
   );
 }

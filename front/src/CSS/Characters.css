@@ -175,6 +175,19 @@
 
 /* ===== ÉTOILES ===== */
 .relationship-stars {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  gap: 4px;
+}
+
+.relationship-stars .star {
+  display: inline-flex;
+}
+
+.relationship-stars {
   line-height: 1;
 }
 
