@@ -15,13 +15,16 @@ class MapController extends AbstractController
     public function __construct(private MapService $mapService) {}
 
     #[Route('', name: 'api_maps_list', methods: ['GET'])]
-    public function list(): JsonResponse
+    public function list(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
 
+        $campaignId = $request->query->get('campaignId');
+        $campaignId = is_numeric($campaignId) ? (int)$campaignId : null;
+
         try {
-            return $this->json($this->mapService->listForUser($user), 200);
+            return $this->json($this->mapService->listForUser($user, $campaignId), 200);
         } catch (\Throwable $e) {
             $code = $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException ? 403 : 500;
             return $this->json(['message' => $e->getMessage()], $code);
@@ -45,29 +48,27 @@ class MapController extends AbstractController
         }
     }
 
-    // upload multipart/form-data:
-    // - name: string (obligatoire)
-    // - image: file (obligatoire)
-    // - zones: string JSON (optionnel)
+    // JSON:
+    // { "campaignId": 123, "name": "...", "imageUrl": "..." }
     #[Route('', name: 'api_maps_create', methods: ['POST'])]
-    public function create(Request $request): JsonResponse
-    {
-        $user = $this->getUser();
-        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
-
-        try {
-            $map = $this->mapService->createFromRequest($user, $request);
-            return $this->json($this->mapService->toArray($map), 201);
-        } catch (\InvalidArgumentException $e) {
-            return $this->json(['message' => $e->getMessage()], 400);
-        } catch (\Throwable $e) {
-            $code = $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException ? 403 : 500;
-            return $this->json(['message' => $e->getMessage()], $code);
-        }
+public function create(Request $request): JsonResponse
+{
+    $user = $this->getUser();
+    if (!$user) {
+        return $this->json(['message' => 'Unauthorized'], 401);
     }
 
+    try {
+        $map = $this->mapService->createFromRequest($user, $request);
+        return $this->json($this->mapService->toArray($map), 201);
+    } catch (\Throwable $e) {
+        return $this->json(['message' => $e->getMessage()], 500);
+    }
+}
+
+
     // JSON:
-    // { "name": "...", "zones": [...] }
+    // { "name": "...", "imageUrl": "...", "zones": [...] }
     #[Route('/{id}', name: 'api_maps_update', methods: ['PATCH', 'PUT'])]
     public function update(int $id, Request $request): JsonResponse
     {

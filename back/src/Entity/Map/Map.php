@@ -2,6 +2,7 @@
 
 namespace App\Entity\Map;
 
+use App\Entity\Campaign;
 use App\Repository\Map\MapRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -17,28 +18,22 @@ class Map
     #[ORM\Column(length: 255)]
     private string $name;
 
-    // image principale de la carte (ex: /images/maps/atlanta.png)
     #[ORM\Column(length: 255)]
     private string $imagePath;
 
-    // optionnel : description courte
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $description = null;
 
-    // optionnel : actif / désactivé (si tu veux cacher une carte)
     #[ORM\Column(type: 'boolean')]
     private bool $enabled = true;
 
-    /**
-     * ✅ AJOUT
-     * Zones de la carte (rectangles, polygones plus tard si tu veux)
-     * Exemple :
-     * [
-     *   { "id": "zone-1", "x": 12, "y": 20, "width": 30, "height": 15, "label": "Zone rouge" }
-     * ]
-     */
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $zones = null;
+
+    // ✅ AJOUT : la map appartient à une campagne
+    #[ORM\ManyToOne(targetEntity: Campaign::class)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    private ?Campaign $campaign = null;
 
     public function getId(): ?int
     {
@@ -89,8 +84,6 @@ class Map
         return $this;
     }
 
-    // ✅ ZONES
-
     public function getZones(): ?array
     {
         return $this->zones;
@@ -99,6 +92,19 @@ class Map
     public function setZones(?array $zones): self
     {
         $this->zones = $zones;
+        return $this;
+    }
+
+    // ✅ Campaign
+
+    public function getCampaign(): ?Campaign
+    {
+        return $this->campaign;
+    }
+
+    public function setCampaign(?Campaign $campaign): self
+    {
+        $this->campaign = $campaign;
         return $this;
     }
 }

@@ -22,17 +22,17 @@ class Zone
 
     // identifiant "stable" côté front (ex: "zone-rouge")
     #[ORM\Column(length: 80)]
-    private string $code;
+    private string $code = '';
 
-    #[ORM\Column(length: 255)]
-    private string $label;
+    // ✅ label optionnel
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $label = null;
 
     // optionnel : si tu veux lier une zone à un Location existant (ton système de lieux)
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $locationId = null;
 
-    // ✅ positions + tailles en POURCENTAGE (mobile friendly)
-    // (ex: 15.25 = 15.25%)
+    // positions + tailles en POURCENTAGE (mobile friendly)
     #[ORM\Column(type: 'float')]
     private float $topPercent = 0.0;
 
@@ -45,14 +45,13 @@ class Zone
     #[ORM\Column(type: 'float')]
     private float $heightPercent = 10.0;
 
-    // optionnel : activer / désactiver une zone
     #[ORM\Column(type: 'boolean')]
     private bool $enabled = true;
 
-    #[ORM\Column]
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
-    #[ORM\Column]
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
     public function __construct()
@@ -96,14 +95,15 @@ class Zone
         return $this;
     }
 
-    public function getLabel(): string
+    public function getLabel(): ?string
     {
         return $this->label;
     }
 
-    public function setLabel(string $label): self
+    public function setLabel(?string $label): self
     {
-        $this->label = trim($label);
+        $label = is_string($label) ? trim($label) : null;
+        $this->label = ($label === '') ? null : $label;
         $this->touch();
         return $this;
     }
