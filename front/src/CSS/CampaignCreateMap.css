@@ -1,0 +1,227 @@
+/* src/CSS/CampaignCreateMapPage.css */
+
+/* Page container */
+.campaign-map-create {
+  max-width: 980px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+}
+
+/* Titles */
+.campaign-map-create-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+/* Card blocks (form + delete block) */
+.campaign-map-create-form,
+.campaign-map-delete {
+  background: linear-gradient(180deg, #15161a 0%, #101114 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  padding: 1.25rem;
+}
+
+.campaign-map-delete {
+  margin-top: 1.25rem;
+}
+
+/* Messages */
+.campaign-map-create-error {
+  margin: 0 0 1rem 0;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: rgba(229, 62, 62, 0.15);
+  border: 1px solid rgba(229, 62, 62, 0.35);
+  color: #ffd6d6;
+  font-weight: 600;
+}
+
+.campaign-map-create-info {
+  margin: 0.75rem 0;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Fields */
+.campaign-map-create-field {
+  margin: 0 0 1rem 0;
+}
+
+.campaign-map-create-label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.86);
+  margin-bottom: 0.4rem;
+}
+
+/* Inputs */
+.campaign-map-create-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.campaign-map-create-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.campaign-map-create-input:focus {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06);
+}
+
+/* File input: same vibe */
+input[type="file"].campaign-map-create-input {
+  padding: 0.55rem 0.9rem;
+  height: auto;
+}
+
+/* Select */
+select.campaign-map-create-input {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.65) 50%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.65) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 18px,
+    calc(100% - 12px) 18px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.2rem;
+}
+
+/* Actions row */
+.campaign-map-create-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+/* Buttons */
+.campaign-map-create-btn {
+  height: 42px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.campaign-map-create-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.campaign-map-create-btn:active {
+  transform: translateY(1px);
+}
+
+.campaign-map-create-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Primary (create) */
+.campaign-map-create-btn-primary {
+  border: none;
+  background: linear-gradient(135deg, #ff7a18 0%, #ff3d77 100%);
+  color: #0b0b0d;
+  box-shadow: 0 14px 28px rgba(255, 61, 119, 0.22);
+}
+
+.campaign-map-create-btn-primary:hover {
+  background: linear-gradient(135deg, #ff8a2f 0%, #ff4f86 100%);
+}
+
+/* Secondary */
+.campaign-map-create-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Danger (delete) */
+.campaign-map-create-btn-danger {
+  border: none;
+  background: linear-gradient(135deg, #ff4b4b 0%, #b91c1c 100%);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(255, 75, 75, 0.22);
+}
+
+.campaign-map-create-btn-danger:hover {
+  background: linear-gradient(135deg, #ff5a5a 0%, #c81f1f 100%);
+}
+
+/* Small layout improvements for delete area */
+.campaign-map-delete .campaign-map-create-title {
+  margin-bottom: 0.75rem;
+  font-size: 1.35rem;
+}
+
+.campaign-map-delete .campaign-map-create-field {
+  margin-bottom: 0.75rem;
+}
+
+.campaign-map-create-preview {
+  margin-top: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(0, 0, 0, 0.25);
+
+  /* clé: on limite la taille */
+  max-height: 420px;
+  width: 100%;
+
+  /* évite les trucs qui passent devant */
+  position: relative;
+  z-index: 0;
+}
+
+/* l'image ne doit JAMAIS dépasser */
+.campaign-map-create-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 420px;
+
+  /* le rendu le plus propre pour une map */
+  object-fit: contain;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* optionnel: si ton layout est en flex quelque part, ça évite les débordements */
+.campaign-map-create,
+.campaign-map-create-form {
+  min-width: 0;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .campaign-map-create {
+    padding: 1rem;
+  }
+
+  .campaign-map-create-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .campaign-map-create-btn {
+    width: 100%;
+  }
+}

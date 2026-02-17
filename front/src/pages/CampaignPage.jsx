@@ -4,6 +4,7 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import "../CSS/CampaignPage.css";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
+import TrashPanel from "../components/TrashPanel"; // ✅ AJOUT
 
 export default function CampaignPage() {
   const { id } = useParams();
@@ -15,8 +16,11 @@ export default function CampaignPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    setCampaign(state?.campaign ?? null);
-  }, [id, state]);
+  if (state?.campaign) {
+    setCampaign(state.campaign);
+  }
+}, [id, state]);
+
 
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ROLE_ADMIN");
 
@@ -77,9 +81,7 @@ export default function CampaignPage() {
     try {
       const res = await fetch(`${API_URL}/campaigns/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.status === 204 || res.ok) {
@@ -109,54 +111,55 @@ export default function CampaignPage() {
           <span className="campaign-invite-label">Code de la partie</span>
           <code className="campaign-invite-code">{joinCode}</code>
         </div>
+      </div>
 
+      <div className="campaign-delete-button-container">
+              {isMjInThisCampaign && (
         <button
           className="delete-campaign-button"
           type="button"
           onClick={handleDeleteCampaign}
-          disabled={!isMjInThisCampaign || isDeleting}
-          title={!isMjInThisCampaign ? "Seul le MJ (ou un admin) peut supprimer cette campagne" : ""}
+          disabled={isDeleting}
         >
           {isDeleting ? "Suppression..." : "Supprimer la campagne"}
         </button>
-      </div>
+      )}
+  </div>
 
       <div className="campaign-tabs">
-        <NavLink
-          to={`/campaigns/${id}/wall`}
-          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-          end
-        >
+        <NavLink to={`/campaigns/${id}/wall`} className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`} end>
           Mur
         </NavLink>
 
-        <NavLink
-          to={`/campaigns/${id}/characters`}
-          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-        >
+        <NavLink to={`/campaigns/${id}/characters`} className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}>
           Personnages
         </NavLink>
 
-        <NavLink
-          to={`/campaigns/${id}/map`}
-          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-        >
+        <NavLink to={`/campaigns/${id}/map`} className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}>
           Carte
         </NavLink>
 
         {isMjInThisCampaign && (
-          <NavLink
-            to={`/campaigns/${id}/editor`}
-            className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-          >
+          <NavLink to={`/campaigns/${id}/editor`} className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}>
             Éditeur
           </NavLink>
         )}
+
+        {isMjInThisCampaign && (
+        <NavLink
+          to={`/campaigns/${id}/createMap`}   // ← ton nouvel onglet
+          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
+        >
+          Ajouter une carte
+        </NavLink>
+      )}
       </div>
 
       <section className="campaign-content">
         <Outlet context={{ campaignId: id, isMjInThisCampaign, campaign }} />
       </section>
+
+      <TrashPanel /> {/* ✅ AJOUT : la corbeille s’affiche en bas */}
     </main>
   );
 }

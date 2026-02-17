@@ -14,7 +14,6 @@ import NotificationBox from "./components/NotificationBox.jsx";
 import CharactersPage from "./pages/CharactersPage.jsx";
 import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
 import TransitionVideo from "./pages/TransitionVideo.jsx";
-import TrashPanel from "./components/TrashPanel.jsx";
 import LocationCharactersPage from "./pages/LocationCharactersPage.jsx";
 import CharacterEditPage from "./pages/CharacterEditPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -24,6 +23,7 @@ import CampaignWallPage from "./pages/CampaignWallPage.jsx";
 import CampaignCharactersPage from "./pages/CampaignCharactersPage.jsx";
 import CampaignMapPage from "./pages/CampaignMapPage.jsx";
 import CampaignEditorPage from "./pages/CampaignEditorPage.jsx";
+import CampaignCreateMapPage from "./pages/CampaignCreateMapPage.jsx";
 
 function App() {
   const [trashOpen, setTrashOpen] = useState(false);
@@ -59,10 +59,9 @@ function App() {
           <Route path="characters" element={<CampaignCharactersPage />} />
           <Route path="map" element={<CampaignMapPage />} />
           <Route path="editor" element={<CampaignEditorPage />} />
+          <Route path="createMap" element={<CampaignCreateMapPage />} />
         </Route>
       </Routes>
-
-      <TrashPanel />
 
       <Footer />
     </div>

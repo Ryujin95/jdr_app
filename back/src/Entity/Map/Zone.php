@@ -3,6 +3,7 @@
 
 namespace App\Entity\Map;
 
+use App\Entity\Location;
 use App\Repository\Map\ZoneRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -24,13 +25,14 @@ class Zone
     #[ORM\Column(length: 80)]
     private string $code = '';
 
-    // ✅ label optionnel
+    // label optionnel
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $label = null;
 
-    // optionnel : si tu veux lier une zone à un Location existant (ton système de lieux)
-    #[ORM\Column(type: 'integer', nullable: true)]
-    private ?int $locationId = null;
+    // ✅ Lien vers un Location (lieu) (colonne: location_id)
+    #[ORM\ManyToOne(targetEntity: Location::class)]
+    #[ORM\JoinColumn(name: 'location_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?Location $location = null;
 
     // positions + tailles en POURCENTAGE (mobile friendly)
     #[ORM\Column(type: 'float')]
@@ -108,14 +110,14 @@ class Zone
         return $this;
     }
 
-    public function getLocationId(): ?int
+    public function getLocation(): ?Location
     {
-        return $this->locationId;
+        return $this->location;
     }
 
-    public function setLocationId(?int $locationId): self
+    public function setLocation(?Location $location): self
     {
-        $this->locationId = $locationId;
+        $this->location = $location;
         $this->touch();
         return $this;
     }

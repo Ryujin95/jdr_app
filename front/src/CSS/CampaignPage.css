@@ -56,9 +56,14 @@
   color: #666;
 }
 
+.campaign-delete-button-container {
+  display: flex;
+  justify-content: right;
+  margin-top: 1rem;
+}
+
 .delete-campaign-button {
   margin-top: 1rem; 
-  align-self: center; 
   padding: 0.6rem 1.2rem; 
   font-size: 0.95rem; 
   font-weight: 600; 
@@ -67,7 +72,8 @@
   border: none; 
   border-radius: 6px; 
   cursor: pointer; 
-  transition: background-color 0.2s ease; } 
+  transition: background-color 0.2s ease; 
+} 
 
 
 /* Onglets */

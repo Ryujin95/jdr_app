@@ -7,6 +7,7 @@ use App\Repository\Character\CharacterRepository;
 use App\Repository\LocationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 class TrashService
 {
@@ -52,13 +53,30 @@ class TrashService
 
     /**
      * Déplacer un élément dans la corbeille (deleted = true)
+     * NOTE: $campaignId et $user sont passés par le controller pour garder un cadre cohérent.
      */
-    public function moveToTrash(string $entity, int $id): void
+    public function moveToTrash(string $entity, int $id, int $campaignId, UserInterface $user): void
     {
+        if ($campaignId <= 0) {
+            throw new \InvalidArgumentException('campaignId manquant ou invalide');
+        }
+
         $item = $this->getEntityItem($entity, $id);
 
         if (!method_exists($item, 'setDeleted')) {
             throw new \RuntimeException('Cette entité ne supporte pas le champ deleted.');
+        }
+
+        // Vérif campagne "safe" : seulement si l'entité expose getCampaign()
+        if (method_exists($item, 'getCampaign')) {
+            $campaign = $item->getCampaign();
+
+            if ($campaign !== null && method_exists($campaign, 'getId')) {
+                $itemCampaignId = (int) $campaign->getId();
+                if ($itemCampaignId !== 0 && $itemCampaignId !== $campaignId) {
+                    throw new \RuntimeException('Cet élément n’appartient pas à la campagne demandée.');
+                }
+            }
         }
 
         $item->setDeleted(true);

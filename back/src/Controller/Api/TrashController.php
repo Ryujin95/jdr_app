@@ -47,20 +47,29 @@ class TrashController extends AbstractController
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
 
-        $payload = json_decode($request->getContent() ?: '{}', true);
-        $campaignId = isset($payload['campaignId']) ? (int) $payload['campaignId'] : 0;
-
-        if ($campaignId <= 0) {
-            return new JsonResponse(['message' => 'campaignId manquant ou invalide'], 400);
-        }
-
         $user = $this->getUser();
         if (!$user) {
             throw new AccessDeniedException('Permission denied');
         }
 
-        $this->trashService->moveToTrash($entity, $id, $campaignId, $user);
+        $payload = json_decode($request->getContent() ?: '{}', true);
+        if (!is_array($payload)) $payload = [];
 
-        return new JsonResponse(['message' => 'Moved to trash'], 200);
+        $campaignId = 0;
+        if (isset($payload['campaignId']) && is_numeric($payload['campaignId'])) {
+            $campaignId = (int) $payload['campaignId'];
+        }
+
+        try {
+            // ✅ campaignId devient optionnel : 0 = “déduis toi-même”
+            $this->trashService->moveToTrash($entity, $id, $campaignId, $user);
+            return new JsonResponse(['message' => 'Moved to trash'], 200);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        } catch (\RuntimeException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['message' => 'Internal error'], 500);
+        }
     }
 }

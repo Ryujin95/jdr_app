@@ -222,3 +222,31 @@ export function apiDeleteCampaign(token, campaignId) {
     method: "DELETE",
   });
 }
+
+/* MAPS */
+export function apiListMaps(token, campaignId, options = {}) {
+  const qs = campaignId ? `?campaignId=${encodeURIComponent(String(campaignId))}` : "";
+  return apiFetch(`/maps${qs}`, { token, ...options });
+}
+
+export function apiCreateMap(token, campaignId, data, options = {}) {
+  // data attendu: { name, imageUrl?, description?, enabled?, zones? }
+  return apiFetch(`/maps`, {
+    token,
+    method: "POST",
+    body: {
+      campaignId: Number(campaignId),
+      ...data,
+    },
+    ...options,
+  });
+}
+
+export function apiDeleteMap(token, mapId, options = {}) {
+  return apiFetch(`/maps/${mapId}`, {
+    token,
+    method: "DELETE",
+    ...options,
+  });
+}
+
