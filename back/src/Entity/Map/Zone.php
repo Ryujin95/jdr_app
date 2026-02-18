@@ -21,7 +21,7 @@ class Zone
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Map $map = null;
 
-    // identifiant "stable" côté front (ex: "zone-rouge")
+    // identifiant "stable" côté front (non nullable en DB)
     #[ORM\Column(length: 80)]
     private string $code = '';
 
@@ -29,12 +29,12 @@ class Zone
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $label = null;
 
-    // ✅ Lien vers un Location (lieu) (colonne: location_id)
+    // Lien vers un Location (colonne: location_id)
     #[ORM\ManyToOne(targetEntity: Location::class)]
     #[ORM\JoinColumn(name: 'location_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Location $location = null;
 
-    // positions + tailles en POURCENTAGE (mobile friendly)
+    // positions + tailles en POURCENTAGE
     #[ORM\Column(type: 'float')]
     private float $topPercent = 0.0;
 
@@ -120,6 +120,12 @@ class Zone
         $this->location = $location;
         $this->touch();
         return $this;
+    }
+
+    // utile côté API/front si tu veux juste l’id
+    public function getLocationId(): ?int
+    {
+        return $this->location?->getId();
     }
 
     public function getTopPercent(): float

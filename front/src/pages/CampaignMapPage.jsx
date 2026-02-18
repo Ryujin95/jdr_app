@@ -17,7 +17,6 @@ export default function CampaignMapPage() {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  // UI “3 boutons”
   const [panel, setPanel] = useState(null); // null | "create" | "delete"
   const [locName, setLocName] = useState("");
   const [locDescription, setLocDescription] = useState("");
@@ -26,7 +25,6 @@ export default function CampaignMapPage() {
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState("");
 
-  // Zones (rectangles)
   const [zones, setZones] = useState([]);
   const [loadingZones, setLoadingZones] = useState(false);
 
@@ -49,7 +47,6 @@ export default function CampaignMapPage() {
     return Number.isFinite(n) ? n : NaN;
   };
 
-  // 1) Charger la map de la campagne
   useEffect(() => {
     setMapData(null);
     setError("");
@@ -87,7 +84,6 @@ export default function CampaignMapPage() {
     return () => controller.abort();
   }, [token, campaignId]);
 
-  // 2) Charger les locations de la campagne (select “Supprimer”)
   const refreshLocations = useCallback(async () => {
     if (!token || !campaignId) return;
 
@@ -123,7 +119,6 @@ export default function CampaignMapPage() {
     refreshLocations();
   }, [refreshLocations]);
 
-  // 3) Charger les zones de la map
   const refreshZones = useCallback(async () => {
     if (!token) return;
     if (!mapData?.id) return;
@@ -157,7 +152,19 @@ export default function CampaignMapPage() {
     refreshZones();
   }, [mapData?.id, refreshZones]);
 
-  // 4) Créer Location + Zone standard
+  // ✅ IMPORTANT: écoute la corbeille (restore / delete définitif) et refresh la carte sans F5
+  useEffect(() => {
+    const onTrashChanged = () => {
+      // on relance les 2, comme ça la liste + les rectangles suivent la BD
+      refreshLocations();
+      refreshZones();
+    };
+
+    window.addEventListener("trash:changed", onTrashChanged);
+    return () => window.removeEventListener("trash:changed", onTrashChanged);
+  }, [refreshLocations, refreshZones]);
+
+  // ✅ Créer Location (et le back crée la Zone par défaut)
   const handleCreateLocationAndZone = async (e) => {
     e.preventDefault();
     setError("");
@@ -175,7 +182,6 @@ export default function CampaignMapPage() {
     }
 
     try {
-      // 4.1 create location
       const resLoc = await fetch(`${API_URL}/locations`, {
         method: "POST",
         headers: {
@@ -200,41 +206,7 @@ export default function CampaignMapPage() {
         throw new Error(txt || `HTTP ${resLoc.status}`);
       }
 
-      const createdLocation = await resLoc.json().catch(() => null);
-      const locationId = createdLocation?.id;
-
-      if (!locationId) {
-        throw new Error("Le back n’a pas renvoyé l’id de la location créée.");
-      }
-
-      // 4.2 create zone standard
-      const resZone = await fetch(`${API_URL}/zones`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          mapId: Number(mapData.id),
-          locationId: Number(locationId),
-          label: name,
-          topPercent: 35,
-          leftPercent: 35,
-          widthPercent: 20,
-          heightPercent: 20,
-        }),
-      });
-
-      if (!resZone.ok) {
-        const ct = resZone.headers.get("content-type") || "";
-        if (ct.includes("application/json")) {
-          const j = await resZone.json().catch(() => null);
-          throw new Error(j?.message || `HTTP ${resZone.status}`);
-        }
-        const txt = await resZone.text().catch(() => "");
-        throw new Error(txt || `HTTP ${resZone.status}`);
-      }
+      await resLoc.json().catch(() => null);
 
       setLocName("");
       setLocDescription("");
@@ -244,11 +216,10 @@ export default function CampaignMapPage() {
 
       setPanel(null);
     } catch (e2) {
-      setError(e2?.message || "Erreur lors de la création du lieu + zone.");
+      setError(e2?.message || "Erreur lors de la création du lieu.");
     }
   };
 
-  // 5) Envoyer location à la corbeille (PATCH /trash/move/location/:id avec campaignId)
   const handleDeleteLocationToTrash = async () => {
     setError("");
 
@@ -380,7 +351,11 @@ export default function CampaignMapPage() {
           <div className="map-panel-row">
             <label>
               Description (optionnel)
-              <textarea value={locDescription} onChange={(e) => setLocDescription(e.target.value)} rows={3} />
+              <textarea
+                value={locDescription}
+                onChange={(e) => setLocDescription(e.target.value)}
+                rows={3}
+              />
             </label>
           </div>
 

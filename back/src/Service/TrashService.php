@@ -1,13 +1,14 @@
 <?php
+// back/src/Service/TrashService.php
 
 namespace App\Service;
 
 use App\Repository\UserRepository;
 use App\Repository\Character\CharacterRepository;
 use App\Repository\LocationRepository;
+use App\Repository\Map\ZoneRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Security\Core\User\UserInterface;
 
 class TrashService
 {
@@ -15,12 +16,10 @@ class TrashService
         private UserRepository $userRepository,
         private CharacterRepository $characterRepository,
         private LocationRepository $locationRepository,
+        private ZoneRepository $zoneRepository,
         private EntityManagerInterface $em
     ) {}
 
-    /**
-     * Liste tout ce qui est envoyé dans le panier
-     */
     public function getTrash(): array
     {
         $users = $this->userRepository->findAllDeleted();
@@ -51,41 +50,18 @@ class TrashService
         ];
     }
 
-    /**
-     * Déplacer un élément dans la corbeille (deleted = true)
-     * NOTE: $campaignId et $user sont passés par le controller pour garder un cadre cohérent.
-     */
-    public function moveToTrash(string $entity, int $id, int $campaignId, UserInterface $user): void
+    public function moveToTrash(string $entity, int $id): void
     {
-        if ($campaignId <= 0) {
-            throw new \InvalidArgumentException('campaignId manquant ou invalide');
-        }
-
         $item = $this->getEntityItem($entity, $id);
 
         if (!method_exists($item, 'setDeleted')) {
             throw new \RuntimeException('Cette entité ne supporte pas le champ deleted.');
         }
 
-        // Vérif campagne "safe" : seulement si l'entité expose getCampaign()
-        if (method_exists($item, 'getCampaign')) {
-            $campaign = $item->getCampaign();
-
-            if ($campaign !== null && method_exists($campaign, 'getId')) {
-                $itemCampaignId = (int) $campaign->getId();
-                if ($itemCampaignId !== 0 && $itemCampaignId !== $campaignId) {
-                    throw new \RuntimeException('Cet élément n’appartient pas à la campagne demandée.');
-                }
-            }
-        }
-
         $item->setDeleted(true);
         $this->em->flush();
     }
 
-    /**
-     * Restaurer un élément supprimé (deleted = false)
-     */
     public function restore(string $entity, int $id): void
     {
         $item = $this->getEntityItem($entity, $id);
@@ -98,20 +74,31 @@ class TrashService
         $this->em->flush();
     }
 
-    /**
-     * Suppression définitive
-     */
     public function forceDelete(string $entity, int $id): void
     {
+        $entity = strtolower(trim($entity));
+
+        // ✅ Cas spécial : si on supprime définitivement un lieu,
+        // on supprime aussi ses zones (sinon rectangles “fantômes”).
+        if ($entity === 'location') {
+            $loc = $this->locationRepository->find($id);
+            if (!$loc) {
+                throw new NotFoundHttpException("Élément introuvable: location #{$id}");
+            }
+
+            $this->zoneRepository->deleteByLocationId($id);
+
+            $this->em->remove($loc);
+            $this->em->flush();
+            return;
+        }
+
         $item = $this->getEntityItem($entity, $id);
 
         $this->em->remove($item);
         $this->em->flush();
     }
 
-    /**
-     * Récupère l'entité demandée ou throw NotFound
-     */
     private function getEntityItem(string $entity, int $id): object
     {
         $entity = strtolower(trim($entity));

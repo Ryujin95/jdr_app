@@ -25,7 +25,7 @@ class ZoneController extends AbstractController
             return $this->json(['message' => 'mapId requis'], 400);
         }
 
-        $zones = $this->zoneService->listByMap((int)$mapId);
+        $zones = $this->zoneService->listByMap((int) $mapId);
         return $this->json($zones, 200);
     }
 
@@ -49,4 +49,6 @@ class ZoneController extends AbstractController
             return $this->json(['message' => $e->getMessage()], 500);
         }
     }
+
+   
 }
