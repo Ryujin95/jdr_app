@@ -1,6 +1,6 @@
 // src/pages/CampaignMapPage.jsx
 import { useOutletContext } from "react-router-dom";
-import { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
 import "../CSS/MapPage.css";
@@ -17,7 +17,7 @@ export default function CampaignMapPage() {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  const [panel, setPanel] = useState(null); // null | "create" | "delete"
+  const [panel, setPanel] = useState(null);
   const [locName, setLocName] = useState("");
   const [locDescription, setLocDescription] = useState("");
 
@@ -27,6 +27,9 @@ export default function CampaignMapPage() {
 
   const [zones, setZones] = useState([]);
   const [loadingZones, setLoadingZones] = useState(false);
+
+  const [activeZoneId, setActiveZoneId] = useState(null);
+  const dragRef = useRef(null);
 
   const BACK_BASE_URL = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
 
@@ -45,6 +48,32 @@ export default function CampaignMapPage() {
     const s = String(v).trim().replace(",", ".");
     const n = Number(s);
     return Number.isFinite(n) ? n : NaN;
+  };
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  const clampMove = (top, left, width, height) => {
+    const t = clamp(top, 0, Math.max(0, 100 - height));
+    const l = clamp(left, 0, Math.max(0, 100 - width));
+    return { top: t, left: l };
+  };
+
+  const clampResize = (top, left, width, height) => {
+    const w = clamp(width, 1, Math.max(1, 100 - left));
+    const h = clamp(height, 1, Math.max(1, 100 - top));
+    return { width: w, height: h };
+  };
+
+  const getZoneCharacters = (z) => {
+    const candidates = z?.characters ?? z?.personnages ?? z?.persons ?? z?.members ?? z?.zoneCharacters ?? z?.zone_characters ?? [];
+    return Array.isArray(candidates) ? candidates : [];
+  };
+
+  const getCharacterNickname = (c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim();
+
+  const getCharacterAvatarUrl = (c) => {
+    const raw = c?.avatarUrl ?? c?.avatar_url ?? c?.avatarPath ?? c?.avatar_path ?? c?.avatar;
+    return resolveUrl(raw);
   };
 
   useEffect(() => {
@@ -83,6 +112,30 @@ export default function CampaignMapPage() {
 
     return () => controller.abort();
   }, [token, campaignId]);
+
+  const patchZone = useCallback(
+    async (zoneId, payload) => {
+      if (!token) return null;
+
+      const res = await fetch(`${API_URL}/zones/${zoneId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+
+      return await res.json().catch(() => null);
+    },
+    [token]
+  );
 
   const refreshLocations = useCallback(async () => {
     if (!token || !campaignId) return;
@@ -148,14 +201,13 @@ export default function CampaignMapPage() {
 
   useEffect(() => {
     setZones([]);
+    setActiveZoneId(null);
     if (!mapData?.id) return;
     refreshZones();
   }, [mapData?.id, refreshZones]);
 
-  // ✅ IMPORTANT: écoute la corbeille (restore / delete définitif) et refresh la carte sans F5
   useEffect(() => {
     const onTrashChanged = () => {
-      // on relance les 2, comme ça la liste + les rectangles suivent la BD
       refreshLocations();
       refreshZones();
     };
@@ -164,7 +216,106 @@ export default function CampaignMapPage() {
     return () => window.removeEventListener("trash:changed", onTrashChanged);
   }, [refreshLocations, refreshZones]);
 
-  // ✅ Créer Location (et le back crée la Zone par défaut)
+  const onZonePointerDown = (e, z, mode) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    setActiveZoneId(z.id);
+
+    const container = e.currentTarget.closest(".map-container");
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+
+    const startTop = toNum(z.topPercent ?? z.top_percent);
+    const startLeft = toNum(z.leftPercent ?? z.left_percent);
+    const startWidth = toNum(z.widthPercent ?? z.width_percent);
+    const startHeight = toNum(z.heightPercent ?? z.height_percent);
+
+    dragRef.current = {
+      id: z.id,
+      mode,
+      rect,
+      startX,
+      startY,
+      startTop,
+      startLeft,
+      startWidth,
+      startHeight,
+    };
+
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const onZonePointerMove = (e) => {
+    if (!isEditing) return;
+    const d = dragRef.current;
+    if (!d) return;
+
+    const dxPx = e.clientX - d.startX;
+    const dyPx = e.clientY - d.startY;
+
+    const dxPct = (dxPx / d.rect.width) * 100;
+    const dyPct = (dyPx / d.rect.height) * 100;
+
+    setZones((prev) =>
+      prev.map((zz) => {
+        if (zz.id !== d.id) return zz;
+
+        const top = toNum(zz.topPercent ?? zz.top_percent);
+        const left = toNum(zz.leftPercent ?? zz.left_percent);
+        const width = toNum(zz.widthPercent ?? zz.width_percent);
+        const height = toNum(zz.heightPercent ?? zz.height_percent);
+
+        if (![top, left, width, height].every((n) => Number.isFinite(n))) return zz;
+
+        if (d.mode === "move") {
+          const ntRaw = d.startTop + dyPct;
+          const nlRaw = d.startLeft + dxPct;
+          const { top: nt, left: nl } = clampMove(ntRaw, nlRaw, width, height);
+          return { ...zz, topPercent: nt, leftPercent: nl };
+        }
+
+        if (d.mode === "se") {
+          const nwRaw = d.startWidth + dxPct;
+          const nhRaw = d.startHeight + dyPct;
+          const { width: nw, height: nh } = clampResize(top, left, nwRaw, nhRaw);
+          return { ...zz, widthPercent: nw, heightPercent: nh };
+        }
+
+        return zz;
+      })
+    );
+  };
+
+  const onZonePointerUp = async () => {
+    if (!isEditing) return;
+    const d = dragRef.current;
+    if (!d) return;
+
+    dragRef.current = null;
+
+    const z = zones.find((x) => x.id === d.id);
+    if (!z) return;
+
+    const payload = {
+      topPercent: toNum(z.topPercent ?? z.top_percent),
+      leftPercent: toNum(z.leftPercent ?? z.left_percent),
+      widthPercent: toNum(z.widthPercent ?? z.width_percent),
+      heightPercent: toNum(z.heightPercent ?? z.height_percent),
+    };
+
+    try {
+      await patchZone(d.id, payload);
+    } catch (err) {
+      setError(err?.message || "Erreur update zone");
+    }
+  };
+
   const handleCreateLocationAndZone = async (e) => {
     e.preventDefault();
     setError("");
@@ -310,20 +461,11 @@ export default function CampaignMapPage() {
         <h1 className="map-title">{mapData?.name ? `Carte : ${mapData.name}` : "Carte"}</h1>
 
         <div className="map-actions">
-          <button
-            type="button"
-            className="map-edit-btn"
-            onClick={() => setPanel((p) => (p === "create" ? null : "create"))}
-          >
+          <button type="button" className="map-edit-btn" onClick={() => setPanel((p) => (p === "create" ? null : "create"))}>
             Créer un lieu
           </button>
 
-          <button
-            type="button"
-            className="map-edit-btn"
-            onClick={() => setPanel((p) => (p === "delete" ? null : "delete"))}
-            disabled={loadingLocations}
-          >
+          <button type="button" className="map-edit-btn" onClick={() => setPanel((p) => (p === "delete" ? null : "delete"))} disabled={loadingLocations}>
             Supprimer
           </button>
 
@@ -351,11 +493,7 @@ export default function CampaignMapPage() {
           <div className="map-panel-row">
             <label>
               Description (optionnel)
-              <textarea
-                value={locDescription}
-                onChange={(e) => setLocDescription(e.target.value)}
-                rows={3}
-              />
+              <textarea value={locDescription} onChange={(e) => setLocDescription(e.target.value)} rows={3} />
             </label>
           </div>
 
@@ -393,12 +531,7 @@ export default function CampaignMapPage() {
             <button type="button" className="map-edit-btn" onClick={() => setPanel(null)}>
               Fermer
             </button>
-            <button
-              type="button"
-              className="map-edit-btn active"
-              onClick={handleDeleteLocationToTrash}
-              disabled={!selectedLocationId || locations.length === 0}
-            >
+            <button type="button" className="map-edit-btn active" onClick={handleDeleteLocationToTrash} disabled={!selectedLocationId || locations.length === 0}>
               Envoyer à la corbeille
             </button>
           </div>
@@ -408,7 +541,12 @@ export default function CampaignMapPage() {
       {!img ? (
         <div className="map-empty">Map sans image.</div>
       ) : (
-        <div className={isEditing ? "map-container map-container--relative editing" : "map-container map-container--relative"}>
+        <div
+          className={isEditing ? "map-container map-container--relative editing" : "map-container map-container--relative"}
+          onPointerMove={onZonePointerMove}
+          onPointerUp={onZonePointerUp}
+          onPointerCancel={onZonePointerUp}
+        >
           <img src={img} alt={mapData?.name || "Carte"} className="map-image" draggable={false} />
 
           {loadingZones
@@ -422,10 +560,12 @@ export default function CampaignMapPage() {
 
                 if (![top, left, width, height].every((n) => Number.isFinite(n))) return null;
 
+                const chars = getZoneCharacters(z);
+
                 return (
                   <div
                     key={z.id}
-                    className="map-zone"
+                    className={activeZoneId === z.id ? "map-zone active" : "map-zone"}
                     style={{
                       top: `${top}%`,
                       left: `${left}%`,
@@ -433,8 +573,25 @@ export default function CampaignMapPage() {
                       height: `${height}%`,
                     }}
                     title={label || "Zone"}
+                    onPointerDown={(e) => onZonePointerDown(e, z, "move")}
                   >
-                    {label ? <span className="map-zone-label">{label}</span> : null}
+                    {!isEditing && chars.length > 0 ? (
+                      <div className="map-zone-characters">
+                        {chars.map((c) => {
+                          const nickname = getCharacterNickname(c);
+                          const avatarUrl = getCharacterAvatarUrl(c);
+
+                          return (
+                            <div key={c.id ?? `${nickname}-${String(avatarUrl)}`} className="map-zone-character-card">
+                              {avatarUrl ? <img className="map-zone-character-avatar" src={avatarUrl} alt={nickname || "avatar"} draggable={false} /> : null}
+                              {nickname ? <div className="map-zone-character-nickname">{nickname}</div> : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {isEditing ? <span className="map-zone-handle" onPointerDown={(e) => onZonePointerDown(e, z, "se")} /> : null}
                   </div>
                 );
               })}

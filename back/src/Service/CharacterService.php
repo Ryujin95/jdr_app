@@ -38,9 +38,7 @@ class CharacterService
     {
         /** @var User|null $user */
         $user = $this->security->getUser();
-        if (!$user) {
-            return [];
-        }
+        if (!$user) return [];
 
         $characters = $locationId !== null
             ? $this->characterRepository->findByLocationIdActive($locationId)
@@ -48,14 +46,14 @@ class CharacterService
 
         if ($campaignId !== null) {
             $characters = array_values(array_filter($characters, static function (Character $c) use ($campaignId) {
-                $camp = method_exists($c, 'getCampaign') ? $c->getCampaign() : null;
+                $camp = $c->getCampaign();
                 return $camp && $camp->getId() === $campaignId;
             }));
         }
 
         $myCharacter = $this->characterRepository->findActivePlayerCharacterByOwner($user);
         if ($campaignId !== null && $myCharacter) {
-            $myCamp = method_exists($myCharacter, 'getCampaign') ? $myCharacter->getCampaign() : null;
+            $myCamp = $myCharacter->getCampaign();
             if (!$myCamp || $myCamp->getId() !== $campaignId) {
                 $myCharacter = null;
             }
@@ -75,7 +73,7 @@ class CharacterService
         $cards = [];
         foreach ($characters as $character) {
             $ownerPayload = null;
-            if ($character->isPlayer() && method_exists($character, 'getOwner') && $character->getOwner()) {
+            if ($character->isPlayer() && $character->getOwner()) {
                 $o = $character->getOwner();
                 $ownerPayload = [
                     'id' => $o->getId(),
@@ -100,7 +98,7 @@ class CharacterService
                 'lastname'  => $character->getLastname(),
                 'age'       => $character->getAge(),
                 'avatarUrl' => $character->getAvatarUrl(),
-                'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl') ? $character->getTransitionVideoUrl() : null,
+                'transitionVideoUrl' => $character->getTransitionVideoUrl(),
                 'isPlayer'  => $character->isPlayer(),
                 'clan'      => $character->getClan(),
                 'owner'     => $ownerPayload,
@@ -131,7 +129,7 @@ class CharacterService
             throw new AccessDeniedException('Authentication required');
         }
 
-        if ($campaignId !== null && method_exists($character, 'getCampaign')) {
+        if ($campaignId !== null) {
             $camp = $character->getCampaign();
             if (!$camp || $camp->getId() !== $campaignId) {
                 throw new AccessDeniedException('Forbidden');
@@ -145,9 +143,7 @@ class CharacterService
             'lastname'  => $character->getLastname(),
             'age'       => $character->getAge(),
             'avatarUrl' => $character->getAvatarUrl(),
-            'transitionVideoUrl' => method_exists($character, 'getTransitionVideoUrl')
-                ? $character->getTransitionVideoUrl()
-                : null,
+            'transitionVideoUrl' => $character->getTransitionVideoUrl(),
             'isPlayer'  => $character->isPlayer(),
             'clan'      => $character->getClan(),
             'biography'  => $character->getBiography(),
@@ -155,7 +151,7 @@ class CharacterService
             'weaknesses' => $character->getWeaknesses(),
         ];
 
-        if ($character->isPlayer() && method_exists($character, 'getOwner') && $character->getOwner()) {
+        if ($character->isPlayer() && $character->getOwner()) {
             $o = $character->getOwner();
             $data['owner'] = [
                 'id' => $o->getId(),
@@ -189,7 +185,7 @@ class CharacterService
         }
         $data['skills'] = $skills;
 
-        if (method_exists($character, 'getLocation') && $character->getLocation()) {
+        if ($character->getLocation()) {
             $data['location'] = [
                 'id' => $character->getLocation()->getId(),
                 'name' => $character->getLocation()->getName(),
@@ -227,15 +223,10 @@ class CharacterService
         }
 
         if ($userId === null) {
-            if (method_exists($character, 'setOwner')) {
-                $character->setOwner(null);
-            }
+            $character->setOwner(null);
             $this->em->flush();
 
-            return [
-                'id' => $character->getId(),
-                'owner' => null,
-            ];
+            return ['id' => $character->getId(), 'owner' => null];
         }
 
         /** @var User|null $user */
@@ -244,9 +235,7 @@ class CharacterService
             throw new \InvalidArgumentException('Utilisateur introuvable');
         }
 
-        if (method_exists($character, 'setOwner')) {
-            $character->setOwner($user);
-        }
+        $character->setOwner($user);
         $this->em->flush();
 
         return [
@@ -273,15 +262,43 @@ class CharacterService
         }
     }
 
+    private function resolveCampaignId(Request $request, ?int $campaignId): ?int
+    {
+        if ($campaignId !== null && $campaignId > 0) return $campaignId;
+
+        $raw = $request->request->get('campaignId');
+        if ($raw === null || $raw === '') {
+            $raw = $request->request->get('campaign_id');
+        }
+
+        return is_numeric($raw) ? (int) $raw : null;
+    }
+
     private function applyRequestToCharacter(Request $request, Character $character, bool $isCreate, ?int $campaignId = null): void
     {
-        if ($campaignId !== null && method_exists($character, 'setCampaign')) {
+        $resolvedCampaignId = $this->resolveCampaignId($request, $campaignId);
+
+        if ($isCreate) {
+            if (!$resolvedCampaignId) {
+                throw new \InvalidArgumentException('campaignId est obligatoire pour créer un personnage.');
+            }
+
             /** @var Campaign|null $camp */
-            $camp = $this->em->getRepository(Campaign::class)->find($campaignId);
+            $camp = $this->em->getRepository(Campaign::class)->find($resolvedCampaignId);
             if (!$camp) {
                 throw new \InvalidArgumentException('Campagne introuvable');
             }
+
             $character->setCampaign($camp);
+        } else {
+            if ($resolvedCampaignId) {
+                /** @var Campaign|null $camp */
+                $camp = $this->em->getRepository(Campaign::class)->find($resolvedCampaignId);
+                if (!$camp) {
+                    throw new \InvalidArgumentException('Campagne introuvable');
+                }
+                $character->setCampaign($camp);
+            }
         }
 
         $nickname = trim((string) $request->request->get('nickname', ''));
@@ -361,8 +378,8 @@ class CharacterService
         $avatarFile = $request->files->get('avatar');
         if ($avatarFile) {
             $clientExt = strtolower((string) $avatarFile->getClientOriginalExtension());
-
             $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+
             if (!in_array($clientExt, $allowedExt, true)) {
                 throw new \InvalidArgumentException('Format image non autorisé (jpg, jpeg, png, webp).');
             }
@@ -372,7 +389,10 @@ class CharacterService
             $originalBase = pathinfo($avatarFile->getClientOriginalName(), PATHINFO_FILENAME);
             $safeBase = (string) $this->slugger->slug($originalBase)->lower();
 
-            $targetDir = rtrim($this->projectDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'image';
+            $targetDir = rtrim($this->projectDir, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR . 'public'
+                . DIRECTORY_SEPARATOR . 'image';
+
             if (!is_dir($targetDir)) {
                 if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
                     throw new \RuntimeException('Impossible de créer le dossier public/image');
@@ -421,7 +441,10 @@ class CharacterService
             $originalBase = pathinfo($videoFile->getClientOriginalName(), PATHINFO_FILENAME);
             $safeBase = (string) $this->slugger->slug($originalBase)->lower();
 
-            $targetDir = rtrim($this->projectDir, '/') . '/public/video';
+            $targetDir = rtrim($this->projectDir, DIRECTORY_SEPARATOR)
+                . DIRECTORY_SEPARATOR . 'public'
+                . DIRECTORY_SEPARATOR . 'video';
+
             if (!is_dir($targetDir)) {
                 if (!@mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
                     throw new \RuntimeException('Impossible de créer le dossier public/video');
@@ -430,20 +453,18 @@ class CharacterService
 
             $filename = $safeBase . '.' . $ext;
             $i = 2;
-            while (file_exists($targetDir . '/' . $filename)) {
+            while (file_exists($targetDir . DIRECTORY_SEPARATOR . $filename)) {
                 $filename = $safeBase . '-' . $i . '.' . $ext;
                 $i++;
             }
 
             try {
                 $videoFile->move($targetDir, $filename);
-            } catch (\Symfony\Component\HttpFoundation\File\Exception\FileException) {
+            } catch (\Throwable) {
                 throw new \RuntimeException('Erreur upload vidéo');
             }
 
-            if (method_exists($character, 'setTransitionVideoUrl')) {
-                $character->setTransitionVideoUrl('/video/' . $filename);
-            }
+            $character->setTransitionVideoUrl('/video/' . $filename);
         }
     }
 }

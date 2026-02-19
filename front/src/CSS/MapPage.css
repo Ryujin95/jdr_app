@@ -1,4 +1,6 @@
-/* src/CSS/MapPage.css */
+/* ==============================
+   Layout général
+============================== */
 
 .map-page {
   max-width: 1100px;
@@ -7,23 +9,35 @@
 }
 
 .map-title {
-  margin: 0 0 18px 0;
+  margin: 0 0 20px 0;
   font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 0.2px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: black
 }
 
 .map-empty {
   padding: 18px 16px;
   border-radius: 14px;
-  background: #0f1115;
+  background: #121417;
   color: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+
+/* ==============================
+   Carte
+============================== */
+
 .map-container {
   border-radius: 18px;
-  background: #0b0d10;
+  background: #0f1114;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   overflow: hidden;
@@ -42,10 +56,228 @@
 }
 
 
+/* --- ZONES --- */
 .map-zone {
   position: absolute;
   box-sizing: border-box;
-  border: 2px solid white;
-  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+}
+
+.map-zone:active {
+  cursor: grabbing;
+}
+
+.map-zone.active {
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.map-zone-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none; /* important: sinon ça bloque le drag */
+  z-index: 2;
+}
+
+/* Persos dans la zone */
+.map-zone-characters {
+  position: absolute;
+  inset: 22px 6px 6px 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  align-content: start;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.map-zone-character-card {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 4px 2px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.map-zone-character-avatar {
+  width: clamp(18px, 2.2vw, 26px);
+  height: clamp(18px, 2.2vw, 26px);
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.map-zone-character-nickname {
+  width: 100%;
+  font-size: clamp(8px, 0.9vw, 10px);
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Poignée resize (bas-droite) */
+.map-zone-handle {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 18px;
+  height: 18px;
   border-radius: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+  cursor: nwse-resize;
+  z-index: 5;
+}
+
+/* petit effet visuel */
+.map-zone-handle::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(0, 0, 0, 0.55);
+  border-bottom: 2px solid rgba(0, 0, 0, 0.55);
+  transform: rotate(0deg);
+}
+
+/* En mode édition, on s'assure que les zones captent bien les events */
+.map-container.editing .map-zone {
+  pointer-events: auto;
+}
+
+
+/* ==============================
+   Boutons universels
+============================== */
+
+.map-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.map-edit-btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #1a1d21;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.map-edit-btn:hover:not(:disabled) {
+  background: #23272d;
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.map-edit-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.map-edit-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+
+/* ==============================
+   Bouton principal (action)
+============================== */
+
+.map-edit-btn.active {
+  background: #ffffff;
+  color: #111;
+  border: none;
+}
+
+.map-edit-btn.active:hover:not(:disabled) {
+  background: #e8e8e8;
+}
+
+
+/* ==============================
+   Bouton danger (optionnel)
+============================== */
+
+.map-edit-btn.danger {
+  background: #c0392b;
+  border: none;
+  color: #ffffff;
+}
+
+.map-edit-btn.danger:hover:not(:disabled) {
+  background: #e74c3c;
+}
+
+
+/* ==============================
+   Panel (Créer / Supprimer)
+============================== */
+
+.map-panel {
+  background: #14171a;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.map-panel-row {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-panel input,
+.map-panel textarea,
+.map-panel select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1b1f24;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.map-panel input:focus,
+.map-panel textarea:focus,
+.map-panel select:focus {
+  outline: none;
+  border-color: #ffffff;
+}
+
+.map-panel-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
 }

@@ -1,12 +1,9 @@
 <?php
-// back/src/Service/ZoneService.php
 
 namespace App\Service;
 
-use App\Entity\Location;
 use App\Entity\Map\Map;
 use App\Entity\Map\Zone;
-use App\Repository\LocationRepository;
 use App\Repository\Map\MapRepository;
 use App\Repository\Map\ZoneRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,33 +14,22 @@ class ZoneService
         private EntityManagerInterface $em,
         private ZoneRepository $zoneRepo,
         private MapRepository $mapRepo,
-        private LocationRepository $locationRepo,
     ) {}
 
-   public function listByMap(int $mapId): array
-{
-    $map = $this->mapRepo->find($mapId);
-    if (!$map instanceof Map) {
-        throw new \RuntimeException('Map not found');
+    public function listByMap(int $mapId): array
+    {
+        $map = $this->mapRepo->find($mapId);
+        if (!$map instanceof Map) {
+            throw new \RuntimeException('Map not found');
+        }
+
+        $zones = $this->zoneRepo->findBy(['map' => $map], ['id' => 'DESC']);
+        return array_map(fn(Zone $z) => $this->toArray($z), $zones);
     }
 
-    $zones = $this->zoneRepo->findBy(['map' => $map], ['id' => 'DESC']);
-
-    // ✅ ne renvoie pas les zones dont la location est dans la corbeille
-    $zones = array_values(array_filter($zones, function(Zone $z) {
-        $loc = $z->getLocation();
-        if (!$loc) return true;          // zone sans location => on la garde (ou tu peux décider de la cacher aussi)
-        return !$loc->isDeleted();       // si location deleted => on cache la zone
-    }));
-
-    return array_map(fn(Zone $z) => $this->toArray($z), $zones);
-}
-
-
-    /** @return array<string,mixed> */
     public function create(array $data): array
     {
-        $mapId = $data['mapId'] ?? $data['map_id'] ?? null;
+        $mapId = $data['mapId'] ?? null;
         if (!is_numeric($mapId)) {
             throw new \InvalidArgumentException('mapId requis');
         }
@@ -53,10 +39,10 @@ class ZoneService
             throw new \RuntimeException('Map not found');
         }
 
-        $top = $this->num($data['topPercent'] ?? $data['top_percent'] ?? null, 'topPercent');
-        $left = $this->num($data['leftPercent'] ?? $data['left_percent'] ?? null, 'leftPercent');
-        $width = $this->num($data['widthPercent'] ?? $data['width_percent'] ?? null, 'widthPercent');
-        $height = $this->num($data['heightPercent'] ?? $data['height_percent'] ?? null, 'heightPercent');
+        $top = $this->num($data['topPercent'] ?? null, 'topPercent');
+        $left = $this->num($data['leftPercent'] ?? null, 'leftPercent');
+        $width = $this->num($data['widthPercent'] ?? null, 'widthPercent');
+        $height = $this->num($data['heightPercent'] ?? null, 'heightPercent');
 
         if ($width <= 0 || $height <= 0) {
             throw new \InvalidArgumentException('widthPercent/heightPercent doivent être > 0');
@@ -75,19 +61,41 @@ class ZoneService
         $zone->setHeightPercent($height);
         $zone->setEnabled(true);
 
-        // ✅ LIGNE QUI MANQUAIT : lier la zone à la location si on reçoit locationId
-        $locationId = $data['locationId'] ?? $data['location_id'] ?? null;
-        if (is_numeric($locationId)) {
-            $loc = $this->locationRepo->find((int) $locationId);
-            if ($loc instanceof Location) {
-                $zone->setLocation($loc); // ✅ pas de setLocationId, c’est une relation Doctrine
-            }
-        }
-
         $this->em->persist($zone);
         $this->em->flush();
 
         return $this->toArray($zone);
+    }
+
+    public function update(int $zoneId, array $data): array
+    {
+        $zone = $this->zoneRepo->find($zoneId);
+        if (!$zone instanceof Zone) {
+            throw new \RuntimeException('Zone not found');
+        }
+
+        $top = $this->optNum($data, ['topPercent', 'top_percent']);
+        $left = $this->optNum($data, ['leftPercent', 'left_percent']);
+        $width = $this->optNum($data, ['widthPercent', 'width_percent']);
+        $height = $this->optNum($data, ['heightPercent', 'height_percent']);
+
+        if ($top !== null) $zone->setTopPercent($this->clamp($top, 0, 100));
+        if ($left !== null) $zone->setLeftPercent($this->clamp($left, 0, 100));
+        if ($width !== null) $zone->setWidthPercent($this->clamp($width, 1, 100));
+        if ($height !== null) $zone->setHeightPercent($this->clamp($height, 1, 100));
+
+        if (array_key_exists('label', $data)) {
+            $label = is_string($data['label']) ? trim($data['label']) : null;
+            $zone->setLabel($label === '' ? null : $label);
+        }
+
+        $this->em->flush();
+        return $this->toArray($zone);
+    }
+
+    private function clamp(float $v, float $min, float $max): float
+    {
+        return max($min, min($max, $v));
     }
 
     private function num($v, string $field): float
@@ -96,20 +104,45 @@ class ZoneService
         return (float) $v;
     }
 
-    /** @return array<string,mixed> */
+    private function optNum(array $data, array $keys): ?float
+    {
+        foreach ($keys as $k) {
+            if (array_key_exists($k, $data)) {
+                $v = $data[$k];
+                if (!is_numeric($v)) throw new \InvalidArgumentException("$k invalide");
+                return (float) $v;
+            }
+        }
+        return null;
+    }
+
     private function toArray(Zone $z): array
     {
+        $characters = [];
+
+        $loc = $z->getLocation();
+        if ($loc) {
+            foreach ($loc->getCharacters() as $c) {
+                $characters[] = [
+                    'id' => $c->getId(),
+                    'nickname' => $c->getNickname(),
+                    'avatarUrl' => $c->getAvatarUrl(),
+                ];
+            }
+        }
+
         return [
             'id' => $z->getId(),
             'mapId' => $z->getMap()?->getId(),
             'code' => $z->getCode(),
             'label' => $z->getLabel(),
-            'locationId' => $z->getLocation()?->getId(), // ✅ c’est ça qu’il faut renvoyer
+            'locationId' => $z->getLocationId(),
             'topPercent' => $z->getTopPercent(),
             'leftPercent' => $z->getLeftPercent(),
             'widthPercent' => $z->getWidthPercent(),
             'heightPercent' => $z->getHeightPercent(),
             'enabled' => $z->isEnabled(),
+            'characters' => $characters,
         ];
     }
 }

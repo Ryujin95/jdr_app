@@ -25,8 +25,7 @@ class ZoneController extends AbstractController
             return $this->json(['message' => 'mapId requis'], 400);
         }
 
-        $zones = $this->zoneService->listByMap((int) $mapId);
-        return $this->json($zones, 200);
+        return $this->json($this->zoneService->listByMap((int)$mapId), 200);
     }
 
     #[Route('', name: 'api_zones_create', methods: ['POST'])]
@@ -39,8 +38,7 @@ class ZoneController extends AbstractController
         if (!is_array($data)) $data = [];
 
         try {
-            $zone = $this->zoneService->create($data);
-            return $this->json($zone, 201);
+            return $this->json($this->zoneService->create($data), 201);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         } catch (\RuntimeException $e) {
@@ -50,5 +48,23 @@ class ZoneController extends AbstractController
         }
     }
 
-   
+    #[Route('/{id}', name: 'api_zones_update', methods: ['PATCH'])]
+    public function update(int $id, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+
+        $data = json_decode($request->getContent() ?: '', true);
+        if (!is_array($data)) $data = [];
+
+        try {
+            return $this->json($this->zoneService->update($id, $data), 200);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\RuntimeException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 500);
+        }
+    }
 }
