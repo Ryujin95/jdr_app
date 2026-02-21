@@ -86,7 +86,6 @@ async function apiFetch(
   return res.json();
 }
 
-/* ME */
 export function apiGetMe(token, options = {}) {
   const { force = false, ...rest } = options;
 
@@ -146,12 +145,6 @@ export function apiGetCampaign(token, id, options = {}) {
   return apiFetch(`/campaigns/${id}`, { token, ...options });
 }
 
-/**
- * Crée une campagne.
- * Accepte soit un FormData, soit un objet:
- * { title, theme, mapName, mapImage }  (mapImage = File)
- * IMPORTANT: les clés envoyées au back sont: title, theme, mapName, mapImage
- */
 export function apiCreateCampaign(token, data) {
   return apiFetch("/campaigns", {
     token,
@@ -250,3 +243,18 @@ export function apiDeleteMap(token, mapId, options = {}) {
   });
 }
 
+export function apiSaveZoneCharacterPosition(token, zoneId, characterId, xPercent, yPercent, options = {}) {
+  return apiFetch(`/zones/${encodeURIComponent(String(zoneId))}/characters/${encodeURIComponent(String(characterId))}/position`, {
+    token,
+    method: "PATCH",
+    body: { xPercent, yPercent },
+    ...options,
+  });
+}
+
+export function apiGetZoneCharacterPositions(token, zoneId, options = {}) {
+  return apiFetch(
+    `/zones/${encodeURIComponent(String(zoneId))}/characters/positions`,
+    { token, ...options }
+  );
+}

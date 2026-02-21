@@ -2,8 +2,12 @@
 
 namespace App\Service;
 
+use App\Entity\Character;
+use App\Entity\Map\CharacterZonePosition;
 use App\Entity\Map\Map;
 use App\Entity\Map\Zone;
+use App\Repository\Character\CharacterRepository;
+use App\Repository\Map\CharacterZonePositionRepository;
 use App\Repository\Map\MapRepository;
 use App\Repository\Map\ZoneRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,6 +18,8 @@ class ZoneService
         private EntityManagerInterface $em,
         private ZoneRepository $zoneRepo,
         private MapRepository $mapRepo,
+        private CharacterRepository $characterRepo,
+        private CharacterZonePositionRepository $posRepo,
     ) {}
 
     public function listByMap(int $mapId): array
@@ -93,6 +99,69 @@ class ZoneService
         return $this->toArray($zone);
     }
 
+    public function saveCharacterPosition(int $zoneId, int $characterId, float $xPercent, float $yPercent): array
+    {
+        $zone = $this->zoneRepo->find($zoneId);
+        if (!$zone instanceof Zone) {
+            throw new \RuntimeException('Zone not found');
+        }
+
+        $character = $this->characterRepo->find($characterId);
+        if (!$character instanceof Character) {
+            throw new \RuntimeException('Character not found');
+        }
+
+        $zoneLoc = $zone->getLocation();
+        $charLoc = $character->getLocation();
+
+        if (!$zoneLoc || !$charLoc || $zoneLoc->getId() !== $charLoc->getId()) {
+            throw new \RuntimeException('Character not in this zone location');
+        }
+
+        $x = $this->clamp($xPercent, 0, 100);
+        $y = $this->clamp($yPercent, 0, 100);
+
+        $pos = $this->posRepo->findOneByZoneAndCharacter($zoneId, $characterId);
+
+        if (!$pos) {
+            $pos = new CharacterZonePosition();
+            $pos->setZone($zone);
+            $pos->setCharacter($character);
+            $this->em->persist($pos);
+        }
+
+        $pos->setXPercent($x);
+        $pos->setYPercent($y);
+
+        $this->em->flush();
+
+        return [
+            'zoneId' => $zoneId,
+            'characterId' => $characterId,
+            'xPercent' => $pos->getXPercent(),
+            'yPercent' => $pos->getYPercent(),
+        ];
+    }
+
+    public function listCharacterPositions(int $zoneId): array
+{
+    $zone = $this->zoneRepo->find($zoneId);
+    if (!$zone instanceof Zone) {
+        throw new \RuntimeException('Zone not found');
+    }
+
+    $rows = $this->posRepo->findByZoneId($zoneId);
+
+    return array_map(static function (CharacterZonePosition $p) {
+        return [
+            'zoneId' => $p->getZone()->getId(),
+            'characterId' => $p->getCharacter()->getId(),
+            'xPercent' => $p->getXPercent(),
+            'yPercent' => $p->getYPercent(),
+        ];
+    }, $rows);
+}
+
     private function clamp(float $v, float $min, float $max): float
     {
         return max($min, min($max, $v));
@@ -119,14 +188,22 @@ class ZoneService
     private function toArray(Zone $z): array
     {
         $characters = [];
+        $zoneId = (int) $z->getId();
+
+        $posByCharId = $zoneId > 0 ? $this->posRepo->findByZoneIndexed($zoneId) : [];
 
         $loc = $z->getLocation();
         if ($loc) {
             foreach ($loc->getCharacters() as $c) {
+                $cid = (int) ($c->getId() ?? 0);
+                $pos = $cid > 0 ? ($posByCharId[$cid] ?? null) : null;
+
                 $characters[] = [
                     'id' => $c->getId(),
                     'nickname' => $c->getNickname(),
                     'avatarUrl' => $c->getAvatarUrl(),
+                    'xPercent' => $pos ? $pos->getXPercent() : 50.0,
+                    'yPercent' => $pos ? $pos->getYPercent() : 50.0,
                 ];
             }
         }

@@ -3,7 +3,369 @@ import { useOutletContext } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
+import { apiGetZoneCharacterPositions, apiSaveZoneCharacterPosition } from "../api/api";
 import "../CSS/MapPage.css";
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+//#region ZoneZoomOverlay (zoom zone + avatars draggables + GET/PATCH BD)
+function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
+  const viewportRef = useRef(null);
+
+  const [imgNatural, setImgNatural] = useState(null); // { w, h }
+  const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 });
+  const [viewportBox, setViewportBox] = useState({ w: 0, h: 0 });
+
+  // positions par characterId: { [id]: { xPercent, yPercent } }
+  const [positions, setPositions] = useState({});
+  const positionsRef = useRef({});
+  useEffect(() => {
+    positionsRef.current = positions;
+  }, [positions]);
+
+  const draggingRef = useRef(null); // { characterId, offsetX, offsetY, pointerId }
+
+  const z = useMemo(() => {
+    const top = toNum(zone?.topPercent ?? zone?.top_percent);
+    const left = toNum(zone?.leftPercent ?? zone?.left_percent);
+    const width = toNum(zone?.widthPercent ?? zone?.width_percent);
+    const height = toNum(zone?.heightPercent ?? zone?.height_percent);
+    return { top, left, width, height };
+  }, [zone, toNum]);
+
+  const zoneAspect = useMemo(() => {
+    if (![z.width, z.height].every((n) => Number.isFinite(n)) || z.height <= 0) return "16/9";
+    const r = z.width / z.height;
+    const safe = clamp(r, 0.3, 3.5);
+    return `${safe}`;
+  }, [z.width, z.height]);
+
+  const getZoneCharacters = useCallback(() => {
+    const candidates =
+      zone?.characters ??
+      zone?.personnages ??
+      zone?.persons ??
+      zone?.members ??
+      zone?.zoneCharacters ??
+      zone?.zone_characters ??
+      [];
+    return Array.isArray(candidates) ? candidates : [];
+  }, [zone]);
+
+  const getCharacterNickname = useCallback((c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(), []);
+
+  const getCharacterAvatarUrl = useCallback(
+    (c) => {
+      const raw = c?.avatarUrl ?? c?.avatar_url ?? c?.avatarPath ?? c?.avatar_path ?? c?.avatar;
+      return resolveUrl(raw);
+    },
+    [resolveUrl]
+  );
+
+  const computeCrop = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    if (!imgNatural) return;
+    if (![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) return;
+
+    const zonePxW = (z.width / 100) * imgNatural.w;
+    const zonePxH = (z.height / 100) * imgNatural.h;
+    const zonePxX = (z.left / 100) * imgNatural.w;
+    const zonePxY = (z.top / 100) * imgNatural.h;
+
+    if (zonePxW <= 0 || zonePxH <= 0) return;
+
+    const zoneRatio = zonePxW / zonePxH;
+
+    const maxW = Math.floor(window.innerWidth * 0.9);
+    const maxH = Math.floor(window.innerHeight * 0.8);
+
+    let vw = maxW;
+    let vh = Math.floor(vw / zoneRatio);
+
+    if (vh > maxH) {
+      vh = maxH;
+      vw = Math.floor(vh * zoneRatio);
+    }
+
+    vw = Math.floor(vw * 0.98);
+    vh = Math.floor(vh * 0.98);
+
+    setViewportBox({ w: vw, h: vh });
+
+    const scale = clamp(vw / zonePxW, 1, 4);
+    const tx = -zonePxX * scale;
+    const ty = -zonePxY * scale;
+
+    setView({ scale, tx, ty });
+  }, [imgNatural, z.top, z.left, z.width, z.height]);
+
+  const loadPositions = useCallback(async () => {
+    if (!token) return;
+    if (!zone?.id) return;
+
+    try {
+      const list = await apiGetZoneCharacterPositions(token, zone.id);
+      const map = {};
+
+      (Array.isArray(list) ? list : []).forEach((p) => {
+        const cid = p?.characterId ?? p?.character_id ?? p?.character?.id;
+        const x = p?.xPercent ?? p?.x_percent;
+        const y = p?.yPercent ?? p?.y_percent;
+
+        const cIdNum = Number(cid);
+        const xNum = Number(x);
+        const yNum = Number(y);
+
+        if (Number.isFinite(cIdNum) && Number.isFinite(xNum) && Number.isFinite(yNum)) {
+          map[String(cIdNum)] = { xPercent: xNum, yPercent: yNum };
+        }
+      });
+
+      setPositions(map);
+    } catch (e) {
+      console.error("Erreur GET positions:", e);
+    }
+  }, [token, zone?.id]);
+
+  const savePosition = useCallback(
+    async (characterId, xPercent, yPercent) => {
+      if (!token || !zone?.id) return;
+
+      await apiSaveZoneCharacterPosition(token, zone.id, characterId, xPercent, yPercent);
+
+      setPositions((prev) => ({
+        ...prev,
+        [String(characterId)]: { xPercent, yPercent },
+      }));
+    },
+    [token, zone?.id]
+  );
+
+  const percentToViewportPx = useCallback(
+    (xPercent, yPercent) => {
+      const vw = viewportBox.w || 0;
+      const vh = viewportBox.h || 0;
+      const x = (clamp(xPercent, 0, 100) / 100) * vw;
+      const y = (clamp(yPercent, 0, 100) / 100) * vh;
+      return { x, y };
+    },
+    [viewportBox.w, viewportBox.h]
+  );
+
+  const viewportPxToPercent = useCallback(
+    (xPx, yPx) => {
+      const vw = viewportBox.w || 1;
+      const vh = viewportBox.h || 1;
+      const xPercent = clamp((xPx / vw) * 100, 0, 100);
+      const yPercent = clamp((yPx / vh) * 100, 0, 100);
+      return { xPercent, yPercent };
+    },
+    [viewportBox.w, viewportBox.h]
+  );
+
+  const onAvatarPointerDown = (e, characterId) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const rect = viewport.getBoundingClientRect();
+    const current = positionsRef.current[String(characterId)] || { xPercent: 50, yPercent: 50 };
+    const { x, y } = percentToViewportPx(current.xPercent, current.yPercent);
+
+    const pointerX = e.clientX - rect.left;
+    const pointerY = e.clientY - rect.top;
+
+    draggingRef.current = {
+      characterId: String(characterId),
+      offsetX: pointerX - x,
+      offsetY: pointerY - y,
+      pointerId: e.pointerId,
+    };
+
+    viewport.setPointerCapture?.(e.pointerId);
+  };
+
+  const onViewportPointerMove = (e) => {
+    const viewport = viewportRef.current;
+    const d = draggingRef.current;
+    if (!viewport || !d) return;
+
+    const rect = viewport.getBoundingClientRect();
+    const pointerX = e.clientX - rect.left;
+    const pointerY = e.clientY - rect.top;
+
+    const xPx = pointerX - d.offsetX;
+    const yPx = pointerY - d.offsetY;
+
+    const { xPercent, yPercent } = viewportPxToPercent(xPx, yPx);
+
+    setPositions((prev) => ({
+      ...prev,
+      [d.characterId]: { xPercent, yPercent },
+    }));
+  };
+
+  const onViewportPointerUp = async () => {
+    const d = draggingRef.current;
+    if (!d) return;
+    draggingRef.current = null;
+
+    const pos = positionsRef.current[d.characterId];
+    if (!pos) return;
+
+    try {
+      await savePosition(d.characterId, pos.xPercent, pos.yPercent);
+    } catch (e) {
+      console.error("Erreur save position:", e);
+    }
+  };
+
+  useEffect(() => {
+    computeCrop();
+    const onResize = () => computeCrop();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [computeCrop]);
+
+  useEffect(() => {
+    loadPositions();
+  }, [loadPositions]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const chars = getZoneCharacters();
+
+  return (
+    <div className="zonezoom-overlay" onClick={onClose}>
+      <div className="zonezoom-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="zonezoom-close" onClick={onClose}>
+          Fermer
+        </button>
+
+        <div
+          ref={viewportRef}
+          className="zonezoom-viewport zonezoom-viewport--interactive"
+          style={{
+            width: viewportBox.w ? `${viewportBox.w}px` : undefined,
+            height: viewportBox.h ? `${viewportBox.h}px` : undefined,
+            aspectRatio: zoneAspect,
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onPointerMove={onViewportPointerMove}
+          onPointerUp={onViewportPointerUp}
+          onPointerCancel={onViewportPointerUp}
+        >
+          <img
+            className="zonezoom-img"
+            src={img}
+            alt="zone"
+            draggable={false}
+            onLoad={(e) => {
+              const el = e.currentTarget;
+              setImgNatural({ w: el.naturalWidth, h: el.naturalHeight });
+              setTimeout(() => computeCrop(), 0);
+            }}
+            style={{
+              transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
+              transformOrigin: "top left",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+          />
+
+          <div className="zonezoom-avatars-layer" style={{ position: "absolute", inset: 0 }}>
+            {chars.map((c) => {
+              const characterId = c?.id;
+              if (!characterId) return null;
+
+              const nickname = getCharacterNickname(c);
+              const avatarUrl = getCharacterAvatarUrl(c);
+
+              const pos = positions[String(characterId)] || { xPercent: 50, yPercent: 50 };
+              const { x, y } = percentToViewportPx(pos.xPercent, pos.yPercent);
+
+              return (
+                <div
+                  key={characterId}
+                  className="zonezoom-avatar"
+                  style={{
+                    position: "absolute",
+                    left: `${x}px`,
+                    top: `${y}px`,
+                    transform: "translate(-50%, -50%)",
+                    cursor: "grab",
+                    userSelect: "none",
+                  }}
+                  onPointerDown={(e) => onAvatarPointerDown(e, characterId)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  {avatarUrl ? (
+                    <img
+                      className="zonezoom-avatar-img"
+                      src={avatarUrl}
+                      alt={nickname || "avatar"}
+                      draggable={false}
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 999,
+                        objectFit: "cover",
+                        border: "2px solid rgba(255,255,255,0.25)",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="zonezoom-avatar-fallback"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.15)",
+                        border: "2px solid rgba(255,255,255,0.25)",
+                      }}
+                    />
+                  )}
+
+                  {nickname ? (
+                    <div
+                      className="zonezoom-avatar-label"
+                      style={{
+                        marginTop: 6,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        background: "rgba(0,0,0,0.55)",
+                        color: "rgba(255,255,255,0.92)",
+                        fontSize: 12,
+                        textAlign: "center",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {nickname}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+//#endregion
 
 export default function CampaignMapPage() {
   const outlet = useOutletContext() || {};
@@ -31,16 +393,22 @@ export default function CampaignMapPage() {
   const [activeZoneId, setActiveZoneId] = useState(null);
   const dragRef = useRef(null);
 
+  const [zoomZone, setZoomZone] = useState(null);
+
+  //#region helpers urls + parsing
   const BACK_BASE_URL = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
 
-  const resolveUrl = (path) => {
-    if (!path) return null;
-    const url = String(path).trim();
-    if (!url) return null;
-    if (/^https?:\/\//i.test(url)) return url;
-    if (url.startsWith("/")) return `${BACK_BASE_URL}${url}`;
-    return `${BACK_BASE_URL}/${url}`;
-  };
+  const resolveUrl = useCallback(
+    (path) => {
+      if (!path) return null;
+      const url = String(path).trim();
+      if (!url) return null;
+      if (/^https?:\/\//i.test(url)) return url;
+      if (url.startsWith("/")) return `${BACK_BASE_URL}${url}`;
+      return `${BACK_BASE_URL}/${url}`;
+    },
+    [BACK_BASE_URL]
+  );
 
   const toNum = (v) => {
     if (v === null || v === undefined) return NaN;
@@ -50,32 +418,22 @@ export default function CampaignMapPage() {
     return Number.isFinite(n) ? n : NaN;
   };
 
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
 
   const clampMove = (top, left, width, height) => {
-    const t = clamp(top, 0, Math.max(0, 100 - height));
-    const l = clamp(left, 0, Math.max(0, 100 - width));
+    const t = clamp2(top, 0, Math.max(0, 100 - height));
+    const l = clamp2(left, 0, Math.max(0, 100 - width));
     return { top: t, left: l };
   };
 
   const clampResize = (top, left, width, height) => {
-    const w = clamp(width, 1, Math.max(1, 100 - left));
-    const h = clamp(height, 1, Math.max(1, 100 - top));
+    const w = clamp2(width, 1, Math.max(1, 100 - left));
+    const h = clamp2(height, 1, Math.max(1, 100 - top));
     return { width: w, height: h };
   };
+  //#endregion
 
-  const getZoneCharacters = (z) => {
-    const candidates = z?.characters ?? z?.personnages ?? z?.persons ?? z?.members ?? z?.zoneCharacters ?? z?.zone_characters ?? [];
-    return Array.isArray(candidates) ? candidates : [];
-  };
-
-  const getCharacterNickname = (c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim();
-
-  const getCharacterAvatarUrl = (c) => {
-    const raw = c?.avatarUrl ?? c?.avatar_url ?? c?.avatarPath ?? c?.avatar_path ?? c?.avatar;
-    return resolveUrl(raw);
-  };
-
+  //#region fetch map
   useEffect(() => {
     setMapData(null);
     setError("");
@@ -112,7 +470,9 @@ export default function CampaignMapPage() {
 
     return () => controller.abort();
   }, [token, campaignId]);
+  //#endregion
 
+  //#region API zones/locations
   const patchZone = useCallback(
     async (zoneId, payload) => {
       if (!token) return null;
@@ -215,7 +575,9 @@ export default function CampaignMapPage() {
     window.addEventListener("trash:changed", onTrashChanged);
     return () => window.removeEventListener("trash:changed", onTrashChanged);
   }, [refreshLocations, refreshZones]);
+  //#endregion
 
+  //#region edit zones interactions
   const onZonePointerDown = (e, z, mode) => {
     if (!isEditing) return;
     e.preventDefault();
@@ -315,7 +677,9 @@ export default function CampaignMapPage() {
       setError(err?.message || "Erreur update zone");
     }
   };
+  //#endregion
 
+  //#region create/delete location
   const handleCreateLocationAndZone = async (e) => {
     e.preventDefault();
     setError("");
@@ -416,7 +780,21 @@ export default function CampaignMapPage() {
       setError(e?.message || "Erreur lors de la suppression (corbeille).");
     }
   };
+  //#endregion
 
+  //#region open/close zoom
+  const img = resolveUrl(mapData?.imagePath);
+
+  const openZoneZoom = (z) => {
+    if (!img) return;
+    if (isEditing) return;
+    setZoomZone(z);
+  };
+
+  const closeZoneZoom = () => setZoomZone(null);
+  //#endregion
+
+  //#region early returns
   if (!campaignId) {
     return (
       <div className="map-page">
@@ -452,8 +830,7 @@ export default function CampaignMapPage() {
       </div>
     );
   }
-
-  const img = resolveUrl(mapData?.imagePath);
+  //#endregion
 
   return (
     <div className="map-page">
@@ -556,11 +933,19 @@ export default function CampaignMapPage() {
                 const left = toNum(z.leftPercent ?? z.left_percent);
                 const width = toNum(z.widthPercent ?? z.width_percent);
                 const height = toNum(z.heightPercent ?? z.height_percent);
-                const label = String(z.label ?? z.name ?? "").trim();
 
                 if (![top, left, width, height].every((n) => Number.isFinite(n))) return null;
 
-                const chars = getZoneCharacters(z);
+                const chars =
+                  z?.characters ??
+                  z?.personnages ??
+                  z?.persons ??
+                  z?.members ??
+                  z?.zoneCharacters ??
+                  z?.zone_characters ??
+                  [];
+
+                const list = Array.isArray(chars) ? chars : [];
 
                 return (
                   <div
@@ -571,19 +956,24 @@ export default function CampaignMapPage() {
                       left: `${left}%`,
                       width: `${width}%`,
                       height: `${height}%`,
+                      cursor: isEditing ? "grab" : "pointer",
                     }}
-                    title={label || "Zone"}
                     onPointerDown={(e) => onZonePointerDown(e, z, "move")}
+                    onClick={() => openZoneZoom(z)}
+                    role="button"
+                    tabIndex={0}
                   >
-                    {!isEditing && chars.length > 0 ? (
+                    {!isEditing && list.length > 0 ? (
                       <div className="map-zone-characters">
-                        {chars.map((c) => {
-                          const nickname = getCharacterNickname(c);
-                          const avatarUrl = getCharacterAvatarUrl(c);
+                        {list.map((c) => {
+                          const nickname = String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim();
+                          const avatar = resolveUrl(c?.avatarUrl ?? c?.avatar_url ?? c?.avatarPath ?? c?.avatar_path ?? c?.avatar);
 
                           return (
-                            <div key={c.id ?? `${nickname}-${String(avatarUrl)}`} className="map-zone-character-card">
-                              {avatarUrl ? <img className="map-zone-character-avatar" src={avatarUrl} alt={nickname || "avatar"} draggable={false} /> : null}
+                            <div key={c.id ?? `${nickname}-${String(avatar)}`} className="map-zone-character-card">
+                              {avatar ? (
+                                <img className="map-zone-character-avatar" src={avatar} alt={nickname || "avatar"} draggable={false} />
+                              ) : null}
                               {nickname ? <div className="map-zone-character-nickname">{nickname}</div> : null}
                             </div>
                           );
@@ -597,6 +987,10 @@ export default function CampaignMapPage() {
               })}
         </div>
       )}
+
+      {zoomZone && img ? (
+        <ZoneZoomOverlay img={img} zone={zoomZone} toNum={toNum} resolveUrl={resolveUrl} token={token} onClose={closeZoneZoom} />
+      ) : null}
     </div>
   );
 }

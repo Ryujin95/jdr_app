@@ -1,5 +1,4 @@
 <?php
-// back/src/Controller/Api/ZoneController.php
 
 namespace App\Controller\Api;
 
@@ -25,7 +24,7 @@ class ZoneController extends AbstractController
             return $this->json(['message' => 'mapId requis'], 400);
         }
 
-        return $this->json($this->zoneService->listByMap((int)$mapId), 200);
+        return $this->json($this->zoneService->listByMap((int) $mapId), 200);
     }
 
     #[Route('', name: 'api_zones_create', methods: ['POST'])]
@@ -66,5 +65,50 @@ class ZoneController extends AbstractController
         } catch (\Throwable $e) {
             return $this->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    #[Route('/{zoneId}/characters/{characterId}/position', name: 'api_zone_character_position', methods: ['PATCH'])]
+    public function savePosition(int $zoneId, int $characterId, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+
+        $data = json_decode($request->getContent() ?: '', true);
+        if (!is_array($data)) $data = [];
+
+        $x = $data['xPercent'] ?? null;
+        $y = $data['yPercent'] ?? null;
+
+        if (!is_numeric($x) || !is_numeric($y)) {
+            return $this->json(['message' => 'xPercent/yPercent requis'], 400);
+        }
+
+        try {
+            return $this->json(
+                $this->zoneService->saveCharacterPosition($zoneId, $characterId, (float) $x, (float) $y),
+                200
+            );
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\RuntimeException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/{zoneId}/characters/positions', name: 'api_zone_character_positions_list', methods: ['GET'])]
+    public function listPositions(int $zoneId): JsonResponse
+{
+    $user = $this->getUser();
+    if (!$user) return $this->json(['message' => 'Unauthorized'], 401);
+
+    try {
+        return $this->json($this->zoneService->listCharacterPositions($zoneId), 200);
+    } catch (\RuntimeException $e) {
+        return $this->json(['message' => $e->getMessage()], 404);
+    } catch (\Throwable $e) {
+        return $this->json(['message' => $e->getMessage()], 500);
+    }
     }
 }
