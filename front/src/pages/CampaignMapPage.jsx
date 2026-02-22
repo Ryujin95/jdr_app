@@ -3,28 +3,26 @@ import { useOutletContext } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
-import { apiGetZoneCharacterPositions, apiSaveZoneCharacterPosition } from "../api/api";
 import "../CSS/MapPage.css";
+
+// si tu as déjà ces fonctions dans api.jsx, garde-les.
+// sinon enlève cet import et utilise fetch comme plus bas.
+import { apiGetZoneCharacterPositions, apiSaveZoneCharacterPosition } from "../api/api";
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-//#region ZoneZoomOverlay (zoom zone + avatars draggables + GET/PATCH BD)
+//#region ZoneZoomOverlay (crop + avatars draggables + save BD)
 function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
   const viewportRef = useRef(null);
 
-  const [imgNatural, setImgNatural] = useState(null); // { w, h }
+  const [imgNatural, setImgNatural] = useState(null); // {w,h}
   const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 });
   const [viewportBox, setViewportBox] = useState({ w: 0, h: 0 });
 
   // positions par characterId: { [id]: { xPercent, yPercent } }
   const [positions, setPositions] = useState({});
-  const positionsRef = useRef({});
-  useEffect(() => {
-    positionsRef.current = positions;
-  }, [positions]);
-
   const draggingRef = useRef(null); // { characterId, offsetX, offsetY, pointerId }
 
   const z = useMemo(() => {
@@ -54,7 +52,10 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
     return Array.isArray(candidates) ? candidates : [];
   }, [zone]);
 
-  const getCharacterNickname = useCallback((c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(), []);
+  const getCharacterNickname = useCallback(
+    (c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(),
+    []
+  );
 
   const getCharacterAvatarUrl = useCallback(
     (c) => {
@@ -102,44 +103,114 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
     setView({ scale, tx, ty });
   }, [imgNatural, z.top, z.left, z.width, z.height]);
 
-  const loadPositions = useCallback(async () => {
+  // GET positions en BD (par zone)
+  useEffect(() => {
     if (!token) return;
     if (!zone?.id) return;
 
-    try {
-      const list = await apiGetZoneCharacterPositions(token, zone.id);
-      const map = {};
+    let cancelled = false;
 
-      (Array.isArray(list) ? list : []).forEach((p) => {
-        const cid = p?.characterId ?? p?.character_id ?? p?.character?.id;
-        const x = p?.xPercent ?? p?.x_percent;
-        const y = p?.yPercent ?? p?.y_percent;
+    (async () => {
+      try {
+        // priorité à api.jsx si tu l’as
+        if (typeof apiGetZoneCharacterPositions === "function") {
+          const list = await apiGetZoneCharacterPositions(token, zone.id);
+          if (cancelled) return;
 
-        const cIdNum = Number(cid);
-        const xNum = Number(x);
-        const yNum = Number(y);
+          const next = {};
+          (Array.isArray(list) ? list : []).forEach((p) => {
+            const cid = p?.characterId ?? p?.character_id ?? p?.character?.id;
+            const x = p?.xPercent ?? p?.x_percent;
+            const y = p?.yPercent ?? p?.y_percent;
 
-        if (Number.isFinite(cIdNum) && Number.isFinite(xNum) && Number.isFinite(yNum)) {
-          map[String(cIdNum)] = { xPercent: xNum, yPercent: yNum };
+            const cIdNum = Number(cid);
+            const xNum = Number(x);
+            const yNum = Number(y);
+
+            if (Number.isFinite(cIdNum) && Number.isFinite(xNum) && Number.isFinite(yNum)) {
+              next[String(cIdNum)] = { xPercent: xNum, yPercent: yNum };
+            }
+          });
+
+          setPositions(next);
+          return;
         }
-      });
 
-      setPositions(map);
-    } catch (e) {
-      console.error("Erreur GET positions:", e);
-    }
+        // fallback fetch (au cas où tu n’as pas la fonction api.jsx)
+        const res = await fetch(`${API_URL}/character-zone-positions?zoneId=${encodeURIComponent(String(zone.id))}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) return;
+
+        const data = await res.json().catch(() => []);
+        const list = Array.isArray(data) ? data : [];
+
+        const next = {};
+        for (const row of list) {
+          const cid = row?.characterId ?? row?.character_id ?? row?.character?.id;
+          const x = row?.xPercent ?? row?.x_percent;
+          const y = row?.yPercent ?? row?.y_percent;
+
+          const cIdNum = Number(cid);
+          const xNum = Number(x);
+          const yNum = Number(y);
+
+          if (Number.isFinite(cIdNum) && Number.isFinite(xNum) && Number.isFinite(yNum)) {
+            next[String(cIdNum)] = { xPercent: xNum, yPercent: yNum };
+          }
+        }
+
+        if (!cancelled) setPositions(next);
+      } catch (e) {
+        if (!cancelled) console.error("Erreur GET positions:", e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token, zone?.id]);
 
+  // SAVE position (PATCH) via ton endpoint Symfony: /zones/{zoneId}/characters/{characterId}/position
   const savePosition = useCallback(
     async (characterId, xPercent, yPercent) => {
-      if (!token || !zone?.id) return;
+      if (!token) return;
+      if (!zone?.id) return;
 
-      await apiSaveZoneCharacterPosition(token, zone.id, characterId, xPercent, yPercent);
+      const cid = Number(characterId);
+      if (!Number.isFinite(cid)) return;
 
-      setPositions((prev) => ({
-        ...prev,
-        [String(characterId)]: { xPercent, yPercent },
-      }));
+      const x = clamp(Number(xPercent), 0, 100);
+      const y = clamp(Number(yPercent), 0, 100);
+
+      // priorité à api.jsx si tu l’as
+      if (typeof apiSaveZoneCharacterPosition === "function") {
+        await apiSaveZoneCharacterPosition(token, zone.id, cid, x, y);
+        setPositions((prev) => ({ ...prev, [String(cid)]: { xPercent: x, yPercent: y } }));
+        return;
+      }
+
+      // fallback fetch
+      const res = await fetch(
+        `${API_URL}/zones/${encodeURIComponent(String(zone.id))}/characters/${encodeURIComponent(String(cid))}/position`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ xPercent: x, yPercent: y }),
+        }
+      );
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+
+      setPositions((prev) => ({ ...prev, [String(cid)]: { xPercent: x, yPercent: y } }));
     },
     [token, zone?.id]
   );
@@ -174,7 +245,8 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
     if (!viewport) return;
 
     const rect = viewport.getBoundingClientRect();
-    const current = positionsRef.current[String(characterId)] || { xPercent: 50, yPercent: 50 };
+
+    const current = positions[String(characterId)] || { xPercent: 50, yPercent: 50 };
     const { x, y } = percentToViewportPx(current.xPercent, current.yPercent);
 
     const pointerX = e.clientX - rect.left;
@@ -215,13 +287,13 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
     if (!d) return;
     draggingRef.current = null;
 
-    const pos = positionsRef.current[d.characterId];
+    const pos = positions[d.characterId];
     if (!pos) return;
 
     try {
       await savePosition(d.characterId, pos.xPercent, pos.yPercent);
     } catch (e) {
-      console.error("Erreur save position:", e);
+      console.error("Erreur SAVE position:", e);
     }
   };
 
@@ -231,10 +303,6 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [computeCrop]);
-
-  useEffect(() => {
-    loadPositions();
-  }, [loadPositions]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -260,8 +328,6 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
             width: viewportBox.w ? `${viewportBox.w}px` : undefined,
             height: viewportBox.h ? `${viewportBox.h}px` : undefined,
             aspectRatio: zoneAspect,
-            position: "relative",
-            overflow: "hidden",
           }}
           onPointerMove={onViewportPointerMove}
           onPointerUp={onViewportPointerUp}
@@ -280,12 +346,10 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
             style={{
               transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
               transformOrigin: "top left",
-              userSelect: "none",
-              pointerEvents: "none",
             }}
           />
 
-          <div className="zonezoom-avatars-layer" style={{ position: "absolute", inset: 0 }}>
+          <div className="zonezoom-avatars-layer">
             {chars.map((c) => {
               const characterId = c?.id;
               if (!characterId) return null;
@@ -300,14 +364,7 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
                 <div
                   key={characterId}
                   className="zonezoom-avatar"
-                  style={{
-                    position: "absolute",
-                    left: `${x}px`,
-                    top: `${y}px`,
-                    transform: "translate(-50%, -50%)",
-                    cursor: "grab",
-                    userSelect: "none",
-                  }}
+                  style={{ left: `${x}px`, top: `${y}px` }}
                   onPointerDown={(e) => onAvatarPointerDown(e, characterId)}
                   role="button"
                   tabIndex={0}
@@ -318,44 +375,11 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
                       src={avatarUrl}
                       alt={nickname || "avatar"}
                       draggable={false}
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 999,
-                        objectFit: "cover",
-                        border: "2px solid rgba(255,255,255,0.25)",
-                      }}
                     />
                   ) : (
-                    <div
-                      className="zonezoom-avatar-fallback"
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 999,
-                        background: "rgba(255,255,255,0.15)",
-                        border: "2px solid rgba(255,255,255,0.25)",
-                      }}
-                    />
+                    <div className="zonezoom-avatar-fallback" />
                   )}
-
-                  {nickname ? (
-                    <div
-                      className="zonezoom-avatar-label"
-                      style={{
-                        marginTop: 6,
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        background: "rgba(0,0,0,0.55)",
-                        color: "rgba(255,255,255,0.92)",
-                        fontSize: 12,
-                        textAlign: "center",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {nickname}
-                    </div>
-                  ) : null}
+                  {nickname ? <div className="zonezoom-avatar-label">{nickname}</div> : null}
                 </div>
               );
             })}
@@ -370,6 +394,9 @@ function ZoneZoomOverlay({ img, zone, toNum, resolveUrl, token, onClose }) {
 export default function CampaignMapPage() {
   const outlet = useOutletContext() || {};
   const campaignId = outlet?.campaignId ? String(outlet.campaignId) : null;
+
+  // ✅ même système que tes onglets: seuls les MJ voient les boutons/actions
+  const isMjInThisCampaign = !!outlet?.isMjInThisCampaign;
 
   const { token } = useContext(AuthContext);
 
@@ -394,6 +421,14 @@ export default function CampaignMapPage() {
   const dragRef = useRef(null);
 
   const [zoomZone, setZoomZone] = useState(null);
+
+  // ✅ sécurité: si pas MJ, pas de panel/édition
+  useEffect(() => {
+    if (!isMjInThisCampaign) {
+      setIsEditing(false);
+      setPanel(null);
+    }
+  }, [isMjInThisCampaign]);
 
   //#region helpers urls + parsing
   const BACK_BASE_URL = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
@@ -580,6 +615,8 @@ export default function CampaignMapPage() {
   //#region edit zones interactions
   const onZonePointerDown = (e, z, mode) => {
     if (!isEditing) return;
+    if (!isMjInThisCampaign) return;
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -615,6 +652,8 @@ export default function CampaignMapPage() {
 
   const onZonePointerMove = (e) => {
     if (!isEditing) return;
+    if (!isMjInThisCampaign) return;
+
     const d = dragRef.current;
     if (!d) return;
 
@@ -656,6 +695,8 @@ export default function CampaignMapPage() {
 
   const onZonePointerUp = async () => {
     if (!isEditing) return;
+    if (!isMjInThisCampaign) return;
+
     const d = dragRef.current;
     if (!d) return;
 
@@ -684,6 +725,7 @@ export default function CampaignMapPage() {
     e.preventDefault();
     setError("");
 
+    if (!isMjInThisCampaign) return;
     if (!token || !campaignId) return;
     if (!mapData?.id) {
       setError("Aucune map active pour créer une zone.");
@@ -738,6 +780,7 @@ export default function CampaignMapPage() {
   const handleDeleteLocationToTrash = async () => {
     setError("");
 
+    if (!isMjInThisCampaign) return;
     if (!token) return;
     if (!campaignId) {
       setError("campaignId manquant.");
@@ -837,28 +880,41 @@ export default function CampaignMapPage() {
       <div className="map-header">
         <h1 className="map-title">{mapData?.name ? `Carte : ${mapData.name}` : "Carte"}</h1>
 
-        <div className="map-actions">
-          <button type="button" className="map-edit-btn" onClick={() => setPanel((p) => (p === "create" ? null : "create"))}>
-            Créer un lieu
-          </button>
+        {/* ✅ boutons MJ uniquement */}
+        {isMjInThisCampaign ? (
+          <div className="map-actions">
+            <button
+              type="button"
+              className="map-edit-btn"
+              onClick={() => setPanel((p) => (p === "create" ? null : "create"))}
+            >
+              Créer un lieu
+            </button>
 
-          <button type="button" className="map-edit-btn" onClick={() => setPanel((p) => (p === "delete" ? null : "delete"))} disabled={loadingLocations}>
-            Supprimer
-          </button>
+            <button
+              type="button"
+              className="map-edit-btn"
+              onClick={() => setPanel((p) => (p === "delete" ? null : "delete"))}
+              disabled={loadingLocations}
+            >
+              Supprimer
+            </button>
 
-          <button
-            type="button"
-            className={isEditing ? "map-edit-btn active" : "map-edit-btn"}
-            onClick={() => setIsEditing((v) => !v)}
-            disabled={!img}
-            title={!img ? "Ajoute une image à la map d’abord" : undefined}
-          >
-            {isEditing ? "Quitter l’édition" : "Éditer"}
-          </button>
-        </div>
+            <button
+              type="button"
+              className={isEditing ? "map-edit-btn active" : "map-edit-btn"}
+              onClick={() => setIsEditing((v) => !v)}
+              disabled={!img}
+              title={!img ? "Ajoute une image à la map d’abord" : undefined}
+            >
+              {isEditing ? "Quitter l’édition" : "Éditer"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {panel === "create" ? (
+      {/* ✅ panels MJ uniquement */}
+      {isMjInThisCampaign && panel === "create" ? (
         <form className="map-panel" onSubmit={handleCreateLocationAndZone}>
           <div className="map-panel-row">
             <label>
@@ -885,7 +941,7 @@ export default function CampaignMapPage() {
         </form>
       ) : null}
 
-      {panel === "delete" ? (
+      {isMjInThisCampaign && panel === "delete" ? (
         <div className="map-panel">
           <div className="map-panel-row">
             <label>
@@ -908,7 +964,12 @@ export default function CampaignMapPage() {
             <button type="button" className="map-edit-btn" onClick={() => setPanel(null)}>
               Fermer
             </button>
-            <button type="button" className="map-edit-btn active" onClick={handleDeleteLocationToTrash} disabled={!selectedLocationId || locations.length === 0}>
+            <button
+              type="button"
+              className="map-edit-btn active"
+              onClick={handleDeleteLocationToTrash}
+              disabled={!selectedLocationId || locations.length === 0}
+            >
               Envoyer à la corbeille
             </button>
           </div>
@@ -919,7 +980,11 @@ export default function CampaignMapPage() {
         <div className="map-empty">Map sans image.</div>
       ) : (
         <div
-          className={isEditing ? "map-container map-container--relative editing" : "map-container map-container--relative"}
+          className={
+            isEditing && isMjInThisCampaign
+              ? "map-container map-container--relative editing"
+              : "map-container map-container--relative"
+          }
           onPointerMove={onZonePointerMove}
           onPointerUp={onZonePointerUp}
           onPointerCancel={onZonePointerUp}
@@ -956,23 +1021,31 @@ export default function CampaignMapPage() {
                       left: `${left}%`,
                       width: `${width}%`,
                       height: `${height}%`,
-                      cursor: isEditing ? "grab" : "pointer",
+                      cursor: isEditing && isMjInThisCampaign ? "grab" : "pointer",
                     }}
-                    onPointerDown={(e) => onZonePointerDown(e, z, "move")}
+                    onPointerDown={(e) => (isMjInThisCampaign ? onZonePointerDown(e, z, "move") : undefined)}
                     onClick={() => openZoneZoom(z)}
                     role="button"
                     tabIndex={0}
                   >
+                    {/* mini avatars dans la zone (player OK) */}
                     {!isEditing && list.length > 0 ? (
                       <div className="map-zone-characters">
                         {list.map((c) => {
                           const nickname = String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim();
-                          const avatar = resolveUrl(c?.avatarUrl ?? c?.avatar_url ?? c?.avatarPath ?? c?.avatar_path ?? c?.avatar);
+                          const avatar = resolveUrl(
+                            c?.avatarUrl ?? c?.avatar_url ?? c?.avatarPath ?? c?.avatar_path ?? c?.avatar
+                          );
 
                           return (
                             <div key={c.id ?? `${nickname}-${String(avatar)}`} className="map-zone-character-card">
                               {avatar ? (
-                                <img className="map-zone-character-avatar" src={avatar} alt={nickname || "avatar"} draggable={false} />
+                                <img
+                                  className="map-zone-character-avatar"
+                                  src={avatar}
+                                  alt={nickname || "avatar"}
+                                  draggable={false}
+                                />
                               ) : null}
                               {nickname ? <div className="map-zone-character-nickname">{nickname}</div> : null}
                             </div>
@@ -981,7 +1054,10 @@ export default function CampaignMapPage() {
                       </div>
                     ) : null}
 
-                    {isEditing ? <span className="map-zone-handle" onPointerDown={(e) => onZonePointerDown(e, z, "se")} /> : null}
+                    {/* handle resize MJ uniquement */}
+                    {isEditing && isMjInThisCampaign ? (
+                      <span className="map-zone-handle" onPointerDown={(e) => onZonePointerDown(e, z, "se")} />
+                    ) : null}
                   </div>
                 );
               })}
@@ -989,7 +1065,14 @@ export default function CampaignMapPage() {
       )}
 
       {zoomZone && img ? (
-        <ZoneZoomOverlay img={img} zone={zoomZone} toNum={toNum} resolveUrl={resolveUrl} token={token} onClose={closeZoneZoom} />
+        <ZoneZoomOverlay
+          img={img}
+          zone={zoomZone}
+          toNum={toNum}
+          resolveUrl={resolveUrl}
+          token={token}
+          onClose={closeZoneZoom}
+        />
       ) : null}
     </div>
   );

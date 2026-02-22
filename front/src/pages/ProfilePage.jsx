@@ -1,4 +1,3 @@
-// src/pages/ProfilePage.jsx
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
@@ -17,7 +16,6 @@ export default function ProfilePage() {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  // ✅ NOUVEAU : préférence transitions (local state)
   const [disableTransitions, setDisableTransitions] = useState(false);
   const [savingTransitions, setSavingTransitions] = useState(false);
 
@@ -50,7 +48,6 @@ export default function ProfilePage() {
     updateUser({
       username: data.username ?? user.username,
       email: data.email ?? user.email,
-      // ✅ NOUVEAU : on persiste aussi la préférence dans le context
       disableTransitions:
         typeof data.disableTransitions === "boolean"
           ? data.disableTransitions
@@ -97,7 +94,6 @@ export default function ProfilePage() {
     }
   };
 
-  // ✅ NOUVEAU : toggle transitions -> save direct en back
   const handleToggleTransitions = async () => {
     const next = !disableTransitions;
 
@@ -202,7 +198,7 @@ export default function ProfilePage() {
         <h3>Préférences</h3>
 
         <div className="profile-form-inline" style={{ alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "10px" , color: "black" }}>
             <input
               type="checkbox"
               checked={disableTransitions}

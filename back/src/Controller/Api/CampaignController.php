@@ -119,4 +119,19 @@ class CampaignController extends AbstractController
         }
     }
 
+    #[Route('/{id}/leave', name: 'api_campaign_leave', methods: ['DELETE'])]
+    public function leave(int $id): JsonResponse
+    {
+        /** @var \App\Entity\User $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $this->campaignService->leaveCampaign($user, $id);
+
+        return $this->json(['message' => 'Tu as quitté la campagne.'], 200);
+    }
+
 }

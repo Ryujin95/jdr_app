@@ -1,5 +1,4 @@
 <?php
-// back/src/Service/CampaignService.php
 
 namespace App\Service;
 
@@ -8,15 +7,19 @@ use App\Entity\CampaignMember;
 use App\Entity\Map\Map;
 use App\Entity\User;
 use App\Repository\Campaign\CampaignRepository;
+use App\Repository\Campaign\CampaignMemberRepository;
 use App\Repository\Map\MapRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class CampaignService
 {
-    public function __construct(
+   public function __construct(
         private EntityManagerInterface $em,
         private CampaignRepository $campaignRepo,
+        private CampaignMemberRepository $campaignMemberRepo,
         private MapRepository $mapRepo,
         private string $projectDir,
     ) {}
@@ -54,7 +57,6 @@ class CampaignService
         $this->em->flush();
     }
 
-    // ✅ CAS SIMPLE: création campagne SANS map
    public function createCampaign(User $creator, string $title, ?string $theme): Campaign
 {
     $campaign = new Campaign();
@@ -74,9 +76,6 @@ class CampaignService
 
     return $campaign;
 }
-
-
-    // ✅ CAS OPTIONNEL: lier une map existante après coup
     public function attachMapToCampaign(User $user, int $campaignId, int $mapId): Campaign
     {
         $campaign = $this->getForUser($user, $campaignId);
@@ -91,8 +90,6 @@ class CampaignService
 
         return $campaign;
     }
-
-    // ✅ CAS OPTIONNEL: création map + upload image (si tu veux garder la méthode pour plus tard)
     public function createMapAndAttachToCampaign(
         User $user,
         int $campaignId,
@@ -194,10 +191,6 @@ class CampaignService
         throw new \InvalidArgumentException('Forbidden');
     }
 
-    /** @return array<string, mixed> */
-   // back/src/Service/CampaignService.php
-// back/src/Service/CampaignService.php
-
 public function getForUserData(User $user, int $campaignId): array
 {
     $row = $this->campaignRepo->findOneForUser($user, $campaignId);
@@ -218,5 +211,32 @@ public function getForUserData(User $user, int $campaignId): array
     ];
 }
 
+public function leaveCampaign(User $user, int $campaignId): void
+    {
+        // 1) campagne existe ?
+        $campaign = $this->campaignRepo->find($campaignId);
+        if (!$campaign) {
+            throw new NotFoundHttpException('Campagne introuvable.');
+        }
+
+        // 2) récupérer le membership (relation user<->campaign)
+        $member = $this->campaignMemberRepo->findOneBy([
+            'campaign' => $campaign,
+            'user' => $user,
+        ]);
+
+        if (!$member) {
+            throw new AccessDeniedHttpException("Tu n'es pas membre de cette campagne.");
+        }
+
+        // 3) MJ interdit
+        if ($member->getRole() === 'MJ') {
+            throw new AccessDeniedHttpException("Un MJ doit transférer son rôle avant de quitter la campagne.");
+        }
+
+        // 4) supprimer l'appartenance
+        $this->em->remove($member);
+        $this->em->flush();
+    }
 
 }
