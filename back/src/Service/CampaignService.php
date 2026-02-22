@@ -239,4 +239,61 @@ public function leaveCampaign(User $user, int $campaignId): void
         $this->em->flush();
     }
 
+public function transferMj(User $currentUser, int $campaignId, int $newMjUserId): void
+{
+    $campaign = $this->getForUser($currentUser, $campaignId);
+
+    $members = $campaign->getMembers();
+
+    $currentMember = null;
+    $newMember = null;
+
+    foreach ($members as $member) {
+        if ($member->getUser()->getId() === $currentUser->getId()) {
+            $currentMember = $member;
+        }
+
+        if ($member->getUser()->getId() === $newMjUserId) {
+            $newMember = $member;
+        }
+    }
+
+    if (!$currentMember || $currentMember->getRole() !== 'MJ') {
+        throw new \InvalidArgumentException("Seul le MJ peut transférer le rôle.");
+    }
+
+    if (!$newMember) {
+        throw new \InvalidArgumentException("Utilisateur non membre de la campagne.");
+    }
+
+    if ($newMember->getRole() === 'MJ') {
+        throw new \InvalidArgumentException("Cet utilisateur est déjà MJ.");
+    }
+
+    $currentMember->setRole('Player');
+    $newMember->setRole('MJ');
+
+    $this->em->flush();
+}
+
+public function getMembers(User $user, int $campaignId): array
+{
+    $campaign = $this->getForUser($user, $campaignId);
+
+    $result = [];
+
+    foreach ($campaign->getMembers() as $member) {
+        $u = $member->getUser();
+
+        if (!$u) continue;
+
+        $result[] = [
+            'id' => $u->getId(),
+            'username' => $u->getUsername(), // ou getEmail() si tu préfères
+            'role' => $member->getRole(),
+        ];
+    }
+
+    return $result;
+}
 }

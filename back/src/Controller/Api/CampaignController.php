@@ -1,5 +1,4 @@
 <?php
-// back/src/Controller/Api/CampaignController.php
 
 namespace App\Controller\Api;
 
@@ -9,6 +8,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+
 
 class CampaignController extends AbstractController
 {
@@ -119,7 +119,7 @@ class CampaignController extends AbstractController
         }
     }
 
-    #[Route('/{id}/leave', name: 'api_campaign_leave', methods: ['DELETE'])]
+#[Route('/api/campaigns/{id}/leave', name: 'api_campaign_leave', methods: ['DELETE'])]
     public function leave(int $id): JsonResponse
     {
         /** @var \App\Entity\User $user */
@@ -133,5 +133,41 @@ class CampaignController extends AbstractController
 
         return $this->json(['message' => 'Tu as quitté la campagne.'], 200);
     }
+#[Route('/api/campaigns/{id}/transfer-mj', methods: ['PUT'])]
+public function transferMj(int $id, Request $request): JsonResponse
+{
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        return $this->json(['message' => 'Unauthorized'], 401);
+    }
+
+    $data = json_decode($request->getContent(), true);
+    $newMjUserId = (int)($data['userId'] ?? 0);
+
+    try {
+        $this->campaignService->transferMj($user, $id, $newMjUserId);
+        return $this->json(['message' => 'MJ transféré'], 200);
+    } catch (\InvalidArgumentException $e) {
+        return $this->json(['message' => $e->getMessage()], 400);
+    }
+}
+
+#[Route('/api/campaigns/{id}/members', name: 'api_campaign_members', methods: ['GET'])]
+public function members(int $id): JsonResponse
+{
+    $user = $this->getUser();
+    if (!$user instanceof User) {
+        return $this->json(['message' => 'Unauthorized'], 401);
+    }
+
+    try {
+        $members = $this->campaignService->getMembers($user, $id);
+        return $this->json($members, 200);
+    } catch (\InvalidArgumentException $e) {
+        return $this->json(['message' => $e->getMessage()], 403);
+    } catch (\RuntimeException $e) {
+        return $this->json(['message' => $e->getMessage()], 404);
+    }
+}
 
 }
