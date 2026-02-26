@@ -62,9 +62,29 @@ final class RelationshipService
         }
     }
 
+    private function assertCharacterInCampaign(int $campaignId, int $characterId): void
+    {
+        $c = $this->characterRepository->find($characterId);
+        if (!$c) {
+            throw new \InvalidArgumentException('Character not found');
+        }
+
+        $cCampaign = $c->getCampaign();
+        if (!$cCampaign || (int) $cCampaign->getId() !== (int) $campaignId) {
+            throw new AccessDeniedException('Character not in campaign');
+        }
+    }
+
+    private function assertBothCharactersInSameCampaign(int $campaignId, int $fromId, int $toId): void
+    {
+        $this->assertCharacterInCampaign($campaignId, $fromId);
+        $this->assertCharacterInCampaign($campaignId, $toId);
+    }
+
     public function getKnownMiniCardsForCharacter(int $campaignId, int $fromCharacterId): array
     {
         $this->assertCampaignMjOrAdmin($campaignId);
+        $this->assertCharacterInCampaign($campaignId, $fromCharacterId);
 
         $from = $this->characterRepository->find($fromCharacterId);
         if (!$from) {
@@ -77,6 +97,12 @@ final class RelationshipService
         foreach ($rels as $rel) {
             $to = $rel->getToCharacter();
             if (!$to) continue;
+
+            // garde-fou: ne pas renvoyer des persos hors campagne
+            $toCampaign = $to->getCampaign();
+            if (!$toCampaign || (int) $toCampaign->getId() !== (int) $campaignId) {
+                continue;
+            }
 
             $score = (int) ($rel->getAffinityScore() ?? 0);
             $type  = $rel->getType() ?? 'neutral';
@@ -102,27 +128,14 @@ final class RelationshipService
     public function getCandidatesFor(int $campaignId, int $fromCharacterId): array
     {
         $this->assertCampaignMjOrAdmin($campaignId);
+        $this->assertCharacterInCampaign($campaignId, $fromCharacterId);
 
-        $from = $this->characterRepository->find($fromCharacterId);
-        if (!$from) {
-            throw new \InvalidArgumentException('Character not found');
-        }
-
-        $rels = $this->relationshipRepository->findKnownCharactersWithScore($from);
-        $knownIds = [];
-
-        foreach ($rels as $rel) {
-            $to = $rel->getToCharacter();
-            if ($to) $knownIds[] = $to->getId();
-        }
-
-        $all = $this->characterRepository->findAllActive();
+        // IMPORTANT: on filtre par campagne côté DB (plus de persos d'autres campagnes)
+        // Cette méthode doit exister dans CharacterRepository (celle que je t’ai donnée)
+        $candidatesEntities = $this->characterRepository->findCandidatesForKnownInCampaign($campaignId, $fromCharacterId);
 
         $candidates = [];
-        foreach ($all as $c) {
-            if ($c->getId() === $from->getId()) continue;
-            if (in_array($c->getId(), $knownIds, true)) continue;
-
+        foreach ($candidatesEntities as $c) {
             $candidates[] = [
                 'id' => $c->getId(),
                 'nickname' => $c->getNickname(),
@@ -141,6 +154,9 @@ final class RelationshipService
         if ($fromCharacterId <= 0 || $toCharacterId <= 0 || $fromCharacterId === $toCharacterId) {
             throw new \InvalidArgumentException('Paramètres invalides');
         }
+
+        // Empêche les relations cross-campaign
+        $this->assertBothCharactersInSameCampaign($campaignId, $fromCharacterId, $toCharacterId);
 
         $from = $this->characterRepository->find($fromCharacterId);
         $to   = $this->characterRepository->find($toCharacterId);
@@ -183,6 +199,9 @@ final class RelationshipService
     {
         $this->assertCampaignMjOrAdmin($campaignId);
 
+        // Empêche les suppressions cross-campaign
+        $this->assertBothCharactersInSameCampaign($campaignId, $fromCharacterId, $toCharacterId);
+
         $from = $this->characterRepository->find($fromCharacterId);
         $to   = $this->characterRepository->find($toCharacterId);
         if (!$from || !$to) {
@@ -208,6 +227,9 @@ final class RelationshipService
         if ($stars < 0 || $stars > 5) {
             throw new \InvalidArgumentException('stars doit être entre 0 et 5');
         }
+
+        // Empêche les updates cross-campaign
+        $this->assertBothCharactersInSameCampaign($campaignId, $fromId, $toId);
 
         $from = $this->characterRepository->find($fromId);
         $to   = $this->characterRepository->find($toId);

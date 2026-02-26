@@ -4,6 +4,7 @@ namespace App\Repository\Character;
 
 use App\Entity\Character;
 use App\Entity\User;
+use App\Entity\CharacterRelationship;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -77,5 +78,37 @@ class CharacterRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Candidats ajoutables comme "connu" pour un personnage dans une campagne donnée
+     * - même campagne
+     * - non supprimés
+     * - exclut le personnage source
+     * - exclut ceux déjà en relation (from -> to)
+     */
+    public function findCandidatesForKnownInCampaign(int $campaignId, int $fromCharacterId): array
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.owner', 'o')->addSelect('o')
+            ->andWhere('c.deleted = :deleted')
+            ->setParameter('deleted', false)
+            ->andWhere('IDENTITY(c.campaign) = :campaignId')
+            ->setParameter('campaignId', $campaignId)
+            ->andWhere('c.id != :fromId')
+            ->setParameter('fromId', $fromCharacterId)
+
+            // Exclure ceux déjà connus : relation existante fromCharacter=fromId et toCharacter=c
+            ->leftJoin(
+                CharacterRelationship::class,
+                'r',
+                'WITH',
+                'r.fromCharacter = :fromId AND r.toCharacter = c'
+            )
+            ->andWhere('r.id IS NULL')
+
+            ->orderBy('c.nickname', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }
