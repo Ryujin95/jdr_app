@@ -1,11 +1,12 @@
 <?php
 
+// back/src/Controller/Api/LocationController.php
+
 namespace App\Controller\Api;
 
 use App\Service\LocationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api')]
@@ -14,7 +15,7 @@ class LocationController extends AbstractController
     public function __construct(private LocationService $locationService) {}
 
     #[Route('/locations', name: 'api_locations_index', methods: ['GET'])]
-    public function index(Request $request): JsonResponse
+    public function index(\Symfony\Component\HttpFoundation\Request $request): JsonResponse
     {
         $campaignIdRaw = $request->query->get('campaignId');
         if (!$campaignIdRaw || !is_numeric($campaignIdRaw)) {
@@ -36,8 +37,29 @@ class LocationController extends AbstractController
         }
     }
 
+    // ✅ NOUVELLE ROUTE: récupérer les lieux depuis un characterId (pas besoin de campaignId côté front)
+    #[Route('/characters/{id}/locations', name: 'api_character_locations', methods: ['GET'])]
+    public function locationsForCharacter(int $id): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
+
+        try {
+            $locations = $this->locationService->getLocationsForCharacter($id, $user);
+            return $this->json($locations, 200);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\Throwable $e) {
+            return $this->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
     #[Route('/locations', name: 'api_locations_create', methods: ['POST'])]
-    public function create(Request $request): JsonResponse
+    public function create(\Symfony\Component\HttpFoundation\Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user) {

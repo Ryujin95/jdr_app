@@ -72,3 +72,312 @@
   margin-top: 6px;
 }
 
+/* ============================= */
+/* AJOUTS (bouton + + recherche) */
+/* ============================= */
+
+.rs-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rs-add-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.rs-add-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.rs-add-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 8px;
+}
+
+.rs-add-input {
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  outline: none;
+}
+
+.rs-add-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.rs-results {
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.rs-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rs-result-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rs-result-action {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.rs-result-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.rs-error {
+  font-size: 12px;
+  color: #ff6b6b;
+}
+
+.rs-hint {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* AJOUTS dans src/CSS/RightSidebar.css (ne supprime rien, colle à la fin) */
+
+.rs-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rs-add-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 0;
+}
+
+.rs-add-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.rs-add-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rs-add-input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  padding: 8px 10px;
+  border-radius: 10px;
+  outline: none;
+}
+
+.rs-results {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.rs-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rs-result-name {
+  font-size: 14px;
+  opacity: 0.95;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rs-result-action {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.rs-result-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.rs-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  background: rgba(255, 0, 0, 0.08);
+  font-size: 13px;
+}
+
+.rs-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.rs-sep {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rs-req-block {
+  margin-top: 10px;
+}
+
+.rs-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+
+.rs-req-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-top: 8px;
+}
+
+.rs-req-name {
+  font-size: 14px;
+  opacity: 0.95;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rs-req-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rs-req-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.rs-req-btn.ok {
+  border-color: rgba(0, 255, 180, 0.25);
+  background: rgba(0, 255, 180, 0.08);
+}
+
+.rs-req-btn.no {
+  border-color: rgba(255, 80, 80, 0.25);
+  background: rgba(255, 80, 80, 0.08);
+}
+
+.rs-req-btn.ghost {
+  opacity: 0.9;
+}
+/* ===== Menu contextuel ami ===== */
+
+.rs-context-menu {
+  background: #1f1f1f;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px 0;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  animation: rsFadeIn 0.12s ease-out;
+}
+
+.rs-context-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: #eaeaea;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.rs-context-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rs-context-item--danger {
+  color: #ff4d4f;
+}
+
+.rs-context-item--danger:hover {
+  background: rgba(255, 77, 79, 0.15);
+}
+
+/* petite animation propre */
+@keyframes rsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.right-dropdown.is-closed {
+  display: none;
+}

@@ -153,7 +153,6 @@ export function apiCreateCampaign(token, data) {
   });
 }
 
-
 export function apiJoinCampaign(token, code) {
   return apiFetch("/campaigns/join", {
     token,
@@ -170,6 +169,14 @@ export function apiListCharacters(token, campaignId, options = {}) {
 
 export function apiGetCharacter(token, id, options = {}) {
   return apiFetch(`/characters/${id}`, { token, ...options });
+}
+
+export function apiListLocationsForCharacter(token, characterId, options = {}) {
+  return apiFetch(`/characters/${encodeURIComponent(String(characterId))}/locations`, {
+    token,
+    method: "GET",
+    ...options,
+  }).then((data) => (Array.isArray(data) ? data : []));
 }
 
 /* MJ / RELATIONS */
@@ -257,4 +264,103 @@ export function apiGetZoneCharacterPositions(token, zoneId, options = {}) {
     `/zones/${encodeURIComponent(String(zoneId))}/characters/positions`,
     { token, ...options }
   );
+}
+
+export function apiLeaveCampaign(token, campaignId, options = {}) {
+  return apiFetch(`/campaigns/${encodeURIComponent(String(campaignId))}/leave`, {
+    token,
+    method: "DELETE",
+    ...options,
+  }).then(() => true);
+}
+
+export function apiGetCampaignMembers(token, campaignId, options = {}) {
+  return apiFetch(`/campaigns/${encodeURIComponent(String(campaignId))}/members`, {
+    token,
+    method: "GET",
+    ...options,
+  }).then((data) => (Array.isArray(data) ? data : []));
+}
+
+export function apiTransferCampaignMj(token, campaignId, userId, options = {}) {
+  return apiFetch(`/campaigns/${encodeURIComponent(String(campaignId))}/transfer-mj`, {
+    token,
+    method: "PUT",
+    body: { userId },
+    ...options,
+  }).then(() => true);
+}
+
+/* USERS */
+export function apiListUsers(token, options = {}) {
+  return apiFetch(`/users`, { token, ...options })
+    .then((data) => (Array.isArray(data) ? data : []));
+}
+
+export function apiGetUserProfile(token, userId, options = {}) {
+  return apiFetch(`/users/${encodeURIComponent(String(userId))}/profile`, {
+    token,
+    ...options,
+  });
+}
+
+export function apiSearchUsers(token, q, options = {}) {
+  const qs = `?q=${encodeURIComponent(String(q || ""))}`;
+  return apiFetch(`/users/search${qs}`, { token, ...options })
+    .then((data) => (Array.isArray(data) ? data : []));
+}
+
+export function apiListFriends(token, options = {}) {
+  return apiFetch(`/friends`, { token, ...options }).then((data) =>
+    Array.isArray(data) ? data : []
+  );
+}
+
+export function apiListFriendRequests(token, options = {}) {
+  return apiFetch(`/friends/requests`, { token, ...options }).then((data) => {
+    const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+    const outgoing = Array.isArray(data?.outgoing) ? data.outgoing : [];
+    return { incoming, outgoing };
+  });
+}
+
+export function apiSendFriendRequest(token, userId, options = {}) {
+  return apiFetch(`/friends/request`, {
+    token,
+    method: "POST",
+    body: { userId },
+    ...options,
+  });
+}
+
+export function apiAcceptFriendRequest(token, friendshipId, options = {}) {
+  return apiFetch(`/friends/${encodeURIComponent(String(friendshipId))}/accept`, {
+    token,
+    method: "POST",
+    ...options,
+  });
+}
+
+export function apiDeclineFriendRequest(token, friendshipId, options = {}) {
+  return apiFetch(`/friends/${encodeURIComponent(String(friendshipId))}/decline`, {
+    token,
+    method: "POST",
+    ...options,
+  });
+}
+
+export function apiRemoveFriend(token, otherUserId, options = {}) {
+  return apiFetch(`/friends/${encodeURIComponent(String(otherUserId))}`, {
+    token,
+    method: "DELETE",
+    ...options,
+  }).then(() => true);
+}
+
+export function apiGetFriendProfile(token, otherUserId, options = {}) {
+  return apiFetch(`/friends/${encodeURIComponent(String(otherUserId))}/profile`, {
+    token,
+    method: "GET",
+    ...options,
+  });
 }

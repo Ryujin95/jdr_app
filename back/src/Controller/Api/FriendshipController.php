@@ -96,4 +96,16 @@ class FriendshipController extends AbstractController
         $this->friendService->remove($user, $otherUserId);
         return $this->json(['message' => 'Relation supprimée'], 200);
     }
+
+    // ✅ NOUVEAU : Profil ami (liste des JDR visibles selon la préférence de l'ami)
+    #[Route('/api/friends/{otherUserId}/profile', name: 'api_friends_profile', methods: ['GET'])]
+    public function profile(int $otherUserId): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Unauthorized'], 401);
+        }
+
+        return $this->json($this->friendService->getFriendProfile($user, $otherUserId), 200);
+    }
 }

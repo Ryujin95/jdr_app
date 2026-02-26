@@ -28,11 +28,6 @@ function Header() {
           </Link>
         )}
 
-        {isAuthenticated && canSeeEditor && (
-          <Link to="/editor" className="nav-link">
-            Éditeur
-          </Link>
-        )}
 
         {!isAuthenticated && (
           <Link to="/login" className="nav-link">
@@ -54,8 +49,7 @@ function Header() {
               />
             </Link>
 
-            {/* ✅ MODIF: on monte RightSidebar seulement quand il est ouvert */}
-            {panelOpen && <RightSidebar open={panelOpen} setOpen={setPanelOpen} />}
+            <RightSidebar open={panelOpen} setOpen={setPanelOpen} />
           </div>
         )}
       </nav>

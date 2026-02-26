@@ -205,4 +205,84 @@ class FriendshipService
             'outgoing' => array_map($mapOne, $outgoing),
         ];
     }
+// ----------------------------
+// NOUVEAU METIER : Profil ami
+// ----------------------------
+
+private function assertFriends(User $me, User $other): Friendship
+{
+    $f = $this->friendRepo->findBetweenUsers($me, $other);
+    if (!$f || $f->getStatus() !== Friendship::STATUS_ACCEPTED) {
+        throw new AccessDeniedHttpException("Accès interdit.");
+    }
+    return $f;
+}
+
+/** @return array<string,mixed> */
+public function getFriendProfile(User $me, int $otherUserId): array
+{
+    $this->purgeExpiredPending();
+
+    $other = $this->userRepo->find($otherUserId);
+    if (!$other) {
+        throw new NotFoundHttpException("Utilisateur introuvable.");
+    }
+
+    if ($other->getId() === $me->getId()) {
+        throw new AccessDeniedHttpException("Action impossible.");
+    }
+
+    $this->assertFriends($me, $other);
+
+    return [
+        'userId' => $other->getId(),
+        'username' => method_exists($other, 'getUsername') ? $other->getUsername() : (string)$other->getUserIdentifier(),
+        'campaignVisibility' => method_exists($other, 'getProfileCampaignVisibility') ? $other->getProfileCampaignVisibility() : 'COMMON_ONLY',
+        'campaigns' => $this->getVisibleCampaignsForViewer($other, $me),
+    ];
+}
+/** @return array<int, array<string,mixed>> */
+private function getVisibleCampaignsForViewer(User $friend, User $viewer): array
+{
+    $visibility = method_exists($friend, 'getProfileCampaignVisibility')
+        ? (string)$friend->getProfileCampaignVisibility()
+        : 'COMMON_ONLY';
+
+    $qb = $this->campaignMemberRepo->createQueryBuilder('mF')
+        ->select('c.id AS id')
+        ->addSelect('c.title AS name')
+        ->addSelect('c.theme AS theme')
+        ->addSelect('mF.role AS friendRole')
+        ->addSelect('COUNT(DISTINCT mAll.id) AS membersCount')
+        ->addSelect('COUNT(DISTINCT ch.id) AS charactersCount')
+        ->addSelect('COUNT(DISTINCT loc.id) AS locationsCount')
+        ->innerJoin('mF.campaign', 'c')
+        ->leftJoin('App\Entity\CampaignMember', 'mAll', 'WITH', 'mAll.campaign = c')
+        ->leftJoin('App\Entity\Character', 'ch', 'WITH', 'ch.campaign = c')
+        ->leftJoin('App\Entity\Location', 'loc', 'WITH', 'loc.campaign = c')
+        ->andWhere('mF.user = :friend')
+        ->setParameter('friend', $friend)
+        ->groupBy('c.id, c.title, c.theme, mF.role');
+
+    if ($visibility !== 'ALL_FRIENDS') {
+        $qb->innerJoin(
+            'App\Entity\CampaignMember',
+            'mV',
+            'WITH',
+            'mV.campaign = c AND mV.user = :viewer'
+        )->setParameter('viewer', $viewer);
+    }
+
+    $rows = $qb->getQuery()->getArrayResult();
+
+    return array_map(static fn($r) => [
+        'id' => (int)$r['id'],
+        'name' => (string)$r['name'],
+        'theme' => $r['theme'] !== null ? (string)$r['theme'] : null,
+        'friendRole' => $r['friendRole'] ?? null,
+        'membersCount' => (int)$r['membersCount'],
+        'charactersCount' => (int)$r['charactersCount'],
+        'locationsCount' => (int)$r['locationsCount'],
+    ], $rows);
+}
 }

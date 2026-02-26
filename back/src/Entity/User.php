@@ -78,14 +78,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $resetPasswordTokenExpiresAt = null;
 
-    // ✅ NOUVEAU : préférence utilisateur (désactiver la vidéo de transition)
+    // ✅ préférence utilisateur (désactiver la vidéo de transition)
     #[ORM\Column(options: ['default' => false])]
     private bool $disableTransitions = false;
+
+    // ✅ NOUVEAU : visibilité des campagnes sur le profil ami
+    // ALL_FRIENDS = tes amis voient tous tes JDR
+    // COMMON_ONLY = tes amis voient seulement les JDR en commun
+    #[ORM\Column(length: 20, options: ['default' => 'COMMON_ONLY'])]
+    private string $profileCampaignVisibility = 'COMMON_ONLY';
 
     public function __construct()
     {
         $this->deleted = false;
         $this->disableTransitions = false;
+        $this->profileCampaignVisibility = 'COMMON_ONLY';
     }
 
     public function getId(): ?int
@@ -136,7 +143,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __serialize(): array
     {
         $data = (array) $this;
-        $data["\0".self::class."\0password"] = hash('crc32c', (string) $this->password);
+        $data["\0" . self::class . "\0password"] = hash('crc32c', (string) $this->password);
         return $data;
     }
 
@@ -192,7 +199,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    // ✅ NOUVEAU : getters/setters préférence transitions
+    // ✅ getters/setters préférence transitions
     public function isDisableTransitions(): bool
     {
         return $this->disableTransitions;
@@ -201,6 +208,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setDisableTransitions(bool $disableTransitions): static
     {
         $this->disableTransitions = $disableTransitions;
+        return $this;
+    }
+
+    // ✅ getters/setters visibilité campagnes profil ami
+    public function getProfileCampaignVisibility(): string
+    {
+        return $this->profileCampaignVisibility;
+    }
+
+    public function setProfileCampaignVisibility(string $visibility): static
+    {
+        $allowed = ['ALL_FRIENDS', 'COMMON_ONLY'];
+        if (!in_array($visibility, $allowed, true)) {
+            throw new \InvalidArgumentException("Invalid profileCampaignVisibility");
+        }
+
+        $this->profileCampaignVisibility = $visibility;
         return $this;
     }
 }

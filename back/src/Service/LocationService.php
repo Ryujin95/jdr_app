@@ -9,8 +9,11 @@ use App\Entity\Map\Zone;
 use App\Entity\User;
 use App\Repository\LocationRepository;
 use App\Repository\Map\MapRepository;
+use App\Repository\Character\CharacterRepository;
+use App\Repository\Campaign\CampaignMemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class LocationService
 {
@@ -19,6 +22,8 @@ class LocationService
         private EntityManagerInterface $em,
         private Security $security,
         private MapRepository $mapRepository,
+        private CampaignMemberRepository $campaignMemberRepository,
+        private CharacterRepository $characterRepository,
     ) {}
 
     public function getLocationsForCurrentUser(?int $campaignId): array
@@ -128,5 +133,45 @@ class LocationService
         if ($base === '') $base = 'zone';
 
         return $base . '-' . bin2hex(random_bytes(4));
+    }
+
+    public function getLocationsForCharacter(int $characterId, User $user): array
+    {
+        $character = $this->characterRepository->find($characterId);
+        if (!$character) {
+            throw new \InvalidArgumentException("Personnage introuvable.");
+        }
+
+        $campaign = method_exists($character, 'getCampaign') ? $character->getCampaign() : null;
+        if (!$campaign) {
+            throw new \InvalidArgumentException("Ce personnage n'est rattaché à aucune campagne.");
+        }
+
+        $campaignId = method_exists($campaign, 'getId') ? $campaign->getId() : null;
+        if (!$campaignId) {
+            throw new \InvalidArgumentException("Campagne invalide.");
+        }
+
+        $isAdmin = method_exists($user, 'getRoles') && in_array('ROLE_ADMIN', $user->getRoles(), true);
+
+        // ✅ check membership (adapte le nom du repo si besoin)
+        $isMember = (bool) $this->campaignMemberRepository->findOneBy([
+            'campaign' => $campaign,
+            'user' => $user,
+        ]);
+
+        if (!$isAdmin && !$isMember) {
+            throw new AccessDeniedHttpException("Accès refusé.");
+        }
+
+        // ✅ récupère les lieux de la campagne (adapte la méthode si ton repo diffère)
+        // Option A: tu as déjà findBy(['campaign' => $campaign])
+        $locations = $this->locationRepository->findBy(['campaign' => $campaign], ['name' => 'ASC']);
+
+        // Retour format front-friendly (id + name suffisent pour le select)
+        return array_map(static fn($l) => [
+            'id' => $l->getId(),
+            'name' => $l->getName(),
+        ], $locations);
     }
 }

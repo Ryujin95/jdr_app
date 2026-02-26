@@ -1,6 +1,10 @@
 // src/context/AuthContext.jsx
 import { createContext, useEffect, useMemo, useState } from "react";
 import { API_URL } from "../config";
+import {
+  apiListFriends,
+  apiListFriendRequests
+} from "../api/api";
 
 export const AuthContext = createContext(null);
 
@@ -8,10 +12,20 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
 
-  // ✅ MODIF: évite double fetch /me (login + sync) juste après le login
   const [meSyncedOnce, setMeSyncedOnce] = useState(false);
 
-  // lecture du localStorage au démarrage
+  // 🔥 NOUVEAU : préchargement amis
+  const prefetchFriends = async (jwt) => {
+    try {
+      await Promise.all([
+        apiListFriends(jwt),
+        apiListFriendRequests(jwt),
+      ]);
+    } catch {
+      // silencieux volontairement
+    }
+  };
+
   useEffect(() => {
     const raw = localStorage.getItem("auth");
     if (!raw) return;
@@ -21,21 +35,21 @@ export function AuthProvider({ children }) {
       if (parsed?.token) {
         setToken(parsed.token);
         setUser(parsed.user || null);
-        // ✅ MODIF: si on a déjà un user en cache, on considère qu'on a "déjà sync"
         setMeSyncedOnce(!!parsed.user);
+
+        // 🔥 NOUVEAU : précharge amis au reload
+        if (parsed.token) {
+          prefetchFriends(parsed.token);
+        }
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
-  // ✅ MODIF: helper pour charger /me proprement
   const fetchMe = async (jwt) => {
     const meRes = await fetch(`${API_URL}/me`, {
       headers: { Authorization: `Bearer ${jwt}` },
     });
 
-    // ✅ MODIF: si token invalide/expiré, on nettoie
     if (meRes.status === 401) {
       throw new Error("SESSION_EXPIRED");
     }
@@ -48,10 +62,9 @@ export function AuthProvider({ children }) {
     return meRes.json();
   };
 
-  // ✅ MODIF: sync /me une seule fois quand on a un token (ex: refresh après reload)
   useEffect(() => {
     if (!token) return;
-    if (meSyncedOnce) return; // ✅ MODIF: évite de resync inutilement
+    if (meSyncedOnce) return;
 
     let cancelled = false;
 
@@ -62,15 +75,17 @@ export function AuthProvider({ children }) {
 
         setUser(me);
         localStorage.setItem("auth", JSON.stringify({ token, user: me }));
-        setMeSyncedOnce(true); // ✅ MODIF
+        setMeSyncedOnce(true);
+
+        // 🔥 NOUVEAU : précharge amis après sync
+        await prefetchFriends(token);
+
       } catch (e) {
         if (e?.message === "SESSION_EXPIRED") {
-          // ✅ MODIF: logout auto si token mort
           setToken(null);
           setUser(null);
           localStorage.removeItem("auth");
         }
-        // sinon on ignore comme avant
       }
     };
 
@@ -84,8 +99,11 @@ export function AuthProvider({ children }) {
   const saveAuth = (nextToken, nextUser) => {
     setToken(nextToken);
     setUser(nextUser);
-    setMeSyncedOnce(true); // ✅ MODIF: on vient de récupérer /me, inutile de resync derrière
+    setMeSyncedOnce(true);
     localStorage.setItem("auth", JSON.stringify({ token: nextToken, user: nextUser }));
+
+    // 🔥 NOUVEAU : précharge amis après login
+    prefetchFriends(nextToken);
   };
 
   const login = async (email, password) => {
@@ -101,8 +119,6 @@ export function AuthProvider({ children }) {
     }
 
     const jwt = data.token;
-
-    // ✅ MODIF: on passe par le helper fetchMe + gestion d’erreurs
     const me = await fetchMe(jwt);
 
     saveAuth(jwt, me);
@@ -111,7 +127,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    setMeSyncedOnce(false); // ✅ MODIF
+    setMeSyncedOnce(false);
     localStorage.removeItem("auth");
   };
 
@@ -124,7 +140,6 @@ export function AuthProvider({ children }) {
     });
   };
 
-  // ✅ MODIF: évite recalcul et rend le contexte un peu plus stable
   const value = useMemo(
     () => ({
       token,

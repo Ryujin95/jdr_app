@@ -27,7 +27,6 @@ function LoginPage() {
         message: "Connexion réussie, bienvenue !",
       });
 
-      // ✅ redirection vers le dashboard après connexion
       navigate("/dashboard");
     } catch (err) {
       const raw = err?.message || "";

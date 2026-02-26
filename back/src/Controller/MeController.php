@@ -6,6 +6,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Repository\Campaign\CampaignRepository;
 use App\Service\MeService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,7 +17,8 @@ class MeController extends AbstractController
 {
     public function __construct(
         private MeService $meService,
-        private CampaignRepository $campaignRepository
+        private CampaignRepository $campaignRepository,
+        private EntityManagerInterface $em
     ) {}
 
     #[Route('/me', name: 'api_me_get', methods: ['GET'])]
@@ -44,6 +46,9 @@ class MeController extends AbstractController
             'disableTransitions' => method_exists($user, 'isDisableTransitions')
                 ? (bool) $user->isDisableTransitions()
                 : false,
+            'profileCampaignVisibility' => method_exists($user, 'getProfileCampaignVisibility')
+                ? (string) $user->getProfileCampaignVisibility()
+                : 'COMMON_ONLY',
             'campaignRoles' => $campaignRoles,
         ], 200);
     }
@@ -57,7 +62,19 @@ class MeController extends AbstractController
         }
 
         $data = json_decode($request->getContent() ?: '', true) ?? [];
+
+        // update "classique" via ton MeService (username/email/password/etc)
         $user = $this->meService->update($user, $data);
+
+        // ✅ NOUVEAU : update de la préférence de visibilité des campagnes
+        if (array_key_exists('profileCampaignVisibility', $data) && method_exists($user, 'setProfileCampaignVisibility')) {
+            try {
+                $user->setProfileCampaignVisibility((string) $data['profileCampaignVisibility']);
+            } catch (\InvalidArgumentException $e) {
+                return $this->json(['message' => 'Invalid profileCampaignVisibility'], 422);
+            }
+            $this->em->flush();
+        }
 
         $rows = $this->campaignRepository->findForUser($user);
 
@@ -77,6 +94,9 @@ class MeController extends AbstractController
             'disableTransitions' => method_exists($user, 'isDisableTransitions')
                 ? (bool) $user->isDisableTransitions()
                 : false,
+            'profileCampaignVisibility' => method_exists($user, 'getProfileCampaignVisibility')
+                ? (string) $user->getProfileCampaignVisibility()
+                : 'COMMON_ONLY',
             'campaignRoles' => $campaignRoles,
         ], 200);
     }

@@ -3,11 +3,13 @@ import { useEffect, useMemo, useState, useContext } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
+import { NotificationContext } from "../context/NotificationContext";
 import "../CSS/CharacterEdit.css";
 
 function CharacterEditPage() {
   const { id } = useParams();
   const { token } = useContext(AuthContext);
+  const { addNotification } = useContext(NotificationContext);
   const navigate = useNavigate();
 
   const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
@@ -36,6 +38,8 @@ function CharacterEditPage() {
     isPlayer: false,
     locationId: "",
   });
+
+  const [locations, setLocations] = useState([]);
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [transitionVideoFile, setTransitionVideoFile] = useState(null);
@@ -76,16 +80,46 @@ function CharacterEditPage() {
         });
 
         setAvatarPreview(buildAssetUrl(c.avatarUrl));
-        setVideoName(c.transitionVideoUrl ? (c.transitionVideoUrl.split("/").pop() || "") : "");
+        setVideoName(c.transitionVideoUrl ? c.transitionVideoUrl.split("/").pop() || "" : "");
       } catch (e) {
-        setError(e.message);
+        const msg = e?.message || "Erreur lors du chargement.";
+        setError(msg);
+        addNotification?.({ type: "error", message: msg });
       } finally {
         setLoading(false);
       }
     };
 
     fetchCharacter();
-  }, [id, token]);
+  }, [id, token, addNotification]);
+
+ useEffect(() => {
+  if (!token) return;
+
+  const fetchLocations = async () => {
+    try {
+      const res = await fetch(
+        `${API_URL}/characters/${id}/locations`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) {
+        setLocations([]);
+        return;
+      }
+
+      const data = await res.json().catch(() => []);
+      setLocations(Array.isArray(data) ? data : []);
+    } catch {
+      setLocations([]);
+    }
+  };
+
+  fetchLocations();
+}, [id, token]);
+
 
   useEffect(() => {
     if (!avatarFile) return;
@@ -175,15 +209,17 @@ function CharacterEditPage() {
         }));
 
         setAvatarPreview(buildAssetUrl(updated.avatarUrl));
-        setVideoName(
-          updated.transitionVideoUrl ? (updated.transitionVideoUrl.split("/").pop() || "") : ""
-        );
+        setVideoName(updated.transitionVideoUrl ? updated.transitionVideoUrl.split("/").pop() || "" : "");
       }
 
       setSuccess("Modifications enregistrées.");
+      addNotification?.({ type: "success", message: "Modifications enregistrées." });
+
       setTimeout(() => navigate(`/characters/${id}`), 450);
     } catch (err) {
-      setError(err.message || "Erreur lors de l'enregistrement.");
+      const msg = err?.message || "Erreur lors de l'enregistrement.";
+      setError(msg);
+      addNotification?.({ type: "error", message: msg });
     } finally {
       setSaving(false);
     }
@@ -237,13 +273,15 @@ function CharacterEditPage() {
           </label>
 
           <label className="edit-field">
-            <span>Location ID</span>
-            <input
-              name="locationId"
-              value={form.locationId}
-              onChange={onChange}
-              placeholder="ex: 1, 2, 3…"
-            />
+            <span>Lieu actuel</span>
+            <select name="locationId" value={form.locationId || ""} onChange={onChange}>
+              <option value="">Aucun lieu</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={String(loc.id)}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="edit-field edit-checkbox">

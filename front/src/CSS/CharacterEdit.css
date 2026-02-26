@@ -9,6 +9,7 @@
     margin: 0 0 18px;
     font-size: 1.7rem;
     font-weight: 800;
+    color: black;
   }
   
   .edit-message {
@@ -41,14 +42,15 @@
     box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
   }
   
-  .edit-form {
-    background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
-    padding: 18px;
-    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
-    max-width: 980px;
-  }
+.edit-form {
+  background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+  max-width: 980px;
+  margin: 40px auto; /* centre horizontal + espace en haut/bas */
+}
   
   .edit-grid {
     display: grid;

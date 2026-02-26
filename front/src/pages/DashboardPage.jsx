@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import "../CSS/DashboardPage.css";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
+import { apiLeaveCampaign } from "../api/api";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -55,9 +56,6 @@ export default function DashboardPage() {
 
   const openCampaign = (c) => {
     localStorage.setItem("activeCampaignId", String(c.id));
-
-    // ✅ MODIF: on passe la campagne en state pour que CampaignPage ait le role tout de suite
-    // ✅ MODIF: on va direct sur /wall (comme ton App.jsx redirect index -> wall, mais là c'est direct)
     navigate(`/campaigns/${c.id}/wall`, { state: { campaign: c } });
   };
 
@@ -108,9 +106,6 @@ export default function DashboardPage() {
       localStorage.setItem("activeCampaignId", String(campaignId));
       setJoinOpen(false);
 
-      // ✅ MODIF: on passe ce que le back renvoie (souvent title/theme/joinCode) en state
-      // et surtout si le back renvoie "role", CampaignPage l'a direct.
-      // Si le back ne renvoie pas role ici, CampaignPage restera instantané uniquement quand on vient du dashboard list.
       navigate(`/campaigns/${campaignId}/wall`, { state: { campaign: data } });
     } catch (err) {
       const msg = String(err?.message || "Impossible de rejoindre la campagne.");
@@ -126,6 +121,22 @@ export default function DashboardPage() {
       setJoinLoading(false);
     }
   };
+
+
+ const leaveCampaign = useCallback(
+  async (campaignId) => {
+    const ok = window.confirm("Tu es sûr de vouloir quitter ce JDR ? Tu n'y auras plus accès.");
+    if (!ok) return;
+
+    try {
+      await apiLeaveCampaign(token, campaignId);
+      setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+    } catch (err) {
+      alert(String(err?.message || "Impossible de quitter la campagne."));
+    }
+  },
+  [token]
+);
 
   if (!token) {
     return (
@@ -173,7 +184,13 @@ export default function DashboardPage() {
           </article>
 
           {campaigns.map((c) => (
-            <article key={c.id} className="card" onClick={() => openCampaign(c)} role="button" tabIndex={0}>
+            <article
+              key={c.id}
+              className="card"
+              onClick={() => openCampaign(c)}
+              role="button"
+              tabIndex={0}
+            >
               <div className="card-top">
                 <span className="tag">{c.theme || "Thème libre"}</span>
                 <span className={`role ${c.role === "MJ" ? "role-mj" : "role-player"}`}>
@@ -187,7 +204,22 @@ export default function DashboardPage() {
                 Dernière activité: {c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "—"}
               </div>
 
-              <div className="card-action">Ouvrir</div>
+              <div className="card-action">
+  Ouvrir
+
+  {c.role === "Player" && (
+    <button
+      type="button"
+      className="btn-quit"
+      onClick={(e) => {
+        e.stopPropagation();
+        leaveCampaign(c.id);
+      }}
+    >
+      Quitter
+    </button>
+  )}
+</div>
             </article>
           ))}
         </section>

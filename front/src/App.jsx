@@ -21,9 +21,10 @@ import CreateCampaignPage from "./pages/CreateCampaignPage.jsx";
 import CampaignPage from "./pages/CampaignPage.jsx";
 import CampaignWallPage from "./pages/CampaignWallPage.jsx";
 import CampaignCharactersPage from "./pages/CampaignCharactersPage.jsx";
-import CampaignMapPage from "./pages/CampaignMapPage.jsx";
+import CampaignMapPage from "./pages/map/CampaignMapPage.jsx";
 import CampaignEditorPage from "./pages/CampaignEditorPage.jsx";
 import CampaignCreateMapPage from "./pages/CampaignCreateMapPage.jsx";
+import FriendProfilePage from "./pages/FriendProfilePage.jsx";
 
 function App() {
   const [trashOpen, setTrashOpen] = useState(false);
@@ -49,6 +50,9 @@ function App() {
         <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
 
         <Route path="/campaigns/create" element={<CreateCampaignPage />} />
+
+        {/* ✅ NOUVEAU : page profil ami */}
+        <Route path="/friends/:userId" element={<FriendProfilePage />} />
 
         <Route
           path="/campaigns/:id"
