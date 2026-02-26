@@ -215,7 +215,7 @@ function CharacterEditPage() {
       setSuccess("Modifications enregistrées.");
       addNotification?.({ type: "success", message: "Modifications enregistrées." });
 
-      setTimeout(() => navigate(`/characters/${id}`), 450);
+      setTimeout(() => navigate(`/characters/${campaignId}`), 450);
     } catch (err) {
       const msg = err?.message || "Erreur lors de l'enregistrement.";
       setError(msg);

@@ -20,7 +20,7 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import CreateCampaignPage from "./pages/CreateCampaignPage.jsx";
 import CampaignPage from "./pages/CampaignPage.jsx";
 import CampaignWallPage from "./pages/CampaignWallPage.jsx";
-import CampaignCharactersPage from "./pages/CampaignCharactersPage.jsx";
+import CampaignCharactersPage from "./pages/characters/CampaignCharactersPage.jsx"
 import CampaignMapPage from "./pages/map/CampaignMapPage.jsx";
 import CampaignEditorPage from "./pages/CampaignEditorPage.jsx";
 import CampaignCreateMapPage from "./pages/CampaignCreateMapPage.jsx";
