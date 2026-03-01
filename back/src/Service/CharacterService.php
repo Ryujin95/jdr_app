@@ -12,6 +12,7 @@ use App\Repository\Character\CharacterKnowledgeRepository;
 use App\Repository\Character\CharacterRelationshipRepository;
 use App\Repository\Character\CharacterRepository;
 use App\Repository\Character\CharacterSkillValueRepository;
+use App\Repository\Campaign\CampaignMemberRepository; // ✅ FIX IMPORTANT (bon namespace)
 use App\Repository\LocationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -31,6 +32,7 @@ class CharacterService
         private CharacterSkillValueRepository $skillValueRepository,
         private CharacterKnowledgeRepository $knowledgeRepository,
         private CharacterRelationshipRepository $relationshipRepository,
+        private CampaignMemberRepository $campaignMemberRepository,
         private string $projectDir,
     ) {}
 
@@ -91,6 +93,8 @@ class CharacterService
                 $relationshipStars = $this->scoreToStars($score);
             }
 
+            $camp = $character->getCampaign();
+
             $cards[] = [
                 'id'        => $character->getId(),
                 'nickname'  => $character->getNickname(),
@@ -102,6 +106,12 @@ class CharacterService
                 'isPlayer'  => $character->isPlayer(),
                 'clan'      => $character->getClan(),
                 'owner'     => $ownerPayload,
+
+                'campaign' => $camp ? [
+                    'id' => $camp->getId(),
+                    'title' => method_exists($camp, 'getTitle') ? $camp->getTitle() : null,
+                ] : null,
+
                 'affinityScore' => $affinityScore,
                 'relationshipStars' => $relationshipStars,
             ];
@@ -121,6 +131,19 @@ class CharacterService
         return 5;
     }
 
+    private function starsToScore(int $stars): int
+    {
+        return match ($stars) {
+            0 => 0,
+            1 => 20,
+            2 => 40,
+            3 => 60,
+            4 => 80,
+            5 => 100,
+            default => 0,
+        };
+    }
+
     public function getCharacterDetailForCurrentUser(Character $character, ?int $campaignId = null): array
     {
         /** @var User|null $user */
@@ -130,11 +153,13 @@ class CharacterService
         }
 
         if ($campaignId !== null) {
-            $camp = $character->getCampaign();
-            if (!$camp || $camp->getId() !== $campaignId) {
+            $campCheck = $character->getCampaign();
+            if (!$campCheck || $campCheck->getId() !== $campaignId) {
                 throw new AccessDeniedException('Forbidden');
             }
         }
+
+        $camp = $character->getCampaign();
 
         $data = [
             'id'        => $character->getId(),
@@ -149,6 +174,11 @@ class CharacterService
             'biography'  => $character->getBiography(),
             'strengths'  => $character->getStrengths(),
             'weaknesses' => $character->getWeaknesses(),
+
+            'campaign' => $camp ? [
+                'id' => $camp->getId(),
+                'title' => method_exists($camp, 'getTitle') ? $camp->getTitle() : null,
+            ] : null,
         ];
 
         if ($character->isPlayer() && $character->getOwner()) {
@@ -216,11 +246,51 @@ class CharacterService
         return $character;
     }
 
+    private function assertAdminOrCampaignMj(int $campaignId): void
+    {
+        /** @var User|null $user */
+        $user = $this->security->getUser();
+        if (!$user) {
+            throw new AccessDeniedException('Authentication required');
+        }
+
+        if ($this->security->isGranted('ROLE_ADMIN')) {
+            return;
+        }
+
+        if (!$this->campaignMemberRepository->isUserMjInCampaign($campaignId, (int) $user->getId())) {
+            throw new AccessDeniedException('MJ only');
+        }
+    }
+
+    private function assertUserIsPlayerInCampaign(int $campaignId, int $userId): void
+    {
+        $role = $this->campaignMemberRepository->getRoleForUserInCampaign($campaignId, $userId);
+        if ($role !== 'Player') {
+            throw new \InvalidArgumentException('Utilisateur non joueur dans cette campagne');
+        }
+    }
+
+    private function assertUserHasNoActivePlayerCharacterInCampaign(int $campaignId, User $user): void
+    {
+        $existing = $this->characterRepository->findActivePlayerCharacterByOwner($user);
+        if ($existing) {
+            $camp = $existing->getCampaign();
+            if ($camp && (int) $camp->getId() === (int) $campaignId && !$existing->isDeleted() && $existing->isPlayer()) {
+                throw new \InvalidArgumentException('Ce joueur a déjà un personnage dans cette campagne');
+            }
+        }
+    }
+
     public function assignOwner(Character $character, ?int $userId): array
     {
-        if (!$this->security->isGranted('ROLE_ADMIN')) {
-            throw new AccessDeniedException('Admin only');
+        $camp = $character->getCampaign();
+        if (!$camp) {
+            throw new \InvalidArgumentException('Le personnage n’est pas lié à une campagne');
         }
+
+        $campaignId = (int) $camp->getId();
+        $this->assertAdminOrCampaignMj($campaignId);
 
         if ($userId === null) {
             $character->setOwner(null);
@@ -234,6 +304,9 @@ class CharacterService
         if (!$user) {
             throw new \InvalidArgumentException('Utilisateur introuvable');
         }
+
+        $this->assertUserIsPlayerInCampaign($campaignId, (int) $user->getId());
+        $this->assertUserHasNoActivePlayerCharacterInCampaign($campaignId, $user);
 
         $character->setOwner($user);
         $this->em->flush();
@@ -358,6 +431,51 @@ class CharacterService
         if ($isPlayerRaw !== null) {
             $val = strtolower(trim((string) $isPlayerRaw));
             $character->setIsPlayer($val === '1' || $val === 'true' || $val === 'on');
+        }
+
+        // ✅ AJOUT: ownerUserId (assignation du joueur) -> enregistre en BD
+        $ownerUserIdRaw = $request->request->get('ownerUserId', null);
+        if ($ownerUserIdRaw !== null) {
+
+            // si pas joueur => on force null
+            if (!$character->isPlayer()) {
+                $character->setOwner(null);
+            } else {
+                $ownerUserIdRaw = trim((string) $ownerUserIdRaw);
+
+                // vide => on retire l'owner
+                if ($ownerUserIdRaw === '') {
+                    $character->setOwner(null);
+                } else {
+                    if (!is_numeric($ownerUserIdRaw)) {
+                        throw new \InvalidArgumentException('ownerUserId invalide');
+                    }
+
+                    $camp = $character->getCampaign();
+                    if (!$camp) {
+                        throw new \InvalidArgumentException('Personnage non lié à une campagne');
+                    }
+
+                    $campaignIdLocal = (int) $camp->getId();
+
+                    // sécurité: MJ de la campagne ou admin
+                    $this->assertAdminOrCampaignMj($campaignIdLocal);
+
+                    /** @var User|null $newOwner */
+                    $newOwner = $this->em->getRepository(User::class)->find((int) $ownerUserIdRaw);
+                    if (!$newOwner) {
+                        throw new \InvalidArgumentException('Utilisateur introuvable');
+                    }
+
+                    // doit être Player dans cette campagne
+                    $this->assertUserIsPlayerInCampaign($campaignIdLocal, (int) $newOwner->getId());
+
+                    // ne doit pas déjà avoir un perso joueur dans cette campagne
+                    $this->assertUserHasNoActivePlayerCharacterInCampaign($campaignIdLocal, $newOwner);
+
+                    $character->setOwner($newOwner);
+                }
+            }
         }
 
         $locationIdRaw = $request->request->get('locationId', null);

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
 import { NotificationContext } from "../context/NotificationContext";
+import { apiGetCampaignMembers } from "../api/api";
 import "../CSS/CharacterEdit.css";
 
 function CharacterEditPage() {
@@ -13,7 +14,6 @@ function CharacterEditPage() {
   const navigate = useNavigate();
 
   const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
-
   const buildAssetUrl = (path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
@@ -37,9 +37,15 @@ function CharacterEditPage() {
     clan: "",
     isPlayer: false,
     locationId: "",
+    ownerUserId: "",
   });
 
+  const [campaignId, setCampaignId] = useState(null);
+
   const [locations, setLocations] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [ownerCandidates, setOwnerCandidates] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [transitionVideoFile, setTransitionVideoFile] = useState(null);
@@ -50,6 +56,8 @@ function CharacterEditPage() {
   useEffect(() => {
     if (!token) return;
 
+    const controller = new AbortController();
+
     const fetchCharacter = async () => {
       setLoading(true);
       setError(null);
@@ -57,6 +65,7 @@ function CharacterEditPage() {
       try {
         const res = await fetch(`${API_URL}/characters/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -65,6 +74,9 @@ function CharacterEditPage() {
         }
 
         const c = await res.json();
+
+        const campId = c?.campaign?.id ? String(c.campaign.id) : null;
+        setCampaignId(campId);
 
         setForm({
           nickname: c.nickname ?? "",
@@ -77,11 +89,13 @@ function CharacterEditPage() {
           clan: c.clan ?? "",
           isPlayer: !!c.isPlayer,
           locationId: c.location?.id ? String(c.location.id) : "",
+          ownerUserId: c.owner?.id ? String(c.owner.id) : "",
         });
 
         setAvatarPreview(buildAssetUrl(c.avatarUrl));
         setVideoName(c.transitionVideoUrl ? c.transitionVideoUrl.split("/").pop() || "" : "");
       } catch (e) {
+        if (e?.name === "AbortError") return;
         const msg = e?.message || "Erreur lors du chargement.";
         setError(msg);
         addNotification?.({ type: "error", message: msg });
@@ -91,35 +105,72 @@ function CharacterEditPage() {
     };
 
     fetchCharacter();
+    return () => controller.abort();
   }, [id, token, addNotification]);
 
- useEffect(() => {
-  if (!token) return;
+  useEffect(() => {
+    if (!token) return;
 
-  const fetchLocations = async () => {
-    try {
-      const res = await fetch(
-        `${API_URL}/characters/${id}/locations`,
-        {
+    const controller = new AbortController();
+
+    const fetchLocations = async () => {
+      try {
+        const res = await fetch(`${API_URL}/characters/${id}/locations`, {
           headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          setLocations([]);
+          return;
         }
-      );
 
-      if (!res.ok) {
+        const data = await res.json().catch(() => []);
+        setLocations(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
         setLocations([]);
-        return;
       }
+    };
 
-      const data = await res.json().catch(() => []);
-      setLocations(Array.isArray(data) ? data : []);
-    } catch {
-      setLocations([]);
+    fetchLocations();
+    return () => controller.abort();
+  }, [id, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (!campaignId) {
+      setMembers([]);
+      setOwnerCandidates([]);
+      return;
     }
-  };
 
-  fetchLocations();
-}, [id, token]);
+    const controller = new AbortController();
+    setMembersLoading(true);
 
+    (async () => {
+      try {
+        const data = await apiGetCampaignMembers(token, campaignId, { signal: controller.signal });
+        const list = Array.isArray(data) ? data : [];
+        setMembers(list);
+
+        const candidates = list.filter((m) => {
+          const role = String(m?.role || "").toLowerCase();
+          return role === "player";
+        });
+
+        setOwnerCandidates(candidates);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        setMembers([]);
+        setOwnerCandidates([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [token, campaignId]);
 
   useEffect(() => {
     if (!avatarFile) return;
@@ -132,7 +183,11 @@ function CharacterEditPage() {
     const { name, value, type, checked } = e.target;
 
     if (type === "checkbox") {
-      setForm((p) => ({ ...p, [name]: checked }));
+      setForm((p) => {
+        const next = { ...p, [name]: checked };
+        if (name === "isPlayer" && !checked) next.ownerUserId = "";
+        return next;
+      });
       return;
     }
 
@@ -153,7 +208,6 @@ function CharacterEditPage() {
       }
 
       const fd = new FormData();
-
       fd.append("nickname", String(form.nickname).trim());
       fd.append("firstname", form.firstname ?? "");
       fd.append("lastname", form.lastname ?? "");
@@ -164,6 +218,7 @@ function CharacterEditPage() {
       fd.append("clan", form.clan ?? "");
       fd.append("isPlayer", form.isPlayer ? "true" : "false");
       fd.append("locationId", form.locationId || "");
+      fd.append("ownerUserId", form.isPlayer ? (form.ownerUserId || "") : "");
 
       if (avatarFile) fd.append("avatar", avatarFile);
       if (transitionVideoFile) fd.append("transitionVideo", transitionVideoFile);
@@ -180,9 +235,7 @@ function CharacterEditPage() {
         try {
           const json = text ? JSON.parse(text) : null;
           msg = json?.message || json?.detail || msg;
-        } catch {
-          // ignore
-        }
+        } catch {}
         throw new Error(msg || `Erreur HTTP ${res.status}`);
       }
 
@@ -206,6 +259,7 @@ function CharacterEditPage() {
           clan: updated.clan ?? p.clan,
           isPlayer: typeof updated.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
           locationId: updated.location?.id ? String(updated.location.id) : p.locationId,
+          ownerUserId: updated.owner?.id ? String(updated.owner.id) : p.ownerUserId,
         }));
 
         setAvatarPreview(buildAssetUrl(updated.avatarUrl));
@@ -215,7 +269,7 @@ function CharacterEditPage() {
       setSuccess("Modifications enregistrées.");
       addNotification?.({ type: "success", message: "Modifications enregistrées." });
 
-      setTimeout(() => navigate(`/characters/${campaignId}`), 450);
+      setTimeout(() => navigate(-1), 450);
     } catch (err) {
       const msg = err?.message || "Erreur lors de l'enregistrement.";
       setError(msg);
@@ -225,24 +279,15 @@ function CharacterEditPage() {
     }
   };
 
-  if (!token) {
-    return <p className="edit-message">Connecte-toi pour modifier un personnage.</p>;
-  }
-
-  if (loading) {
-    return <p className="edit-message">Chargement…</p>;
-  }
-
-  if (error) {
-    return <p className="edit-message edit-error">Erreur : {error}</p>;
-  }
+  if (!token) return <p className="edit-message">Connecte-toi pour modifier un personnage.</p>;
+  if (loading) return <p className="edit-message">Chargement…</p>;
+  if (error) return <p className="edit-message edit-error">Erreur : {error}</p>;
 
   return (
     <div className="character-edit-page">
       <button className="edit-back-button" onClick={() => navigate(-1)}>
         ← Retour
       </button>
-
       <h1 className="edit-title">Modifier le personnage</h1>
 
       <form className="edit-form" onSubmit={onSubmit}>
@@ -290,6 +335,30 @@ function CharacterEditPage() {
           </label>
         </div>
 
+        {form.isPlayer && (
+          <label className="edit-field">
+            <span>Attribuer à un joueur</span>
+            <select name="ownerUserId" value={form.ownerUserId || ""} onChange={onChange} disabled={membersLoading}>
+              <option value="">{membersLoading ? "Chargement…" : "Choisir un joueur"}</option>
+
+              {ownerCandidates.map((m) => {
+                const uid = m.userId ?? m.id;
+                if (!uid) return null;
+
+                return (
+                  <option key={String(uid)} value={String(uid)}>
+                    {m.username || m.email || `User #${uid}`}
+                  </option>
+                );
+              })}
+            </select>
+
+            {!membersLoading && ownerCandidates.length === 0 && (
+              <div className="edit-hint">Aucun joueur disponible (vérifie le rôle dans /members)</div>
+            )}
+          </label>
+        )}
+
         <label className="edit-field">
           <span>Histoire</span>
           <textarea name="biography" value={form.biography} onChange={onChange} rows={5} />
@@ -330,9 +399,7 @@ function CharacterEditPage() {
           <div className="edit-media-block">
             <div className="edit-media-title">Vidéo de transition</div>
             <div className="edit-media-row">
-              <div className="edit-video-chip">
-                {transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}
-              </div>
+              <div className="edit-video-chip">{transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}</div>
               <div className="edit-media-controls">
                 <input
                   type="file"

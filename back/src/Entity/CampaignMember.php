@@ -1,6 +1,4 @@
 <?php
-// src/Entity/CampaignMember.php
-// (Je te le donne complet uniquement si tu n’en as pas, sinon compare juste les noms: campaign, user, role + getRole())
 
 namespace App\Entity;
 

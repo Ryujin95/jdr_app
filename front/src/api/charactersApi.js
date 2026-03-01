@@ -138,3 +138,9 @@ export async function createCharacter(token, formData) {
 
   return res.json().catch(() => null);
 }
+
+import { apiGetAssignablePlayers } from "./api";
+
+export function getAssignablePlayersForCharacterSelect(token, campaignId) {
+  return apiGetAssignablePlayers(token, campaignId);
+}

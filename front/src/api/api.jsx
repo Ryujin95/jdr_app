@@ -161,6 +161,14 @@ export function apiJoinCampaign(token, code) {
   });
 }
 
+export function apiGetAssignablePlayers(token, campaignId, options = {}) {
+  if (!campaignId) return Promise.resolve([]);
+  return apiFetch(
+    `/campaigns/${encodeURIComponent(String(campaignId))}/assignable-players`,
+    { token, method: "GET", ...options }
+  ).then((data) => (Array.isArray(data) ? data : []));
+}
+
 /* CHARACTERS */
 export function apiListCharacters(token, campaignId, options = {}) {
   const qs = campaignId ? `?campaignId=${encodeURIComponent(String(campaignId))}` : "";

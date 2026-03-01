@@ -1,5 +1,5 @@
 <?php
-// src/Repository/CampaignMemberRepository.php
+// src/Repository/Campaign/CampaignMemberRepository.php
 
 namespace App\Repository\Campaign;
 
@@ -57,9 +57,6 @@ final class CampaignMemberRepository extends ServiceEntityRepository
         return $count > 0;
     }
 
-    /**
-     * Renvoie la liste des membres d'une campagne (avec username/email) si tu veux l'afficher côté MJ.
-     */
     public function findMembersForCampaign(int $campaignId): array
     {
         return $this->createQueryBuilder('cm')
@@ -67,17 +64,12 @@ final class CampaignMemberRepository extends ServiceEntityRepository
             ->innerJoin('cm.user', 'u')
             ->andWhere('cm.campaign = :campaignId')
             ->setParameter('campaignId', $campaignId)
-            ->orderBy('cm.role', 'DESC') // MJ d'abord si tu veux
+            ->orderBy('cm.role', 'DESC')
             ->addOrderBy('u.username', 'ASC')
             ->getQuery()
             ->getArrayResult();
     }
 
-    /**
-     * Utile si tu veux d'un coup récupérer:
-     * - role du user dans la campagne
-     * - joinCode / title / theme via la relation Campaign (si tu veux faire une route "campaigns/{id}/me")
-     */
     public function findMyCampaignView(int $campaignId, int $userId): ?array
     {
         $row = $this->createQueryBuilder('cm')
@@ -91,5 +83,30 @@ final class CampaignMemberRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
 
         return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Liste des joueurs de la campagne qui n'ont pas encore de personnage joueur actif dans cette campagne.
+     * Retour format array simple pour ton select front.
+     */
+    public function findAvailablePlayersWithoutCharacter(int $campaignId): array
+    {
+        return $this->createQueryBuilder('cm')
+            ->select('u.id AS id, u.email AS email, u.username AS username')
+            ->innerJoin('cm.user', 'u')
+            ->leftJoin(
+                'App\Entity\Character',
+                'c',
+                'WITH',
+                'c.owner = u AND c.deleted = false AND c.isPlayer = true AND IDENTITY(c.campaign) = :campaignId'
+            )
+            ->andWhere('cm.campaign = :campaignId')
+            ->andWhere('cm.role = :role')
+            ->andWhere('c.id IS NULL')
+            ->setParameter('campaignId', $campaignId)
+            ->setParameter('role', 'Player')
+            ->orderBy('u.username', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
     }
 }
