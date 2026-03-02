@@ -1,5 +1,31 @@
 import CharacterRelationsPanel from "./CharacterRelationsPanel";
 
+function scoreToStars(score) {
+  const s = Math.max(0, Math.min(100, Number(score) || 0));
+  if (s === 0) return 0;
+  if (s <= 20) return 1;
+  if (s <= 40) return 2;
+  if (s <= 60) return 3;
+  if (s <= 80) return 4;
+  return 5;
+}
+
+function StarsRow({ stars }) {
+  if (stars == null) return null;
+
+  const n = Math.max(0, Math.min(5, Number(stars) || 0));
+
+  return (
+    <div className="character-affinity-stars" aria-label={`Affinité: ${n} sur 5`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span key={i} className={i < n ? "star on" : "star off"}>
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CharacterCard({
   character,
   isAdminOrOwner,
@@ -7,6 +33,8 @@ function CharacterCard({
   relations,
   resolveAvatarUrl,
   formatRelationType,
+  affinityScore,
+  affinityType,
   onOpen,
   onDoubleClick,
   onEdit,
@@ -21,6 +49,9 @@ function CharacterCard({
     character.owner?.username ||
     character.owner?.email ||
     (character.owner?.id ? `User #${character.owner.id}` : null);
+
+  const stars = affinityScore == null ? null : scoreToStars(affinityScore);
+  const relationLabel = affinityType ? formatRelationType?.(affinityType) ?? affinityType : null;
 
   return (
     <div
@@ -41,6 +72,9 @@ function CharacterCard({
               {character.nickname?.charAt(0) || character.firstname?.charAt(0) || "?"}
             </div>
           )}
+
+          <StarsRow stars={stars} />
+          {relationLabel && <div className="character-affinity-type">{relationLabel}</div>}
         </div>
 
         <div className="character-info">

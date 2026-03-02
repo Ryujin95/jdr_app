@@ -418,3 +418,31 @@
   cursor: not-allowed;
   transform: none;
 }
+
+.character-affinity-stars {
+  display: inline-flex;
+  gap: 2px;
+  line-height: 1;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.character-affinity-stars .star {
+  user-select: none;
+}
+
+.character-affinity-stars .star.on {
+  color: yellow;
+  opacity: 1;
+}
+
+.character-affinity-stars .star.off {
+  color: #ffffff;
+  opacity: 0.22;
+}
+
+.character-affinity-type {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.9;
+}

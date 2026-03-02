@@ -24,7 +24,7 @@ final class RelationshipService
         private CampaignMemberRepository $campaignMemberRepository,
     ) {}
 
-    private function assertCampaignMjOrAdmin(int $campaignId): void
+    private function getUserOrDeny(): User
     {
         $user = $this->security->getUser();
 
@@ -35,6 +35,13 @@ final class RelationshipService
         if (!$user instanceof User) {
             throw new AccessDeniedException('Invalid user');
         }
+
+        return $user;
+    }
+
+    private function assertCampaignMjOrAdmin(int $campaignId): void
+    {
+        $user = $this->getUserOrDeny();
 
         if ($this->security->isGranted('ROLE_ADMIN')) {
             return;
@@ -54,7 +61,6 @@ final class RelationshipService
             throw new AccessDeniedException('Not a campaign member');
         }
 
-        // adapte le getter si ton CampaignMember n'a pas getRole()
         $role = method_exists($member, 'getRole') ? $member->getRole() : null;
 
         if ($role !== 'MJ') {
@@ -96,9 +102,10 @@ final class RelationshipService
         $items = [];
         foreach ($rels as $rel) {
             $to = $rel->getToCharacter();
-            if (!$to) continue;
+            if (!$to) {
+                continue;
+            }
 
-            // garde-fou: ne pas renvoyer des persos hors campagne
             $toCampaign = $to->getCampaign();
             if (!$toCampaign || (int) $toCampaign->getId() !== (int) $campaignId) {
                 continue;
@@ -130,9 +137,10 @@ final class RelationshipService
         $this->assertCampaignMjOrAdmin($campaignId);
         $this->assertCharacterInCampaign($campaignId, $fromCharacterId);
 
-        // IMPORTANT: on filtre par campagne côté DB (plus de persos d'autres campagnes)
-        // Cette méthode doit exister dans CharacterRepository (celle que je t’ai donnée)
-        $candidatesEntities = $this->characterRepository->findCandidatesForKnownInCampaign($campaignId, $fromCharacterId);
+        $candidatesEntities = $this->characterRepository->findCandidatesForKnownInCampaign(
+            $campaignId,
+            $fromCharacterId
+        );
 
         $candidates = [];
         foreach ($candidatesEntities as $c) {
@@ -155,17 +163,19 @@ final class RelationshipService
             throw new \InvalidArgumentException('Paramètres invalides');
         }
 
-        // Empêche les relations cross-campaign
         $this->assertBothCharactersInSameCampaign($campaignId, $fromCharacterId, $toCharacterId);
 
         $from = $this->characterRepository->find($fromCharacterId);
         $to   = $this->characterRepository->find($toCharacterId);
+
         if (!$from || !$to) {
             throw new \InvalidArgumentException('Character not found');
         }
 
         $type = trim((string) $type);
-        if ($type === '') $type = 'neutral';
+        if ($type === '') {
+            $type = 'neutral';
+        }
 
         $existing = $this->relationshipRepository->findOneByFromTo($from, $to);
         if (!$existing) {
@@ -177,6 +187,9 @@ final class RelationshipService
             $this->em->persist($rel);
         } else {
             $existing->setType($type);
+            if ($existing->getAffinityScore() === null) {
+                $existing->setAffinityScore(0);
+            }
         }
 
         $existingBack = $this->relationshipRepository->findOneByFromTo($to, $from);
@@ -189,9 +202,13 @@ final class RelationshipService
             $this->em->persist($relBack);
         } else {
             $existingBack->setType($type);
+            if ($existingBack->getAffinityScore() === null) {
+                $existingBack->setAffinityScore(0);
+            }
         }
 
         $this->em->flush();
+
         return ['ok' => true];
     }
 
@@ -199,20 +216,24 @@ final class RelationshipService
     {
         $this->assertCampaignMjOrAdmin($campaignId);
 
-        // Empêche les suppressions cross-campaign
         $this->assertBothCharactersInSameCampaign($campaignId, $fromCharacterId, $toCharacterId);
 
         $from = $this->characterRepository->find($fromCharacterId);
         $to   = $this->characterRepository->find($toCharacterId);
+
         if (!$from || !$to) {
             throw new \InvalidArgumentException('Character not found');
         }
 
         $rel = $this->relationshipRepository->findOneByFromTo($from, $to);
-        if ($rel) $this->em->remove($rel);
+        if ($rel) {
+            $this->em->remove($rel);
+        }
 
         $relBack = $this->relationshipRepository->findOneByFromTo($to, $from);
-        if ($relBack) $this->em->remove($relBack);
+        if ($relBack) {
+            $this->em->remove($relBack);
+        }
 
         $this->em->flush();
     }
@@ -224,15 +245,16 @@ final class RelationshipService
         if ($fromId <= 0 || $toId <= 0 || $fromId === $toId) {
             throw new \InvalidArgumentException('Paramètres invalides');
         }
+
         if ($stars < 0 || $stars > 5) {
             throw new \InvalidArgumentException('stars doit être entre 0 et 5');
         }
 
-        // Empêche les updates cross-campaign
         $this->assertBothCharactersInSameCampaign($campaignId, $fromId, $toId);
 
         $from = $this->characterRepository->find($fromId);
         $to   = $this->characterRepository->find($toId);
+
         if (!$from || !$to) {
             throw new \InvalidArgumentException('Character not found');
         }
@@ -243,6 +265,7 @@ final class RelationshipService
             $rel->setFromCharacter($from);
             $rel->setToCharacter($to);
             $rel->setType('neutral');
+            $rel->setAffinityScore(0);
             $this->em->persist($rel);
         }
 
@@ -282,4 +305,70 @@ final class RelationshipService
             5 => 100,
         };
     }
+
+    public function getKnownMiniCardsForViewer(int $campaignId, int $fromCharacterId): array
+    {
+        // Admin => OK
+        if ($this->security->isGranted('ROLE_ADMIN')) {
+            return $this->getKnownMiniCardsForCharacter($campaignId, $fromCharacterId);
+        }
+
+        // MJ => OK (on essaye la règle MJ existante)
+        try {
+            $this->assertCampaignMjOrAdmin($campaignId);
+            return $this->getKnownMiniCardsForCharacter($campaignId, $fromCharacterId);
+        } catch (\Throwable $e) {
+            // pas MJ => on tente la règle joueur
+        }
+
+        // Joueur => uniquement son perso (owner = user connecté)
+        $user = $this->getUserOrDeny();
+
+        $this->assertCharacterInCampaign($campaignId, $fromCharacterId);
+
+        $from = $this->characterRepository->find($fromCharacterId);
+        if (!$from) {
+            throw new \InvalidArgumentException('Character not found');
+        }
+
+        $owner = $from->getOwner();
+        if (!$from->isPlayer() || !$owner || (int) $owner->getId() !== (int) $user->getId()) {
+            throw new AccessDeniedException('Forbidden');
+        }
+
+        // Même payload que MJ (avec étoiles)
+        $rels = $this->relationshipRepository->findKnownCharactersWithScore($from);
+
+        $items = [];
+        foreach ($rels as $rel) {
+            $to = $rel->getToCharacter();
+            if (!$to) continue;
+
+            $toCampaign = $to->getCampaign();
+            if (!$toCampaign || (int) $toCampaign->getId() !== (int) $campaignId) {
+                continue;
+            }
+
+            $score = (int) ($rel->getAffinityScore() ?? 0);
+            $type  = $rel->getType() ?? 'neutral';
+
+            $items[] = [
+                'id' => $to->getId(),
+                'nickname' => $to->getNickname(),
+                'firstname' => $to->getFirstname(),
+                'lastname' => $to->getLastname(),
+                'age' => $to->getAge(),
+                'avatarUrl' => $to->getAvatarUrl(),
+                'clan' => $to->getClan(),
+                'isPlayer' => $to->isPlayer(),
+                'type' => $type,
+                'affinityScore' => $score,
+                'relationshipStars' => $this->scoreToStars($score),
+            ];
+        }
+
+        return $items;
+    }
 }
+
+

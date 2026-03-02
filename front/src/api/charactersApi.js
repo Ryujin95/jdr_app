@@ -35,18 +35,30 @@ export async function moveCharacterToTrash(token, id, campaignId) {
 }
 
 export async function fetchKnown(token, fromId, campaignId) {
-  const qs = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+  const res = await fetch(
+    `${API_URL}/relationships/known?campaignId=${encodeURIComponent(campaignId)}&fromCharacterId=${encodeURIComponent(fromId)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
-  const res = await fetch(`${API_URL}/mj/characters/${fromId}/known${qs}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+  const text = await res.text().catch(() => "");
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Erreur HTTP ${res.status}`);
+    let msg = text;
+    try {
+      const json = text ? JSON.parse(text) : null;
+      msg = json?.message || json?.detail || msg;
+    } catch {}
+    throw new Error(msg || `Erreur HTTP ${res.status}`);
   }
 
-  return res.json().catch(() => []);
+  try {
+    return text ? JSON.parse(text) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchCandidates(token, fromId, campaignId) {
@@ -143,4 +155,17 @@ import { apiGetAssignablePlayers } from "./api";
 
 export function getAssignablePlayersForCharacterSelect(token, campaignId) {
   return apiGetAssignablePlayers(token, campaignId);
+}
+
+export async function fetchKnownViewer(token, fromId, campaignId) {
+  const res = await fetch(
+    `${API_URL}/characters/${fromId}/known?campaignId=${encodeURIComponent(campaignId)}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `HTTP ${res.status}`);
+  }
+  return res.json();
 }

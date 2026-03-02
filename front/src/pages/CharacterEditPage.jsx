@@ -53,6 +53,9 @@ function CharacterEditPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [videoName, setVideoName] = useState("");
 
+  // ✅ important: on garde l'owner original pour ne pas le renvoyer inutilement en update
+  const [initialOwnerUserId, setInitialOwnerUserId] = useState("");
+
   useEffect(() => {
     if (!token) return;
 
@@ -78,6 +81,9 @@ function CharacterEditPage() {
         const campId = c?.campaign?.id ? String(c.campaign.id) : null;
         setCampaignId(campId);
 
+        const ownerId = c.owner?.id ? String(c.owner.id) : "";
+        setInitialOwnerUserId(ownerId);
+
         setForm({
           nickname: c.nickname ?? "",
           firstname: c.firstname ?? "",
@@ -89,7 +95,7 @@ function CharacterEditPage() {
           clan: c.clan ?? "",
           isPlayer: !!c.isPlayer,
           locationId: c.location?.id ? String(c.location.id) : "",
-          ownerUserId: c.owner?.id ? String(c.owner.id) : "",
+          ownerUserId: ownerId,
         });
 
         setAvatarPreview(buildAssetUrl(c.avatarUrl));
@@ -218,7 +224,20 @@ function CharacterEditPage() {
       fd.append("clan", form.clan ?? "");
       fd.append("isPlayer", form.isPlayer ? "true" : "false");
       fd.append("locationId", form.locationId || "");
-      fd.append("ownerUserId", form.isPlayer ? (form.ownerUserId || "") : "");
+
+      // ✅ Fix: en édition, si l'owner n'a pas changé, on ne le renvoie pas.
+      // Ça évite la vérif "ce joueur a déjà un perso" qui ne filtre pas toujours le perso courant côté back.
+      if (!form.isPlayer) {
+        fd.append("ownerUserId", "");
+      } else {
+        const current = String(form.ownerUserId || "");
+        const initial = String(initialOwnerUserId || "");
+        if (!current) {
+          fd.append("ownerUserId", "");
+        } else if (current !== initial) {
+          fd.append("ownerUserId", current);
+        }
+      }
 
       if (avatarFile) fd.append("avatar", avatarFile);
       if (transitionVideoFile) fd.append("transitionVideo", transitionVideoFile);
@@ -247,6 +266,9 @@ function CharacterEditPage() {
       }
 
       if (updated && typeof updated === "object") {
+        const newOwnerId = updated.owner?.id ? String(updated.owner.id) : "";
+        setInitialOwnerUserId(newOwnerId);
+
         setForm((p) => ({
           ...p,
           nickname: updated.nickname ?? p.nickname,
@@ -259,7 +281,7 @@ function CharacterEditPage() {
           clan: updated.clan ?? p.clan,
           isPlayer: typeof updated.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
           locationId: updated.location?.id ? String(updated.location.id) : p.locationId,
-          ownerUserId: updated.owner?.id ? String(updated.owner.id) : p.ownerUserId,
+          ownerUserId: newOwnerId || p.ownerUserId,
         }));
 
         setAvatarPreview(buildAssetUrl(updated.avatarUrl));
@@ -399,7 +421,9 @@ function CharacterEditPage() {
           <div className="edit-media-block">
             <div className="edit-media-title">Vidéo de transition</div>
             <div className="edit-media-row">
-              <div className="edit-video-chip">{transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}</div>
+              <div className="edit-video-chip">
+                {transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}
+              </div>
               <div className="edit-media-controls">
                 <input
                   type="file"
