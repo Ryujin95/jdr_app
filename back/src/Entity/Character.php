@@ -41,6 +41,9 @@ class Character
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $weaknesses = null;
 
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $secret = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $avatarUrl = null;
 
@@ -190,6 +193,17 @@ class Character
         $this->weaknesses = $weaknesses;
         return $this;
     }
+
+        public function getSecret(): ?string
+        {
+            return $this->secret;
+        }
+
+        public function setSecret(?string $secret): static
+        {
+            $this->secret = $secret;
+            return $this;
+        }
 
     public function getAvatarUrl(): ?string
     {

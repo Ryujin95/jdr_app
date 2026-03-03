@@ -12,7 +12,7 @@ use App\Repository\Character\CharacterKnowledgeRepository;
 use App\Repository\Character\CharacterRelationshipRepository;
 use App\Repository\Character\CharacterRepository;
 use App\Repository\Character\CharacterSkillValueRepository;
-use App\Repository\Campaign\CampaignMemberRepository; // ✅ FIX IMPORTANT (bon namespace)
+use App\Repository\Campaign\CampaignMemberRepository;
 use App\Repository\LocationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -171,9 +171,13 @@ class CharacterService
             'transitionVideoUrl' => $character->getTransitionVideoUrl(),
             'isPlayer'  => $character->isPlayer(),
             'clan'      => $character->getClan(),
+
             'biography'  => $character->getBiography(),
             'strengths'  => $character->getStrengths(),
             'weaknesses' => $character->getWeaknesses(),
+
+            // ✅ ICI: on renvoie le secret pour que le front le restore
+            'secret'     => method_exists($character, 'getSecret') ? $character->getSecret() : null,
 
             'campaign' => $camp ? [
                 'id' => $camp->getId(),
@@ -412,6 +416,12 @@ class CharacterService
             $character->setWeaknesses((string) $weaknesses);
         }
 
+        // ✅ ICI: SECRET (c’est ça qui te manquait pour que ça SAVE en BD)
+        $secret = $request->request->get('secret', null);
+        if ($secret !== null && method_exists($character, 'setSecret')) {
+            $character->setSecret((string) $secret);
+        }
+
         $clan = $request->request->get('clan', null);
         if ($clan !== null) {
             $clan = trim((string) $clan);
@@ -433,17 +443,13 @@ class CharacterService
             $character->setIsPlayer($val === '1' || $val === 'true' || $val === 'on');
         }
 
-        // ✅ AJOUT: ownerUserId (assignation du joueur) -> enregistre en BD
         $ownerUserIdRaw = $request->request->get('ownerUserId', null);
         if ($ownerUserIdRaw !== null) {
-
-            // si pas joueur => on force null
             if (!$character->isPlayer()) {
                 $character->setOwner(null);
             } else {
                 $ownerUserIdRaw = trim((string) $ownerUserIdRaw);
 
-                // vide => on retire l'owner
                 if ($ownerUserIdRaw === '') {
                     $character->setOwner(null);
                 } else {
@@ -458,7 +464,6 @@ class CharacterService
 
                     $campaignIdLocal = (int) $camp->getId();
 
-                    // sécurité: MJ de la campagne ou admin
                     $this->assertAdminOrCampaignMj($campaignIdLocal);
 
                     /** @var User|null $newOwner */
@@ -467,10 +472,7 @@ class CharacterService
                         throw new \InvalidArgumentException('Utilisateur introuvable');
                     }
 
-                    // doit être Player dans cette campagne
                     $this->assertUserIsPlayerInCampaign($campaignIdLocal, (int) $newOwner->getId());
-
-                    // ne doit pas déjà avoir un perso joueur dans cette campagne
                     $this->assertUserHasNoActivePlayerCharacterInCampaign($campaignIdLocal, $newOwner);
 
                     $character->setOwner($newOwner);

@@ -372,3 +372,32 @@ export function apiGetFriendProfile(token, otherUserId, options = {}) {
     ...options,
   });
 }
+
+/* ADMIN / KNOWLEDGE (MJ only) */
+
+// GET /api/admin/knowledge/state?characterId=...&field=...
+export function apiGetKnowledgeState(token, characterId, field, options = {}) {
+  const qs = `?characterId=${encodeURIComponent(String(characterId))}&field=${encodeURIComponent(String(field))}`;
+  return apiFetch(`/admin/knowledge/state${qs}`, { token, method: "GET", ...options });
+}
+
+// GET /api/admin/knowledge/can-view?viewerId=...&characterId=...&field=...
+export function apiCanViewKnowledge(token, viewerId, characterId, field, options = {}) {
+  const qs =
+    `?viewerId=${encodeURIComponent(String(viewerId))}` +
+    `&characterId=${encodeURIComponent(String(characterId))}` +
+    `&field=${encodeURIComponent(String(field))}`;
+  return apiFetch(`/admin/knowledge/can-view${qs}`, { token, method: "GET", ...options });
+}
+
+// POST /api/admin/knowledge/grant
+export function apiGrantKnowledge(token, data, options = {}) {
+  // data attendu: { viewerId, characterId, field, knowledgeLevel?: "full", notes?: string|null }
+  return apiFetch(`/admin/knowledge/grant`, { token, method: "POST", body: data, ...options });
+}
+
+// POST /api/admin/knowledge/revoke
+export function apiRevokeKnowledge(token, data, options = {}) {
+  // data attendu: { viewerId, characterId, field }
+  return apiFetch(`/admin/knowledge/revoke`, { token, method: "POST", body: data, ...options });
+}

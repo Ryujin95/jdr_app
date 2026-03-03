@@ -89,6 +89,118 @@
   .edit-field textarea:focus {
     border-color: rgba(255, 255, 255, 0.22);
   }
+
+  /* ===== Knowledge / Visibilité modal ===== */
+
+.knowledge-field-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.knowledge-btn{
+  border:1px solid rgba(255,255,255,0.18);
+  background:rgba(255,255,255,0.06);
+  color:#fff;
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+
+.knowledge-btn:disabled{
+  opacity:0.55;
+  cursor:not-allowed;
+}
+
+.knowledge-modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+}
+
+.knowledge-modal{
+  width:min(720px, 94vw);
+  background:rgba(10,14,22,0.98);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+
+.knowledge-modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.knowledge-modal-title{
+  margin:0;
+  font-size:18px;
+  font-weight:700;
+  color:#fff;
+}
+
+.knowledge-close{
+  border:1px solid rgba(255,255,255,0.18);
+  background:rgba(255,255,255,0.06);
+  color:#fff;
+  padding:8px 12px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+
+.knowledge-loading,
+.knowledge-empty{
+  color:rgba(255,255,255,0.75);
+  padding:12px 0;
+}
+
+.knowledge-users{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding-top:4px;
+}
+
+.knowledge-user{
+  border:1px solid rgba(255,255,255,0.18);
+  background:transparent;
+  color:#fff;
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+  transition:transform 0.05s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.knowledge-user:hover{
+  transform:translateY(-1px);
+}
+
+/* OFF = blanc */
+.knowledge-user.off{
+  background:rgba(255,255,255,0.06);
+  color:#fff;
+}
+
+/* ON = jaune */
+.knowledge-user.on{
+  background:rgba(255, 204, 0, 0.18);
+  border-color:rgba(255, 204, 0, 0.55);
+  color:#ffcc00;
+}
   
   .edit-checkbox {
     grid-column: span 3;

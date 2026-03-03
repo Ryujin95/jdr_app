@@ -1,8 +1,11 @@
 <?php
+// src/Controller/Api/CharacterController.php
 
 namespace App\Controller\Api;
 
+use App\Entity\User;
 use App\Repository\Character\CharacterRepository;
+use App\Service\CharacterKnowledgeService;
 use App\Service\CharacterService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -15,6 +18,7 @@ class CharacterController extends AbstractController
     public function __construct(
         private CharacterService $characterService,
         private CharacterRepository $characterRepository,
+        private CharacterKnowledgeService $knowledgeService,
     ) {}
 
     #[Route('/characters', name: 'api_characters_index', methods: ['GET'])]
@@ -44,6 +48,11 @@ class CharacterController extends AbstractController
 
         $data = $this->characterService->getCharacterDetailForCurrentUser($character, $campaignId);
 
+        $viewer = $this->getUser();
+        if ($viewer instanceof User) {
+            $data = $this->knowledgeService->filterCharacterPayloadForViewer($viewer, $character, $data);
+        }
+
         return new JsonResponse($data, 200);
     }
 
@@ -56,6 +65,11 @@ class CharacterController extends AbstractController
 
             $character = $this->characterService->createFromRequest($request, $campaignId);
             $data = $this->characterService->getCharacterDetailForCurrentUser($character, $campaignId);
+
+            $viewer = $this->getUser();
+            if ($viewer instanceof User) {
+                $data = $this->knowledgeService->filterCharacterPayloadForViewer($viewer, $character, $data);
+            }
 
             return new JsonResponse($data, 201);
         } catch (\InvalidArgumentException $e) {
@@ -79,6 +93,11 @@ class CharacterController extends AbstractController
 
             $character = $this->characterService->updateFromRequest($character, $request, $campaignId);
             $data = $this->characterService->getCharacterDetailForCurrentUser($character, $campaignId);
+
+            $viewer = $this->getUser();
+            if ($viewer instanceof User) {
+                $data = $this->knowledgeService->filterCharacterPayloadForViewer($viewer, $character, $data);
+            }
 
             return new JsonResponse($data, 200);
         } catch (\InvalidArgumentException $e) {

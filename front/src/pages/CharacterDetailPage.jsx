@@ -1,3 +1,4 @@
+// src/pages/CharacterDetailPage.jsx
 import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_URL } from "../config";
@@ -13,12 +14,15 @@ function CharacterDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!token) return;
+
     const fetchCharacter = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
         const res = await fetch(`${API_URL}/characters/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!res.ok) {
@@ -29,51 +33,33 @@ function CharacterDetailPage() {
         const data = await res.json();
         setCharacter(data);
       } catch (e) {
-        setError(e.message);
+        setError(e?.message || "Erreur");
       } finally {
         setLoading(false);
       }
     };
 
-    if (token) {
-      fetchCharacter();
-    }
-  }, [id, token, token]);
+    fetchCharacter();
+  }, [id, token]);
 
-  if (!token) {
-    return <p style={{ padding: "2rem" }}>Connecte-toi pour voir les personnages.</p>;
-  }
-
-  if (loading) {
-    return <p style={{ padding: "2rem" }}>Chargement du personnage...</p>;
-  }
-
-  if (error) {
-    return (
-      <p style={{ padding: "2rem", color: "red" }}>
-        Erreur : {error}
-      </p>
-    );
-  }
-
-  if (!character) {
-    return <p style={{ padding: "2rem" }}>Personnage introuvable.</p>;
-  }
+  if (!token) return <p style={{ padding: "2rem" }}>Connecte-toi pour voir les personnages.</p>;
+  if (loading) return <p style={{ padding: "2rem" }}>Chargement du personnage...</p>;
+  if (error) return <p style={{ padding: "2rem", color: "red" }}>Erreur : {error}</p>;
+  if (!character) return <p style={{ padding: "2rem" }}>Personnage introuvable.</p>;
 
   const fullName = `${character.firstname} ${character.lastname}`;
 
   const backgroundUrl = character.avatarUrl
-  ? character.avatarUrl.startsWith("http")
-    ? character.avatarUrl
-    : character.avatarUrl.startsWith("/")
-      ? `https://127.0.0.1:8000${character.avatarUrl}`
-      : `https://127.0.0.1:8000/${character.avatarUrl}`
-  : null;
+    ? character.avatarUrl.startsWith("http")
+      ? character.avatarUrl
+      : character.avatarUrl.startsWith("/")
+        ? `https://127.0.0.1:8000${character.avatarUrl}`
+        : `https://127.0.0.1:8000/${character.avatarUrl}`
+    : null;
 
   return (
     <div
       className="character-detail-page"
-      
       style={backgroundUrl ? { backgroundImage: `url(${backgroundUrl})` } : undefined}
     >
       <button className="back-button" onClick={() => navigate(-1)}>
@@ -110,6 +96,14 @@ function CharacterDetailPage() {
           <section className="detail-section">
             <h2>Faiblesses</h2>
             <p>{character.weaknesses}</p>
+          </section>
+        )}
+
+        {/* ✅ AJOUT: affichage du secret si le back te le renvoie */}
+        {character.secret && (
+          <section className="detail-section">
+            <h2>Secret</h2>
+            <p>{character.secret}</p>
           </section>
         )}
 

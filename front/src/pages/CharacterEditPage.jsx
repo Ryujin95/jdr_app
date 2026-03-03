@@ -4,7 +4,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
 import { NotificationContext } from "../context/NotificationContext";
-import { apiGetCampaignMembers } from "../api/api";
+import {
+  apiGetCampaignMembers,
+  apiGetKnowledgeState,
+  apiGrantKnowledge,
+  apiRevokeKnowledge,
+} from "../api/api";
 import "../CSS/CharacterEdit.css";
 
 function CharacterEditPage() {
@@ -34,6 +39,7 @@ function CharacterEditPage() {
     biography: "",
     strengths: "",
     weaknesses: "",
+    secret: "",
     clan: "",
     isPlayer: false,
     locationId: "",
@@ -53,9 +59,98 @@ function CharacterEditPage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [videoName, setVideoName] = useState("");
 
-  // ✅ important: on garde l'owner original pour ne pas le renvoyer inutilement en update
   const [initialOwnerUserId, setInitialOwnerUserId] = useState("");
 
+  // ===== VISIBILITÉ (modal MJ) =====
+  const [visOpen, setVisOpen] = useState(false);
+  const [visField, setVisField] = useState("");
+  const [visAllowedIds, setVisAllowedIds] = useState(new Set());
+  const [visLoading, setVisLoading] = useState(false);
+
+  const characterIdNum = useMemo(() => {
+    const n = Number(id);
+    return Number.isFinite(n) ? n : 0;
+  }, [id]);
+
+  const playersForModal = useMemo(() => {
+    const list = Array.isArray(members) ? members : [];
+    return list.filter((m) => String(m?.role || "").toLowerCase() === "player");
+  }, [members]);
+
+  const fieldLabel = (f) => {
+    if (f === "biography") return "Histoire";
+    if (f === "strengths") return "Points forts";
+    if (f === "weaknesses") return "Faiblesses";
+    if (f === "secret") return "Secret";
+    return f;
+  };
+
+  const openVisibilityModal = async (fieldKey) => {
+    if (!token) return;
+    if (!characterIdNum) return;
+
+    setVisOpen(true);
+    setVisField(fieldKey);
+    setVisAllowedIds(new Set());
+    setVisLoading(true);
+
+    try {
+      const out = await apiGetKnowledgeState(token, characterIdNum, fieldKey);
+      const allowed = Array.isArray(out?.allowedViewerIds) ? out.allowedViewerIds : [];
+      setVisAllowedIds(new Set(allowed.map((x) => String(x))));
+    } catch (e) {
+      addNotification?.({ type: "error", message: e?.message || "Erreur visibilité." });
+      setVisAllowedIds(new Set());
+    } finally {
+      setVisLoading(false);
+    }
+  };
+
+  const toggleViewer = async (viewerIdRaw) => {
+    if (!token) return;
+    if (!characterIdNum) return;
+    if (!visField) return;
+
+    const viewerId = Number(viewerIdRaw);
+    if (!Number.isFinite(viewerId) || viewerId <= 0) return;
+
+    const key = String(viewerId);
+    const wasAllowed = visAllowedIds.has(key);
+
+    setVisAllowedIds((prev) => {
+      const next = new Set(prev);
+      if (wasAllowed) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+    try {
+      if (wasAllowed) {
+        await apiRevokeKnowledge(token, {
+          viewerId,
+          characterId: characterIdNum,
+          field: visField,
+        });
+      } else {
+        await apiGrantKnowledge(token, {
+          viewerId,
+          characterId: characterIdNum,
+          field: visField,
+          notes: null,
+        });
+      }
+    } catch (e) {
+      setVisAllowedIds((prev) => {
+        const next = new Set(prev);
+        if (wasAllowed) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+      addNotification?.({ type: "error", message: e?.message || "Erreur toggle visibilité." });
+    }
+  };
+
+  // ===== FETCH CHARACTER =====
   useEffect(() => {
     if (!token) return;
 
@@ -92,6 +187,7 @@ function CharacterEditPage() {
           biography: c.biography ?? "",
           strengths: c.strengths ?? "",
           weaknesses: c.weaknesses ?? "",
+          secret: c.secret ?? c.characterSecret?.secret ?? c.characterSecret?.content ?? "",
           clan: c.clan ?? "",
           isPlayer: !!c.isPlayer,
           locationId: c.location?.id ? String(c.location.id) : "",
@@ -114,6 +210,7 @@ function CharacterEditPage() {
     return () => controller.abort();
   }, [id, token, addNotification]);
 
+  // ===== FETCH LOCATIONS =====
   useEffect(() => {
     if (!token) return;
 
@@ -143,6 +240,7 @@ function CharacterEditPage() {
     return () => controller.abort();
   }, [id, token]);
 
+  // ===== FETCH MEMBERS =====
   useEffect(() => {
     if (!token) return;
     if (!campaignId) {
@@ -160,11 +258,7 @@ function CharacterEditPage() {
         const list = Array.isArray(data) ? data : [];
         setMembers(list);
 
-        const candidates = list.filter((m) => {
-          const role = String(m?.role || "").toLowerCase();
-          return role === "player";
-        });
-
+        const candidates = list.filter((m) => String(m?.role || "").toLowerCase() === "player");
         setOwnerCandidates(candidates);
       } catch (e) {
         if (e?.name === "AbortError") return;
@@ -221,12 +315,11 @@ function CharacterEditPage() {
       fd.append("biography", form.biography ?? "");
       fd.append("strengths", form.strengths ?? "");
       fd.append("weaknesses", form.weaknesses ?? "");
+      fd.append("secret", form.secret ?? "");
       fd.append("clan", form.clan ?? "");
       fd.append("isPlayer", form.isPlayer ? "true" : "false");
       fd.append("locationId", form.locationId || "");
 
-      // ✅ Fix: en édition, si l'owner n'a pas changé, on ne le renvoie pas.
-      // Ça évite la vérif "ce joueur a déjà un perso" qui ne filtre pas toujours le perso courant côté back.
       if (!form.isPlayer) {
         fd.append("ownerUserId", "");
       } else {
@@ -269,20 +362,21 @@ function CharacterEditPage() {
         const newOwnerId = updated.owner?.id ? String(updated.owner.id) : "";
         setInitialOwnerUserId(newOwnerId);
 
-        setForm((p) => ({
-          ...p,
-          nickname: updated.nickname ?? p.nickname,
-          firstname: updated.firstname ?? p.firstname,
-          lastname: updated.lastname ?? p.lastname,
-          age: updated.age ?? p.age,
-          biography: updated.biography ?? p.biography,
-          strengths: updated.strengths ?? p.strengths,
-          weaknesses: updated.weaknesses ?? p.weaknesses,
-          clan: updated.clan ?? p.clan,
-          isPlayer: typeof updated.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
-          locationId: updated.location?.id ? String(updated.location.id) : p.locationId,
-          ownerUserId: newOwnerId || p.ownerUserId,
-        }));
+       setForm((p) => ({
+  ...p,
+  nickname: updated.nickname ?? p.nickname,
+  firstname: updated.firstname ?? p.firstname,
+  lastname: updated.lastname ?? p.lastname,
+  age: updated.age ?? p.age,
+  biography: updated.biography ?? p.biography,
+  strengths: updated.strengths ?? p.strengths,
+  weaknesses: updated.weaknesses ?? p.weaknesses,
+  secret: updated.secret ?? updated.characterSecret?.secret ?? updated.characterSecret?.content ?? p.secret,
+  clan: updated.clan ?? p.clan,
+  isPlayer: typeof updated.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
+  locationId: updated.location?.id ? String(updated.location.id) : p.locationId,
+  ownerUserId: newOwnerId || p.ownerUserId,
+}));
 
         setAvatarPreview(buildAssetUrl(updated.avatarUrl));
         setVideoName(updated.transitionVideoUrl ? updated.transitionVideoUrl.split("/").pop() || "" : "");
@@ -374,29 +468,70 @@ function CharacterEditPage() {
                 );
               })}
             </select>
-
-            {!membersLoading && ownerCandidates.length === 0 && (
-              <div className="edit-hint">Aucun joueur disponible (vérifie le rôle dans /members)</div>
-            )}
           </label>
         )}
 
         <label className="edit-field">
-          <span>Histoire</span>
+          <div className="knowledge-field-header">
+            <span>Histoire</span>
+            <button
+              type="button"
+              className="knowledge-btn"
+              onClick={() => openVisibilityModal("biography")}
+              disabled={membersLoading || !campaignId}
+            >
+              Visibilité
+            </button>
+          </div>
           <textarea name="biography" value={form.biography} onChange={onChange} rows={5} />
         </label>
 
         <div className="edit-grid-2">
           <label className="edit-field">
-            <span>Points forts</span>
+            <div className="knowledge-field-header">
+              <span>Points forts</span>
+              <button
+                type="button"
+                className="knowledge-btn"
+                onClick={() => openVisibilityModal("strengths")}
+                disabled={membersLoading || !campaignId}
+              >
+                Visibilité
+              </button>
+            </div>
             <textarea name="strengths" value={form.strengths} onChange={onChange} rows={4} />
           </label>
 
           <label className="edit-field">
-            <span>Faiblesses</span>
+            <div className="knowledge-field-header">
+              <span>Faiblesses</span>
+              <button
+                type="button"
+                className="knowledge-btn"
+                onClick={() => openVisibilityModal("weaknesses")}
+                disabled={membersLoading || !campaignId}
+              >
+                Visibilité
+              </button>
+            </div>
             <textarea name="weaknesses" value={form.weaknesses} onChange={onChange} rows={4} />
           </label>
         </div>
+
+        <label className="edit-field">
+          <div className="knowledge-field-header">
+            <span>Secret</span>
+            <button
+              type="button"
+              className="knowledge-btn"
+              onClick={() => openVisibilityModal("secret")}
+              disabled={membersLoading || !campaignId}
+            >
+              Visibilité
+            </button>
+          </div>
+          <textarea name="secret" value={form.secret} onChange={onChange} rows={5} />
+        </label>
 
         <div className="edit-media">
           <div className="edit-media-block">
@@ -413,7 +548,6 @@ function CharacterEditPage() {
                   accept="image/png,image/jpeg,image/jpg,image/webp"
                   onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
                 />
-                <div className="edit-hint">jpg, png, webp</div>
               </div>
             </div>
           </div>
@@ -421,16 +555,13 @@ function CharacterEditPage() {
           <div className="edit-media-block">
             <div className="edit-media-title">Vidéo de transition</div>
             <div className="edit-media-row">
-              <div className="edit-video-chip">
-                {transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}
-              </div>
+              <div className="edit-video-chip">{transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}</div>
               <div className="edit-media-controls">
                 <input
                   type="file"
                   accept="video/mp4,video/webm"
                   onChange={(e) => setTransitionVideoFile(e.target.files?.[0] || null)}
                 />
-                <div className="edit-hint">mp4 (recommandé), webm</div>
               </div>
             </div>
           </div>
@@ -442,6 +573,53 @@ function CharacterEditPage() {
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
       </form>
+
+      {visOpen && (
+        <div
+          className="knowledge-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setVisOpen(false);
+          }}
+        >
+          <div className="knowledge-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="knowledge-modal-header">
+              <h2 className="knowledge-modal-title">Visibilité — {fieldLabel(visField)}</h2>
+              <button type="button" className="knowledge-close" onClick={() => setVisOpen(false)}>
+                Fermer
+              </button>
+            </div>
+
+            {visLoading ? (
+              <div className="knowledge-loading">Chargement…</div>
+            ) : playersForModal.length === 0 ? (
+              <div className="knowledge-empty">Aucun joueur trouvé dans /members.</div>
+            ) : (
+              <div className="knowledge-users">
+                {playersForModal.map((m) => {
+                  const uid = m.userId ?? m.id;
+                  if (!uid) return null;
+
+                  const isOn = visAllowedIds.has(String(uid));
+                  const label = m.username || m.email || `User #${uid}`;
+
+                  return (
+                    <button
+                      key={String(uid)}
+                      type="button"
+                      className={`knowledge-user ${isOn ? "on" : "off"}`}
+                      onClick={() => toggleViewer(uid)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
