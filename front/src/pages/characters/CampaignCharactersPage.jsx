@@ -40,7 +40,7 @@ function CampaignCharactersPage() {
     handleAddKnown,
     handleRemoveKnown,
     handleUpdateStars,
-  } = useCharacterRelations(token, campaignId);
+  } = useCharacterRelations(token, campaignId, isAdminOrOwner );
 
   const [showAddFor, setShowAddFor] = useState(null);
   const [selectedCandidateId, setSelectedCandidateId] = useState("");
@@ -174,29 +174,29 @@ function CampaignCharactersPage() {
 
               return (
                 <CharacterCard
-                  key={char.id}
-                  character={char}
-                  isAdminOrOwner={isAdminOrOwner}
-                  isOpen={openPanelId === char.id}
-                  relations={knownMap[char.id]}
-                  resolveAvatarUrl={resolveAvatarUrl}
-                  formatRelationType={formatRelationType}
-                  affinityScore={score}
-                  affinityType={type}
-                  onOpen={() => handleOpenCard(char.id)}
-                  onDoubleClick={() => navigate(`/transition-video/${char.id}`)}
-                  onEdit={() => navigate(`/characters/${char.id}/edit`)}
-                  onTrash={async () => {
-                    if (!window.confirm("Envoyer ce personnage dans la corbeille ?")) return;
-                    await sendToTrash(char.id);
-                  }}
-                  onUpdateStars={(toId, stars) => handleUpdateStars(char.id, toId, stars)}
-                  onRemoveRelation={(toId) => handleRemoveKnown(char.id, toId)}
-                  onAddKnown={async () => {
-                    await loadCandidates(char.id);
-                    setShowAddFor(char.id);
-                  }}
-                />
+              key={char.id}
+              character={char}
+              isAdminOrOwner={isAdminOrOwner}
+              isOpen={openPanelId === char.id}
+              relations={knownMap[char.id] ?? []}
+              resolveAvatarUrl={resolveAvatarUrl}
+              formatRelationType={formatRelationType}
+              affinityScore={score}
+              affinityType={type}
+              onOpen={() => handleOpenCard(char.id)}
+              onDoubleClick={() => navigate(`/transition-video/${char.id}`)}
+              onEdit={() => navigate(`/characters/${char.id}/edit`)}
+              onTrash={async () => {
+                if (!window.confirm("Envoyer ce personnage dans la corbeille ?")) return;
+                await sendToTrash(char.id);
+              }}
+              onUpdateStars={(toId, stars) => handleUpdateStars(char.id, toId, stars)}
+              onRemoveRelation={(toId) => handleRemoveKnown(char.id, toId)}
+              onAddKnown={async () => {
+                await loadCandidates(char.id);
+                setShowAddFor(char.id);
+              }}
+            />
               );
             })}
           </div>

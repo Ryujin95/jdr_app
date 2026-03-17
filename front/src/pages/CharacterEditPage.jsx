@@ -61,7 +61,6 @@ function CharacterEditPage() {
 
   const [initialOwnerUserId, setInitialOwnerUserId] = useState("");
 
-  // ===== VISIBILITÉ (modal MJ) =====
   const [visOpen, setVisOpen] = useState(false);
   const [visField, setVisField] = useState("");
   const [visAllowedIds, setVisAllowedIds] = useState(new Set());
@@ -126,18 +125,9 @@ function CharacterEditPage() {
 
     try {
       if (wasAllowed) {
-        await apiRevokeKnowledge(token, {
-          viewerId,
-          characterId: characterIdNum,
-          field: visField,
-        });
+        await apiRevokeKnowledge(token, { viewerId, characterId: characterIdNum, field: visField });
       } else {
-        await apiGrantKnowledge(token, {
-          viewerId,
-          characterId: characterIdNum,
-          field: visField,
-          notes: null,
-        });
+        await apiGrantKnowledge(token, { viewerId, characterId: characterIdNum, field: visField, notes: null });
       }
     } catch (e) {
       setVisAllowedIds((prev) => {
@@ -150,7 +140,6 @@ function CharacterEditPage() {
     }
   };
 
-  // ===== FETCH CHARACTER =====
   useEffect(() => {
     if (!token) return;
 
@@ -173,29 +162,31 @@ function CharacterEditPage() {
 
         const c = await res.json();
 
+        console.log("Character EDIT PAYLOAD:", c);
+
         const campId = c?.campaign?.id ? String(c.campaign.id) : null;
         setCampaignId(campId);
 
-        const ownerId = c.owner?.id ? String(c.owner.id) : "";
+        const ownerId = c?.owner?.id ? String(c.owner.id) : "";
         setInitialOwnerUserId(ownerId);
 
         setForm({
-          nickname: c.nickname ?? "",
-          firstname: c.firstname ?? "",
-          lastname: c.lastname ?? "",
-          age: c.age ?? "",
-          biography: c.biography ?? "",
-          strengths: c.strengths ?? "",
-          weaknesses: c.weaknesses ?? "",
-          secret: c.secret ?? c.characterSecret?.secret ?? c.characterSecret?.content ?? "",
-          clan: c.clan ?? "",
-          isPlayer: !!c.isPlayer,
-          locationId: c.location?.id ? String(c.location.id) : "",
+          nickname: c?.nickname ?? "",
+          firstname: c?.firstname ?? "",
+          lastname: c?.lastname ?? "",
+          age: c?.age ?? "",
+          biography: c?.biography ?? "",
+          strengths: c?.strengths ?? "",
+          weaknesses: c?.weaknesses ?? "",
+          secret: c?.secret ?? "", // ✅ IMPORTANT: maintenant ça doit venir du back
+          clan: c?.clan ?? "",
+          isPlayer: !!c?.isPlayer,
+          locationId: c?.location?.id ? String(c.location.id) : "",
           ownerUserId: ownerId,
         });
 
-        setAvatarPreview(buildAssetUrl(c.avatarUrl));
-        setVideoName(c.transitionVideoUrl ? c.transitionVideoUrl.split("/").pop() || "" : "");
+        setAvatarPreview(buildAssetUrl(c?.avatarUrl));
+        setVideoName(c?.transitionVideoUrl ? c.transitionVideoUrl.split("/").pop() || "" : "");
       } catch (e) {
         if (e?.name === "AbortError") return;
         const msg = e?.message || "Erreur lors du chargement.";
@@ -208,9 +199,8 @@ function CharacterEditPage() {
 
     fetchCharacter();
     return () => controller.abort();
-  }, [id, token, addNotification]);
+  }, [id, token, addNotification, assetBase]);
 
-  // ===== FETCH LOCATIONS =====
   useEffect(() => {
     if (!token) return;
 
@@ -240,7 +230,6 @@ function CharacterEditPage() {
     return () => controller.abort();
   }, [id, token]);
 
-  // ===== FETCH MEMBERS =====
   useEffect(() => {
     if (!token) return;
     if (!campaignId) {
@@ -359,27 +348,27 @@ function CharacterEditPage() {
       }
 
       if (updated && typeof updated === "object") {
-        const newOwnerId = updated.owner?.id ? String(updated.owner.id) : "";
+        const newOwnerId = updated?.owner?.id ? String(updated.owner.id) : "";
         setInitialOwnerUserId(newOwnerId);
 
-       setForm((p) => ({
-  ...p,
-  nickname: updated.nickname ?? p.nickname,
-  firstname: updated.firstname ?? p.firstname,
-  lastname: updated.lastname ?? p.lastname,
-  age: updated.age ?? p.age,
-  biography: updated.biography ?? p.biography,
-  strengths: updated.strengths ?? p.strengths,
-  weaknesses: updated.weaknesses ?? p.weaknesses,
-  secret: updated.secret ?? updated.characterSecret?.secret ?? updated.characterSecret?.content ?? p.secret,
-  clan: updated.clan ?? p.clan,
-  isPlayer: typeof updated.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
-  locationId: updated.location?.id ? String(updated.location.id) : p.locationId,
-  ownerUserId: newOwnerId || p.ownerUserId,
-}));
+        setForm((p) => ({
+          ...p,
+          nickname: updated?.nickname ?? p.nickname,
+          firstname: updated?.firstname ?? p.firstname,
+          lastname: updated?.lastname ?? p.lastname,
+          age: updated?.age ?? p.age,
+          biography: updated?.biography ?? p.biography,
+          strengths: updated?.strengths ?? p.strengths,
+          weaknesses: updated?.weaknesses ?? p.weaknesses,
+          secret: updated?.secret ?? p.secret, // ✅ FIX: plus de "c.secret"
+          clan: updated?.clan ?? p.clan,
+          isPlayer: typeof updated?.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
+          locationId: updated?.location?.id ? String(updated.location.id) : p.locationId,
+          ownerUserId: newOwnerId || p.ownerUserId,
+        }));
 
-        setAvatarPreview(buildAssetUrl(updated.avatarUrl));
-        setVideoName(updated.transitionVideoUrl ? updated.transitionVideoUrl.split("/").pop() || "" : "");
+        setAvatarPreview(buildAssetUrl(updated?.avatarUrl));
+        setVideoName(updated?.transitionVideoUrl ? updated.transitionVideoUrl.split("/").pop() || "" : "");
       }
 
       setSuccess("Modifications enregistrées.");
@@ -548,6 +537,7 @@ function CharacterEditPage() {
                   accept="image/png,image/jpeg,image/jpg,image/webp"
                   onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
                 />
+                <div className="edit-hint">jpg, png, webp</div>
               </div>
             </div>
           </div>
@@ -562,6 +552,7 @@ function CharacterEditPage() {
                   accept="video/mp4,video/webm"
                   onChange={(e) => setTransitionVideoFile(e.target.files?.[0] || null)}
                 />
+                <div className="edit-hint">mp4 (recommandé), webm</div>
               </div>
             </div>
           </div>

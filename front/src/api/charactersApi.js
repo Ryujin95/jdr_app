@@ -1,4 +1,5 @@
 import { API_URL } from "../config";
+import { apiGetAssignablePlayers } from "./api";
 
 export async function fetchCharacters(token, campaignId) {
   const qs = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
@@ -35,14 +36,13 @@ export async function moveCharacterToTrash(token, id, campaignId) {
 }
 
 export async function fetchKnown(token, fromId, campaignId) {
-  const res = await fetch(
-    `${API_URL}/relationships/known?campaignId=${encodeURIComponent(campaignId)}&fromCharacterId=${encodeURIComponent(fromId)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+  const qs = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+
+  const res = await fetch(`${API_URL}/mj/characters/${fromId}/known${qs}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
@@ -151,8 +151,6 @@ export async function createCharacter(token, formData) {
   return res.json().catch(() => null);
 }
 
-import { apiGetAssignablePlayers } from "./api";
-
 export function getAssignablePlayersForCharacterSelect(token, campaignId) {
   return apiGetAssignablePlayers(token, campaignId);
 }
@@ -167,5 +165,6 @@ export async function fetchKnownViewer(token, fromId, campaignId) {
     const txt = await res.text().catch(() => "");
     throw new Error(txt || `HTTP ${res.status}`);
   }
-  return res.json();
+
+  return res.json().catch(() => []);
 }

@@ -215,6 +215,14 @@ export default function CampaignPage() {
             >
               Transférer le rôle MJ
             </button>
+
+            <button
+              type="button"
+              className="transfer-mj-button"
+              onClick={() => navigate(`/campaigns/${campaignId}/attributes`)}
+            >
+              Gérer les attributs
+            </button>
           </>
         )}
       </div>

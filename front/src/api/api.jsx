@@ -401,3 +401,12 @@ export function apiRevokeKnowledge(token, data, options = {}) {
   // data attendu: { viewerId, characterId, field }
   return apiFetch(`/admin/knowledge/revoke`, { token, method: "POST", body: data, ...options });
 }
+
+export function apiUpdateZone(token, zoneId, data, options = {}) {
+  return apiFetch(`/zones/${encodeURIComponent(String(zoneId))}`, {
+    token,
+    method: "PATCH",
+    body: data,
+    ...options,
+  });
+}

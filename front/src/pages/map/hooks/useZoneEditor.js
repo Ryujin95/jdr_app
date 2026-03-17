@@ -1,9 +1,16 @@
 // src/pages/map/hooks/useZoneEditor.js
 import { useCallback, useRef, useState } from "react";
 import { API_URL } from "../../../config";
-import { toNum, clampMove, clampResize } from "../../../utils/mapMath";
+import { toNum, clampMove, clampResize } from "../utils/mapMath";
 
-export function useZoneEditor({ token, isEditing, isMjInThisCampaign, zones, setZones, setError }) {
+export function useZoneEditor({
+  token,
+  isEditing,
+  isMjInThisCampaign,
+  zones,
+  setZones,
+  setError,
+}) {
   const [activeZoneId, setActiveZoneId] = useState(null);
   const dragRef = useRef(null);
 
@@ -28,7 +35,7 @@ export function useZoneEditor({ token, isEditing, isMjInThisCampaign, zones, set
 
       return res.json().catch(() => null);
     },
-    [token]
+    [token],
   );
 
   const onZonePointerDown = useCallback(
@@ -67,7 +74,7 @@ export function useZoneEditor({ token, isEditing, isMjInThisCampaign, zones, set
 
       e.currentTarget.setPointerCapture?.(e.pointerId);
     },
-    [isEditing, isMjInThisCampaign]
+    [isEditing, isMjInThisCampaign],
   );
 
   const onZonePointerMove = useCallback(
@@ -93,27 +100,38 @@ export function useZoneEditor({ token, isEditing, isMjInThisCampaign, zones, set
           const width = toNum(zz.widthPercent ?? zz.width_percent);
           const height = toNum(zz.heightPercent ?? zz.height_percent);
 
-          if (![top, left, width, height].every((n) => Number.isFinite(n))) return zz;
+          if (![top, left, width, height].every((n) => Number.isFinite(n)))
+            return zz;
 
           if (d.mode === "move") {
             const ntRaw = d.startTop + dyPct;
             const nlRaw = d.startLeft + dxPct;
-            const { top: nt, left: nl } = clampMove(ntRaw, nlRaw, width, height);
+            const { top: nt, left: nl } = clampMove(
+              ntRaw,
+              nlRaw,
+              width,
+              height,
+            );
             return { ...zz, topPercent: nt, leftPercent: nl };
           }
 
           if (d.mode === "se") {
             const nwRaw = d.startWidth + dxPct;
             const nhRaw = d.startHeight + dyPct;
-            const { width: nw, height: nh } = clampResize(top, left, nwRaw, nhRaw);
+            const { width: nw, height: nh } = clampResize(
+              top,
+              left,
+              nwRaw,
+              nhRaw,
+            );
             return { ...zz, widthPercent: nw, heightPercent: nh };
           }
 
           return zz;
-        })
+        }),
       );
     },
-    [isEditing, isMjInThisCampaign, setZones]
+    [isEditing, isMjInThisCampaign, setZones],
   );
 
   const onZonePointerUp = useCallback(async () => {
@@ -142,5 +160,10 @@ export function useZoneEditor({ token, isEditing, isMjInThisCampaign, zones, set
     }
   }, [isEditing, isMjInThisCampaign, zones, patchZone, setError]);
 
-  return { activeZoneId, onZonePointerDown, onZonePointerMove, onZonePointerUp };
+  return {
+    activeZoneId,
+    onZonePointerDown,
+    onZonePointerMove,
+    onZonePointerUp,
+  };
 }

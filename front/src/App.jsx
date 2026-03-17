@@ -11,7 +11,6 @@ import ProfilePage from "./pages/ProfilePage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import NotificationBox from "./components/NotificationBox.jsx";
-import CharactersPage from "./pages/CharactersPage.jsx";
 import CharacterDetailPage from "./pages/CharacterDetailPage.jsx";
 import TransitionVideo from "./pages/TransitionVideo.jsx";
 import LocationCharactersPage from "./pages/LocationCharactersPage.jsx";
@@ -43,7 +42,6 @@ function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/characters" element={<CharactersPage />} />
         <Route path="/characters/:id" element={<CharacterDetailPage />} />
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
         <Route path="/locations/:locationId/characters" element={<LocationCharactersPage />} />

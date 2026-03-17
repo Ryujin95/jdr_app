@@ -56,7 +56,9 @@ class ZoneService
 
         $label = $data['label'] ?? null;
         $label = is_string($label) ? trim($label) : null;
-        if ($label === '') $label = null;
+        if ($label === '') {
+            $label = null;
+        }
 
         $zone = new Zone();
         $zone->setMap($map);
@@ -65,6 +67,7 @@ class ZoneService
         $zone->setLeftPercent($left);
         $zone->setWidthPercent($width);
         $zone->setHeightPercent($height);
+        $zone->setZoomFactor(1.0);
         $zone->setEnabled(true);
 
         $this->em->persist($zone);
@@ -85,17 +88,37 @@ class ZoneService
         $width = $this->optNum($data, ['widthPercent', 'width_percent']);
         $height = $this->optNum($data, ['heightPercent', 'height_percent']);
 
-        if ($top !== null) $zone->setTopPercent($this->clamp($top, 0, 100));
-        if ($left !== null) $zone->setLeftPercent($this->clamp($left, 0, 100));
-        if ($width !== null) $zone->setWidthPercent($this->clamp($width, 1, 100));
-        if ($height !== null) $zone->setHeightPercent($this->clamp($height, 1, 100));
+        if ($top !== null) {
+            $zone->setTopPercent($this->clamp($top, 0, 100));
+        }
+        if ($left !== null) {
+            $zone->setLeftPercent($this->clamp($left, 0, 100));
+        }
+        if ($width !== null) {
+            $zone->setWidthPercent($this->clamp($width, 1, 100));
+        }
+        if ($height !== null) {
+            $zone->setHeightPercent($this->clamp($height, 1, 100));
+        }
 
         if (array_key_exists('label', $data)) {
             $label = is_string($data['label']) ? trim($data['label']) : null;
             $zone->setLabel($label === '' ? null : $label);
         }
 
+        if (array_key_exists('zoomFactor', $data) || array_key_exists('zoom_factor', $data)) {
+            $rawZoom = $data['zoomFactor'] ?? $data['zoom_factor'];
+
+            if (!is_numeric($rawZoom)) {
+                throw new \InvalidArgumentException('zoomFactor invalide');
+            }
+
+            $zoom = (float) $rawZoom;
+            $zone->setZoomFactor($this->clamp($zoom, 0.2, 3.0));
+        }
+
         $this->em->flush();
+
         return $this->toArray($zone);
     }
 
@@ -144,23 +167,23 @@ class ZoneService
     }
 
     public function listCharacterPositions(int $zoneId): array
-{
-    $zone = $this->zoneRepo->find($zoneId);
-    if (!$zone instanceof Zone) {
-        throw new \RuntimeException('Zone not found');
+    {
+        $zone = $this->zoneRepo->find($zoneId);
+        if (!$zone instanceof Zone) {
+            throw new \RuntimeException('Zone not found');
+        }
+
+        $rows = $this->posRepo->findByZoneId($zoneId);
+
+        return array_map(static function (CharacterZonePosition $p) {
+            return [
+                'zoneId' => $p->getZone()->getId(),
+                'characterId' => $p->getCharacter()->getId(),
+                'xPercent' => $p->getXPercent(),
+                'yPercent' => $p->getYPercent(),
+            ];
+        }, $rows);
     }
-
-    $rows = $this->posRepo->findByZoneId($zoneId);
-
-    return array_map(static function (CharacterZonePosition $p) {
-        return [
-            'zoneId' => $p->getZone()->getId(),
-            'characterId' => $p->getCharacter()->getId(),
-            'xPercent' => $p->getXPercent(),
-            'yPercent' => $p->getYPercent(),
-        ];
-    }, $rows);
-}
 
     private function clamp(float $v, float $min, float $max): float
     {
@@ -169,7 +192,10 @@ class ZoneService
 
     private function num($v, string $field): float
     {
-        if (!is_numeric($v)) throw new \InvalidArgumentException("$field invalide");
+        if (!is_numeric($v)) {
+            throw new \InvalidArgumentException("$field invalide");
+        }
+
         return (float) $v;
     }
 
@@ -178,10 +204,13 @@ class ZoneService
         foreach ($keys as $k) {
             if (array_key_exists($k, $data)) {
                 $v = $data[$k];
-                if (!is_numeric($v)) throw new \InvalidArgumentException("$k invalide");
+                if (!is_numeric($v)) {
+                    throw new \InvalidArgumentException("$k invalide");
+                }
                 return (float) $v;
             }
         }
+
         return null;
     }
 
@@ -218,6 +247,7 @@ class ZoneService
             'leftPercent' => $z->getLeftPercent(),
             'widthPercent' => $z->getWidthPercent(),
             'heightPercent' => $z->getHeightPercent(),
+            'zoomFactor' => $z->getZoomFactor(),
             'enabled' => $z->isEnabled(),
             'characters' => $characters,
         ];

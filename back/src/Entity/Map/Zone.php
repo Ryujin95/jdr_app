@@ -16,25 +16,20 @@ class Zone
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    // Une zone appartient à une map
     #[ORM\ManyToOne(targetEntity: Map::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Map $map = null;
 
-    // identifiant "stable" côté front (non nullable en DB)
     #[ORM\Column(length: 80)]
     private string $code = '';
 
-    // label optionnel
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $label = null;
 
-    // Lien vers un Location (colonne: location_id)
     #[ORM\ManyToOne(targetEntity: Location::class)]
     #[ORM\JoinColumn(name: 'location_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Location $location = null;
 
-    // positions + tailles en POURCENTAGE
     #[ORM\Column(type: 'float')]
     private float $topPercent = 0.0;
 
@@ -46,6 +41,9 @@ class Zone
 
     #[ORM\Column(type: 'float')]
     private float $heightPercent = 10.0;
+
+    #[ORM\Column(type: 'float', options: ['default' => 1])]
+    private float $zoomFactor = 1.0;
 
     #[ORM\Column(type: 'boolean')]
     private bool $enabled = true;
@@ -122,7 +120,6 @@ class Zone
         return $this;
     }
 
-    // utile côté API/front si tu veux juste l’id
     public function getLocationId(): ?int
     {
         return $this->location?->getId();
@@ -172,6 +169,18 @@ class Zone
     public function setHeightPercent(float $heightPercent): self
     {
         $this->heightPercent = $heightPercent;
+        $this->touch();
+        return $this;
+    }
+
+    public function getZoomFactor(): float
+    {
+        return $this->zoomFactor;
+    }
+
+    public function setZoomFactor(float $zoomFactor): self
+    {
+        $this->zoomFactor = $zoomFactor;
         $this->touch();
         return $this;
     }

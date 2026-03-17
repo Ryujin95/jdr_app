@@ -30,7 +30,49 @@ label {
   font-weight: 600;
 }
 
+/* ==============================
+   Changement de carte
+============================== */
+/* Container des boutons */
+.map-switcher {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
 
+/* Bouton de base */
+.map-tab {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #2c2c2c;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+/* Hover */
+.map-tab:hover {
+  background-color: #2a2a2a;
+  border-color: #3a3a3a;
+}
+
+/* Bouton actif */
+.map-tab.active {
+  background-color: #4caf50;
+  border-color: #4caf50;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* Optionnel : effet click */
+.map-tab:active {
+  transform: scale(0.97);
+}
 /* ==============================
    Carte
 ============================== */

@@ -1,9 +1,10 @@
 // src/pages/map/hooks/useCampaignMapData.js
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { API_URL } from "../../../config";
 
 export function useCampaignMapData({ token, campaignId }) {
-  const [mapData, setMapData] = useState(null);
+  const [maps, setMaps] = useState([]);
+  const [selectedMapId, setSelectedMapId] = useState(null);
   const [loadingMap, setLoadingMap] = useState(false);
   const [error, setError] = useState("");
 
@@ -14,9 +15,13 @@ export function useCampaignMapData({ token, campaignId }) {
   const [zones, setZones] = useState([]);
   const [loadingZones, setLoadingZones] = useState(false);
 
-  // --- LOAD MAP ---
+  const selectedMap = useMemo(() => {
+    return maps.find((m) => String(m.id) === String(selectedMapId)) || null;
+  }, [maps, selectedMapId]);
+
   useEffect(() => {
-    setMapData(null);
+    setMaps([]);
+    setSelectedMapId(null);
     setError("");
 
     if (!token) return;
@@ -43,7 +48,16 @@ export function useCampaignMapData({ token, campaignId }) {
 
         const data = await res.json().catch(() => []);
         const list = Array.isArray(data) ? data : [];
-        setMapData(list.length > 0 ? list[0] : null);
+
+        setMaps(list);
+
+        if (list.length > 0) {
+          setSelectedMapId((prev) =>
+            prev && list.some((m) => String(m.id) === String(prev))
+              ? prev
+              : list[0].id
+          );
+        }
       } catch (e) {
         if (e?.name === "AbortError") return;
         setError(e?.message || "Erreur");
@@ -55,7 +69,6 @@ export function useCampaignMapData({ token, campaignId }) {
     return () => controller.abort();
   }, [token, campaignId]);
 
-  // --- LOCATIONS ---
   const refreshLocations = useCallback(async () => {
     if (!token || !campaignId) return;
 
@@ -163,17 +176,16 @@ export function useCampaignMapData({ token, campaignId }) {
     [token, campaignId]
   );
 
-  // --- ZONES ---
   const refreshZones = useCallback(async () => {
     if (!token) return;
-    if (!mapData?.id) return;
+    if (!selectedMap?.id) return;
 
     setLoadingZones(true);
     setError("");
 
     try {
       const res = await fetch(
-        `${API_URL}/zones?mapId=${encodeURIComponent(String(mapData.id))}`,
+        `${API_URL}/zones?mapId=${encodeURIComponent(String(selectedMap.id))}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -190,15 +202,14 @@ export function useCampaignMapData({ token, campaignId }) {
     } finally {
       setLoadingZones(false);
     }
-  }, [token, mapData?.id]);
+  }, [token, selectedMap?.id]);
 
   useEffect(() => {
     setZones([]);
-    if (!mapData?.id) return;
+    if (!selectedMap?.id) return;
     refreshZones();
-  }, [mapData?.id, refreshZones]);
+  }, [selectedMap?.id, refreshZones]);
 
-  // ✅ DELETE ZONE + SUPPRESSION INSTANTANÉE (sans refresh)
   const deleteZone = useCallback(
     async (zoneId) => {
       if (!token) return;
@@ -216,7 +227,6 @@ export function useCampaignMapData({ token, campaignId }) {
         throw new Error(txt || `HTTP ${res.status}`);
       }
 
-      // 🔥 instant UI
       setZones((prev) => prev.filter((z) => String(z.id) !== String(id)));
 
       return true;
@@ -224,8 +234,51 @@ export function useCampaignMapData({ token, campaignId }) {
     [token]
   );
 
+  const moveCharacterToZone = useCallback(
+    async (characterId, targetZone) => {
+      if (!token) throw new Error("Non authentifié");
+      if (!characterId) throw new Error("characterId manquant");
+
+      const locationId =
+        targetZone?.locationId ??
+        targetZone?.location_id ??
+        targetZone?.location?.id ??
+        null;
+
+      if (!locationId) {
+        throw new Error("La zone cible n'a pas de lieu associé.");
+      }
+
+      const formData = new FormData();
+      formData.append("locationId", String(locationId));
+
+      const qs = campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+
+      const res = await fetch(`${API_URL}/characters/${encodeURIComponent(characterId)}${qs}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+
+      await refreshZones();
+      return true;
+    },
+    [token, campaignId, refreshZones]
+  );
+
   return {
-    mapData,
+    maps,
+    selectedMap,
+    selectedMapId,
+    setSelectedMapId,
+
     loadingMap,
     error,
     setError,
@@ -245,6 +298,7 @@ export function useCampaignMapData({ token, campaignId }) {
     createLocation,
     deleteLocationToTrash,
 
-    deleteZone, // ✅ export
+    deleteZone,
+    moveCharacterToZone,
   };
 }

@@ -9,8 +9,7 @@ import ZoneZoomOverlay from "../../components/ZoneZoomOverlay";
 import MapCanvas from "./components/MapCanvas";
 import MapCreateLocationPanel from "./components/MapCreateLocationPanel";
 import MapDeleteLocationPanel from "./components/MapDeleteLocationPanel";
-
-import { makeResolveUrl } from "../../utils/resolveUrl";
+import { makeResolveUrl } from "./utils/resolveUrl";
 import { useCampaignMapData } from "./hooks/useCampaignMapData";
 import { useZoneEditor } from "./hooks/useZoneEditor";
 
@@ -24,10 +23,15 @@ export default function CampaignMapPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [panel, setPanel] = useState(null);
   const [zoomZone, setZoomZone] = useState(null);
+  const [draggedCharacter, setDraggedCharacter] = useState(null);
 
   const resolveUrl = useMemo(() => makeResolveUrl(API_URL), []);
   const {
-    mapData,
+    maps,
+    selectedMap,
+    selectedMapId,
+    setSelectedMapId,
+
     loadingMap,
     error,
     setError,
@@ -46,9 +50,11 @@ export default function CampaignMapPage() {
 
     createLocation,
     deleteLocationToTrash,
+
+    moveCharacterToZone,
   } = useCampaignMapData({ token, campaignId });
 
-  const img = resolveUrl(mapData?.imagePath);
+  const img = resolveUrl(selectedMap?.imagePath);
 
   useEffect(() => {
     if (!isMjInThisCampaign) {
@@ -80,12 +86,48 @@ export default function CampaignMapPage() {
     (z) => {
       if (!img) return;
       if (isEditing) return;
+      if (draggedCharacter) return;
       setZoomZone(z);
     },
-    [img, isEditing]
+    [img, isEditing, draggedCharacter]
   );
 
-  const closeZoneZoom = () => setZoomZone(null);
+  const closeZoneZoom = useCallback(async () => {
+    setZoomZone(null);
+    await refreshZones();
+  }, [refreshZones]);
+
+  const handleCharacterDragStart = useCallback((character, fromZone) => {
+    setDraggedCharacter({
+      id: character?.id,
+      fromZoneId: fromZone?.id ?? null,
+    });
+  }, []);
+
+  const handleCharacterDropOnZone = useCallback(
+    async (targetZone) => {
+      if (!draggedCharacter?.id) return;
+
+      if (!targetZone?.id) {
+        setDraggedCharacter(null);
+        return;
+      }
+
+      if (String(targetZone.id) === String(draggedCharacter.fromZoneId)) {
+        setDraggedCharacter(null);
+        return;
+      }
+
+      try {
+        await moveCharacterToZone(draggedCharacter.id, targetZone);
+      } catch (e) {
+        setError(e?.message || "Impossible de déplacer le personnage.");
+      } finally {
+        setDraggedCharacter(null);
+      }
+    },
+    [draggedCharacter, moveCharacterToZone, setError]
+  );
 
   if (!campaignId) {
     return (
@@ -114,7 +156,7 @@ export default function CampaignMapPage() {
     );
   }
 
-  if (!mapData) {
+  if (!selectedMap) {
     return (
       <div className="map-page">
         <h1 className="map-title">Carte</h1>
@@ -126,7 +168,22 @@ export default function CampaignMapPage() {
   return (
     <div className="map-page">
       <div className="map-header">
-        <h1 className="map-title">{mapData?.name ? `Carte : ${mapData.name}` : "Carte"}</h1>
+        <h1 className="map-title">{selectedMap?.name ? `Carte : ${selectedMap.name}` : "Carte"}</h1>
+
+        {Array.isArray(maps) && maps.length > 0 ? (
+          <div className="map-switcher">
+            {maps.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className={String(m.id) === String(selectedMapId) ? "map-tab active" : "map-tab"}
+                onClick={() => setSelectedMapId(m.id)}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {isMjInThisCampaign ? (
           <div className="map-actions">
@@ -161,7 +218,7 @@ export default function CampaignMapPage() {
       </div>
 
       {isMjInThisCampaign && panel === "create" ? (
-          <MapCreateLocationPanel
+        <MapCreateLocationPanel
           onClose={() => setPanel(null)}
           onSubmit={async (name, description) => {
             setError("");
@@ -176,14 +233,17 @@ export default function CampaignMapPage() {
                 .replace(/\s+/g, " ");
               return lname === clean;
             });
+
             if (!clean) {
               setError("Le nom du lieu est obligatoire.");
               return;
             }
+
             if (exists) {
               setError("Ce lieu existe déjà. Choisis un autre nom.");
               return;
             }
+
             await createLocation({ name, description });
             await refreshLocations();
             await refreshZones();
@@ -219,7 +279,7 @@ export default function CampaignMapPage() {
       ) : (
         <MapCanvas
           img={img}
-          mapName={mapData?.name}
+          mapName={selectedMap?.name}
           zones={zones}
           loadingZones={loadingZones}
           isEditing={isEditing}
@@ -230,6 +290,8 @@ export default function CampaignMapPage() {
           onZonePointerMove={onZonePointerMove}
           onZonePointerUp={onZonePointerUp}
           onZoneOpen={openZoneZoom}
+          onCharacterDragStart={handleCharacterDragStart}
+          onCharacterDropOnZone={handleCharacterDropOnZone}
         />
       )}
 

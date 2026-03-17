@@ -1,5 +1,5 @@
 // src/pages/map/components/MapCanvas.jsx
-import { toNum } from "../../../utils/mapMath";
+import { toNum } from "../utils/mapMath";
 
 export default function MapCanvas({
   img,
@@ -14,6 +14,8 @@ export default function MapCanvas({
   onZonePointerMove,
   onZonePointerUp,
   onZoneOpen,
+  onCharacterDragStart,
+  onCharacterDropOnZone,
 }) {
   return (
     <div
@@ -58,6 +60,16 @@ export default function MapCanvas({
                 }}
                 onPointerDown={(e) => (isMjInThisCampaign ? onZonePointerDown?.(e, z, "move") : undefined)}
                 onClick={() => onZoneOpen?.(z)}
+                onDragOver={(e) => {
+                  if (!isMjInThisCampaign || isEditing) return;
+                  e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  if (!isMjInThisCampaign || isEditing) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onCharacterDropOnZone?.(z);
+                }}
                 role="button"
                 tabIndex={0}
               >
@@ -70,7 +82,15 @@ export default function MapCanvas({
                       );
 
                       return (
-                        <div key={c.id ?? `${nickname}-${String(avatar)}`} className="map-zone-character-card">
+                        <div
+                          key={c.id ?? `${nickname}-${String(avatar)}`}
+                          className="map-zone-character-card"
+                          draggable={isMjInThisCampaign}
+                          onDragStart={(e) => {
+                            e.stopPropagation();
+                            onCharacterDragStart?.(c, z);
+                          }}
+                        >
                           {avatar ? (
                             <img className="map-zone-character-avatar" src={avatar} alt={nickname || "avatar"} draggable={false} />
                           ) : null}

@@ -1,7 +1,7 @@
 // src/components/ZoneZoomOverlay.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_URL } from "../config";
-import { clamp } from "../utils/mapMath";
+import { clamp } from "../pages/map/utils/mapMath";
 import { apiGetZoneCharacterPositions, apiSaveZoneCharacterPosition } from "../api/api";
 
 function toNum(v) {
@@ -10,6 +10,32 @@ function toNum(v) {
   const s = String(v).trim().replace(",", ".");
   const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
+}
+
+function getZoneZoomStorageKey(zoneId) {
+  return `zonezoom:${String(zoneId)}`;
+}
+
+function readSavedZoomFactor(zoneId) {
+  if (!zoneId) return 1;
+
+  try {
+    const raw = window.localStorage.getItem(getZoneZoomStorageKey(zoneId));
+    const value = Number(raw);
+    return Number.isFinite(value) ? clamp(value, 0.2, 3) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function saveZoomFactor(zoneId, value) {
+  if (!zoneId) return;
+
+  try {
+    window.localStorage.setItem(getZoneZoomStorageKey(zoneId), String(clamp(Number(value), 0.2, 3)));
+  } catch {
+    // rien
+  }
 }
 
 export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose }) {
@@ -21,6 +47,7 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
   const [positions, setPositions] = useState({});
   const draggingRef = useRef(null);
+  const [zoomFactor, setZoomFactor] = useState(() => readSavedZoomFactor(zone?.id));
 
   const z = useMemo(() => {
     const top = toNum(zone?.topPercent ?? zone?.top_percent);
@@ -49,7 +76,10 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     return Array.isArray(candidates) ? candidates : [];
   }, [zone]);
 
-  const getCharacterNickname = useCallback((c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(), []);
+  const getCharacterNickname = useCallback(
+    (c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(),
+    []
+  );
 
   const getCharacterAvatarUrl = useCallback(
     (c) => {
@@ -58,6 +88,23 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     },
     [resolveUrl]
   );
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
+    setZoomFactor(readSavedZoomFactor(zone?.id));
+  }, [zone?.id]);
 
   const computeCrop = useCallback(() => {
     const viewport = viewportRef.current;
@@ -89,16 +136,34 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
     setViewportBox({ w: vw, h: vh });
 
-    const scale = clamp(vw / zonePxW, 1, 4);
-    const tx = -zonePxX * scale;
-    const ty = -zonePxY * scale;
+    const scaleX = vw / zonePxW;
+    const scaleY = vh / zonePxH;
+    const baseScale = Math.max(1, Math.min(scaleX, scaleY));
+    const scale = baseScale * zoomFactor;
+
+    let tx = -zonePxX * scale + (vw - zonePxW * scale) / 2;
+    let ty = -zonePxY * scale + (vh - zonePxH * scale) / 2;
+
+    const scaledImgW = imgNatural.w * scale;
+    const scaledImgH = imgNatural.h * scale;
+
+    if (scaledImgW <= vw) {
+      tx = (vw - scaledImgW) / 2;
+    } else {
+      tx = clamp(tx, vw - scaledImgW, 0);
+    }
+
+    if (scaledImgH <= vh) {
+      ty = (vh - scaledImgH) / 2;
+    } else {
+      ty = clamp(ty, vh - scaledImgH, 0);
+    }
 
     setView({ scale, tx, ty });
-  }, [imgNatural, z.top, z.left, z.width, z.height]);
+  }, [imgNatural, z.top, z.left, z.width, z.height, zoomFactor]);
 
   useEffect(() => {
-    if (!token) return;
-    if (!zone?.id) return;
+    if (!token || !zone?.id) return;
 
     let cancelled = false;
 
@@ -165,8 +230,7 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
   const savePosition = useCallback(
     async (characterId, xPercent, yPercent) => {
-      if (!token) return;
-      if (!zone?.id) return;
+      if (!token || !zone?.id) return;
 
       const cid = Number(characterId);
       if (!Number.isFinite(cid)) return;
@@ -205,24 +269,48 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
   const percentToViewportPx = useCallback(
     (xPercent, yPercent) => {
-      const vw = viewportBox.w || 0;
-      const vh = viewportBox.h || 0;
-      const x = (clamp(xPercent, 0, 100) / 100) * vw;
-      const y = (clamp(yPercent, 0, 100) / 100) * vh;
-      return { x, y };
+      if (!imgNatural) return { x: 0, y: 0 };
+      if (![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) {
+        return { x: 0, y: 0 };
+      }
+
+      const zonePxW = (z.width / 100) * imgNatural.w;
+      const zonePxH = (z.height / 100) * imgNatural.h;
+      const zonePxX = (z.left / 100) * imgNatural.w;
+      const zonePxY = (z.top / 100) * imgNatural.h;
+
+      const imageX = zonePxX + (clamp(xPercent, 0, 100) / 100) * zonePxW;
+      const imageY = zonePxY + (clamp(yPercent, 0, 100) / 100) * zonePxH;
+
+      return {
+        x: imageX * view.scale + view.tx,
+        y: imageY * view.scale + view.ty,
+      };
     },
-    [viewportBox.w, viewportBox.h]
+    [imgNatural, z.top, z.left, z.width, z.height, view.scale, view.tx, view.ty]
   );
 
   const viewportPxToPercent = useCallback(
     (xPx, yPx) => {
-      const vw = viewportBox.w || 1;
-      const vh = viewportBox.h || 1;
-      const xPercent = clamp((xPx / vw) * 100, 0, 100);
-      const yPercent = clamp((yPx / vh) * 100, 0, 100);
+      if (!imgNatural) return { xPercent: 50, yPercent: 50 };
+      if (![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) {
+        return { xPercent: 50, yPercent: 50 };
+      }
+
+      const zonePxW = (z.width / 100) * imgNatural.w;
+      const zonePxH = (z.height / 100) * imgNatural.h;
+      const zonePxX = (z.left / 100) * imgNatural.w;
+      const zonePxY = (z.top / 100) * imgNatural.h;
+
+      const imageX = (xPx - view.tx) / view.scale;
+      const imageY = (yPx - view.ty) / view.scale;
+
+      const xPercent = clamp(((imageX - zonePxX) / zonePxW) * 100, 0, 100);
+      const yPercent = clamp(((imageY - zonePxY) / zonePxH) * 100, 0, 100);
+
       return { xPercent, yPercent };
     },
-    [viewportBox.w, viewportBox.h]
+    [imgNatural, z.top, z.left, z.width, z.height, view.scale, view.tx, view.ty]
   );
 
   const onAvatarPointerDown = (e, characterId) => {
@@ -233,7 +321,6 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     if (!viewport) return;
 
     const rect = viewport.getBoundingClientRect();
-
     const current = positions[String(characterId)] || { xPercent: 50, yPercent: 50 };
     const { x, y } = percentToViewportPx(current.xPercent, current.yPercent);
 
@@ -270,6 +357,20 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     }));
   };
 
+  const onViewportWheel = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      setZoomFactor((prev) => {
+        const next = clamp(Number(e.deltaY > 0 ? prev * 0.9 : prev * 1.1), 0.2, 3);
+        saveZoomFactor(zone?.id, next);
+        return next;
+      });
+    },
+    [zone?.id]
+  );
+
   const onViewportPointerUp = async () => {
     const d = draggingRef.current;
     if (!d) return;
@@ -285,6 +386,11 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     }
   };
 
+  const handleClose = useCallback(() => {
+    saveZoomFactor(zone?.id, zoomFactor);
+    onClose?.();
+  }, [zone?.id, zoomFactor, onClose]);
+
   useEffect(() => {
     computeCrop();
     const onResize = () => computeCrop();
@@ -294,18 +400,18 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
+      if (e.key === "Escape") handleClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [handleClose]);
 
   const chars = getZoneCharacters();
 
   return (
-    <div className="zonezoom-overlay" onClick={onClose}>
+    <div className="zonezoom-overlay" onClick={handleClose}>
       <div className="zonezoom-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="zonezoom-close" onClick={onClose}>
+        <button type="button" className="zonezoom-close" onClick={handleClose}>
           Fermer
         </button>
 
@@ -320,6 +426,7 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
           onPointerMove={onViewportPointerMove}
           onPointerUp={onViewportPointerUp}
           onPointerCancel={onViewportPointerUp}
+          onWheelCapture={onViewportWheel}
         >
           <img
             className="zonezoom-img"
@@ -358,7 +465,12 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
                   tabIndex={0}
                 >
                   {avatarUrl ? (
-                    <img className="zonezoom-avatar-img" src={avatarUrl} alt={nickname || "avatar"} draggable={false} />
+                    <img
+                      className="zonezoom-avatar-img"
+                      src={avatarUrl}
+                      alt={nickname || "avatar"}
+                      draggable={false}
+                    />
                   ) : (
                     <div className="zonezoom-avatar-fallback" />
                   )}

@@ -1,6 +1,4 @@
 <?php
-// src/Controller/Api/CharacterController.php
-
 namespace App\Controller\Api;
 
 use App\Entity\User;
@@ -56,8 +54,7 @@ class CharacterController extends AbstractController
         return new JsonResponse($data, 200);
     }
 
-    #[Route('/characters', name: 'api_characters_create', methods: ['POST'])]
-    public function create(Request $request): JsonResponse
+    #[Route('/characters', name: 'api_characters_create', methods: ['POST'])]    public function create(Request $request): JsonResponse
     {
         try {
             $campaignId = $request->query->get('campaignId');
