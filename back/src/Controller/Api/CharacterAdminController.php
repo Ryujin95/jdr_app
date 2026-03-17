@@ -30,22 +30,23 @@ class CharacterAdminController extends AbstractController
         }
     }
 
-    private function assertAdminOrCampaignMj(int $campaignId): void
-    {
-        $this->assertAdminOrMj();
-
-        if ($this->isGranted('ROLE_ADMIN')) {
-            return;
-        }
-
-
-                $user = $this->getUser();
-                $userId = ($user instanceof \App\Entity\User) ? (int) $user->getId() : 0;
-
-        if ($userId <= 0 || !$this->campaignMemberRepository->isUserMjInCampaign($campaignId, $userId)) {
-            throw new AccessDeniedException('MJ only');
-        }
+   private function assertAdminOrCampaignMj(int $campaignId): void
+{
+    if ($this->isGranted('ROLE_ADMIN')) {
+        return;
     }
+
+    $user = $this->getUser();
+    $userId = ($user instanceof \App\Entity\User) ? (int) $user->getId() : 0;
+
+    if ($userId <= 0) {
+        throw new AccessDeniedException('Permission denied');
+    }
+
+    if (!$this->campaignMemberRepository->isUserMjInCampaign($campaignId, $userId)) {
+        throw new AccessDeniedException('MJ only');
+    }
+}
 
     #[Route('/characters', name: 'api_admin_characters_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
@@ -163,4 +164,27 @@ class CharacterAdminController extends AbstractController
 
         return $this->json($out, 200);
     }
+
+#[Route('/characters/{id}', name: 'api_admin_characters_show', methods: ['GET'])]
+public function show(int $id, Request $request): JsonResponse
+{
+    $character = $this->characterRepository->find($id);
+    if (!$character) {
+        return $this->json(['message' => 'Character not found'], 404);
+    }
+
+    $campaign = $character->getCampaign();
+    if (!$campaign) {
+        return $this->json(['message' => 'Character has no campaign'], 400);
+    }
+
+    $this->assertAdminOrCampaignMj((int) $campaign->getId());
+
+    $campaignId = $request->query->get('campaignId');
+    $campaignId = is_numeric($campaignId) ? (int) $campaignId : null;
+
+    $data = $this->characterService->getCharacterDetailForCurrentUser($character, $campaignId);
+
+    return $this->json($data, 200);
+}
 }

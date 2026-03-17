@@ -38,7 +38,6 @@ export default function RightSidebar({ open, setOpen }) {
 
     let cancelled = false;
 
-    // n'affiche le loading que si on n'a encore rien en mémoire
     const shouldShowLoading =
       friends.length === 0 &&
       (requests?.incoming?.length || 0) === 0 &&
@@ -72,17 +71,15 @@ export default function RightSidebar({ open, setOpen }) {
     return () => {
       cancelled = true;
     };
-  }, [open, token, addNotification]); // deps inchangées
+  }, [open, token, addNotification]);
 
   const onlineUsers = useMemo(() => {
-    if (!isAuthenticated || !user) return [];
-    return [{ id: user.id, username: user.username }];
-  }, [isAuthenticated, user]);
+    return (Array.isArray(friends) ? friends : []).filter((f) => !!f.isOnline);
+  }, [friends]);
 
   const offlineUsers = useMemo(() => {
-    const onlineIds = new Set(onlineUsers.map((u) => String(u.id)));
-    return (Array.isArray(friends) ? friends : []).filter((f) => !onlineIds.has(String(f.userId)));
-  }, [friends, onlineUsers]);
+    return (Array.isArray(friends) ? friends : []).filter((f) => !f.isOnline);
+  }, [friends]);
 
   const incoming = useMemo(() => {
     return Array.isArray(requests?.incoming) ? requests.incoming : [];
@@ -250,8 +247,6 @@ export default function RightSidebar({ open, setOpen }) {
     };
   }, [ctxMenu]);
 
-  // ✅ IMPORTANT: on ne return plus null -> la sidebar reste montée (comme Discord/Steam)
-
   return (
     <div
       className={`right-dropdown ${open ? "is-open" : "is-closed"}`}
@@ -285,7 +280,12 @@ export default function RightSidebar({ open, setOpen }) {
         {onlineUsers.length === 0 && <p className="rs-empty">Aucun utilisateur connecté</p>}
 
         {onlineUsers.map((u) => (
-          <div key={u.id} className="rs-user rs-user--online">
+          <div
+            key={String(u.userId)}
+            className="rs-user rs-user--online"
+            onContextMenu={(e) => openFriendMenu(e, u)}
+            title="Clic droit"
+          >
             {u.username}
           </div>
         ))}

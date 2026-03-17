@@ -1,6 +1,5 @@
 .characters-page {
   padding: 2rem;
-  background: #0f172a;
   min-height: 100vh;
   color: #e5e7eb;
 }
@@ -16,7 +15,7 @@
 .clan-title {
   margin: 0 0 0.75rem 0;
   font-size: 1.4rem;
-  color: #e5e7eb;
+  color: black;
   font-weight: 600;
 }
 

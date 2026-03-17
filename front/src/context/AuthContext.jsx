@@ -14,7 +14,6 @@ export function AuthProvider({ children }) {
 
   const [meSyncedOnce, setMeSyncedOnce] = useState(false);
 
-  // 🔥 NOUVEAU : préchargement amis
   const prefetchFriends = async (jwt) => {
     try {
       await Promise.all([
@@ -37,7 +36,6 @@ export function AuthProvider({ children }) {
         setUser(parsed.user || null);
         setMeSyncedOnce(!!parsed.user);
 
-        // 🔥 NOUVEAU : précharge amis au reload
         if (parsed.token) {
           prefetchFriends(parsed.token);
         }
@@ -77,13 +75,12 @@ export function AuthProvider({ children }) {
         localStorage.setItem("auth", JSON.stringify({ token, user: me }));
         setMeSyncedOnce(true);
 
-        // 🔥 NOUVEAU : précharge amis après sync
         await prefetchFriends(token);
-
       } catch (e) {
         if (e?.message === "SESSION_EXPIRED") {
           setToken(null);
           setUser(null);
+          setMeSyncedOnce(false);
           localStorage.removeItem("auth");
         }
       }
@@ -96,13 +93,46 @@ export function AuthProvider({ children }) {
     };
   }, [token, meSyncedOnce]);
 
+  useEffect(() => {
+    if (!token || !user) return;
+
+    let cancelled = false;
+
+    const pingPresence = async () => {
+      try {
+        const me = await fetchMe(token);
+        if (cancelled) return;
+
+        setUser((prev) => {
+          const next = prev ? { ...prev, ...me } : me;
+          localStorage.setItem("auth", JSON.stringify({ token, user: next }));
+          return next;
+        });
+      } catch (e) {
+        if (e?.message === "SESSION_EXPIRED") {
+          setToken(null);
+          setUser(null);
+          setMeSyncedOnce(false);
+          localStorage.removeItem("auth");
+        }
+      }
+    };
+
+    pingPresence();
+    const interval = setInterval(pingPresence, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [token, user]);
+
   const saveAuth = (nextToken, nextUser) => {
     setToken(nextToken);
     setUser(nextUser);
     setMeSyncedOnce(true);
     localStorage.setItem("auth", JSON.stringify({ token: nextToken, user: nextUser }));
 
-    // 🔥 NOUVEAU : précharge amis après login
     prefetchFriends(nextToken);
   };
 

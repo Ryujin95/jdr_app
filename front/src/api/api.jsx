@@ -187,6 +187,23 @@ export function apiListLocationsForCharacter(token, characterId, options = {}) {
   }).then((data) => (Array.isArray(data) ? data : []));
 }
 
+export function apiGetAdminCharacter(token, id, options = {}) {
+  return apiFetch(`/admin/characters/${encodeURIComponent(String(id))}`, {
+    token,
+    method: "GET",
+    ...options,
+  });
+}
+
+export function apiUpdateCharacter(token, id, formData, options = {}) {
+  return apiFetch(`/characters/${encodeURIComponent(String(id))}`, {
+    token,
+    method: "POST",
+    body: formData,
+    ...options,
+  });
+}
+
 /* MJ / RELATIONS */
 export function apiGetKnownCharacters(token, fromCharacterId, campaignId) {
   return apiFetch(

@@ -42,7 +42,7 @@ class MeService
             $user->setPassword($hashed);
         }
 
-        // ✅ NOUVEAU : préférence désactiver les vidéos de transition
+        // ✅ préférence désactiver les vidéos de transition
         if (\array_key_exists('disableTransitions', $data)) {
             $val = filter_var(
                 $data['disableTransitions'],
@@ -58,6 +58,17 @@ class MeService
         $this->em->flush();
 
         return $user;
+    }
+
+    /**
+     * Marque l'utilisateur comme actif maintenant.
+     */
+    public function touchPresence(User $user): void
+    {
+        if (method_exists($user, 'setLastSeen')) {
+            $user->setLastSeen(new \DateTimeImmutable());
+            $this->em->flush();
+        }
     }
 
     /**

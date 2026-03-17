@@ -256,7 +256,13 @@
   gap: 10px;
   max-height: 180px;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+
+.campaign-dice-history::-webkit-scrollbar {
+  display: none;
+} 
 
 .campaign-dice-empty {
   opacity: 0.7;

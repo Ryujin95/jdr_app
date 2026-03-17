@@ -29,6 +29,8 @@ class MeController extends AbstractController
             return $this->json(['message' => 'Unauthorized'], 401);
         }
 
+        $this->meService->touchPresence($user);
+
         $rows = $this->campaignRepository->findForUser($user);
 
         $campaignRoles = [];
@@ -63,10 +65,8 @@ class MeController extends AbstractController
 
         $data = json_decode($request->getContent() ?: '', true) ?? [];
 
-        // update "classique" via ton MeService (username/email/password/etc)
         $user = $this->meService->update($user, $data);
 
-        // ✅ NOUVEAU : update de la préférence de visibilité des campagnes
         if (array_key_exists('profileCampaignVisibility', $data) && method_exists($user, 'setProfileCampaignVisibility')) {
             try {
                 $user->setProfileCampaignVisibility((string) $data['profileCampaignVisibility']);

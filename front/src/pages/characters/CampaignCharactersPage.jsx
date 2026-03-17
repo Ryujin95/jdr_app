@@ -148,7 +148,7 @@ function CampaignCharactersPage() {
   return (
     <div className="characters-page">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <h1 style={{ margin: 0 }}>Personnages</h1>
+        <h1 style={{ margin: 0 , color: "#1f2937"}}>Personnages</h1>
 
         {isAdminOrOwner && (
           <button

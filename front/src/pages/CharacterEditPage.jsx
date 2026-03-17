@@ -5,6 +5,8 @@ import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
 import { NotificationContext } from "../context/NotificationContext";
 import {
+  apiGetAdminCharacter,
+  apiUpdateCharacter,
   apiGetCampaignMembers,
   apiGetKnowledgeState,
   apiGrantKnowledge,
@@ -42,13 +44,11 @@ function CharacterEditPage() {
     secret: "",
     clan: "",
     isPlayer: false,
-    locationId: "",
     ownerUserId: "",
   });
 
   const [campaignId, setCampaignId] = useState(null);
 
-  const [locations, setLocations] = useState([]);
   const [members, setMembers] = useState([]);
   const [ownerCandidates, setOwnerCandidates] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -125,9 +125,18 @@ function CharacterEditPage() {
 
     try {
       if (wasAllowed) {
-        await apiRevokeKnowledge(token, { viewerId, characterId: characterIdNum, field: visField });
+        await apiRevokeKnowledge(token, {
+          viewerId,
+          characterId: characterIdNum,
+          field: visField,
+        });
       } else {
-        await apiGrantKnowledge(token, { viewerId, characterId: characterIdNum, field: visField, notes: null });
+        await apiGrantKnowledge(token, {
+          viewerId,
+          characterId: characterIdNum,
+          field: visField,
+          notes: null,
+        });
       }
     } catch (e) {
       setVisAllowedIds((prev) => {
@@ -150,19 +159,7 @@ function CharacterEditPage() {
       setError(null);
 
       try {
-        const res = await fetch(`${API_URL}/characters/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          throw new Error(data?.message || `Erreur HTTP ${res.status}`);
-        }
-
-        const c = await res.json();
-
-        console.log("Character EDIT PAYLOAD:", c);
+        const c = await apiGetAdminCharacter(token, id, { signal: controller.signal });
 
         const campId = c?.campaign?.id ? String(c.campaign.id) : null;
         setCampaignId(campId);
@@ -178,10 +175,9 @@ function CharacterEditPage() {
           biography: c?.biography ?? "",
           strengths: c?.strengths ?? "",
           weaknesses: c?.weaknesses ?? "",
-          secret: c?.secret ?? "", // ✅ IMPORTANT: maintenant ça doit venir du back
+          secret: c?.secret ?? "",
           clan: c?.clan ?? "",
           isPlayer: !!c?.isPlayer,
-          locationId: c?.location?.id ? String(c.location.id) : "",
           ownerUserId: ownerId,
         });
 
@@ -199,36 +195,7 @@ function CharacterEditPage() {
 
     fetchCharacter();
     return () => controller.abort();
-  }, [id, token, addNotification, assetBase]);
-
-  useEffect(() => {
-    if (!token) return;
-
-    const controller = new AbortController();
-
-    const fetchLocations = async () => {
-      try {
-        const res = await fetch(`${API_URL}/characters/${id}/locations`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          setLocations([]);
-          return;
-        }
-
-        const data = await res.json().catch(() => []);
-        setLocations(Array.isArray(data) ? data : []);
-      } catch (e) {
-        if (e?.name === "AbortError") return;
-        setLocations([]);
-      }
-    };
-
-    fetchLocations();
-    return () => controller.abort();
-  }, [id, token]);
+  }, [id, token, addNotification]);
 
   useEffect(() => {
     if (!token) return;
@@ -307,7 +274,6 @@ function CharacterEditPage() {
       fd.append("secret", form.secret ?? "");
       fd.append("clan", form.clan ?? "");
       fd.append("isPlayer", form.isPlayer ? "true" : "false");
-      fd.append("locationId", form.locationId || "");
 
       if (!form.isPlayer) {
         fd.append("ownerUserId", "");
@@ -324,28 +290,7 @@ function CharacterEditPage() {
       if (avatarFile) fd.append("avatar", avatarFile);
       if (transitionVideoFile) fd.append("transitionVideo", transitionVideoFile);
 
-      const res = await fetch(`${API_URL}/characters/${id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-
-      const text = await res.text().catch(() => "");
-      if (!res.ok) {
-        let msg = text;
-        try {
-          const json = text ? JSON.parse(text) : null;
-          msg = json?.message || json?.detail || msg;
-        } catch {}
-        throw new Error(msg || `Erreur HTTP ${res.status}`);
-      }
-
-      let updated = null;
-      try {
-        updated = text ? JSON.parse(text) : null;
-      } catch {
-        updated = null;
-      }
+      const updated = await apiUpdateCharacter(token, id, fd);
 
       if (updated && typeof updated === "object") {
         const newOwnerId = updated?.owner?.id ? String(updated.owner.id) : "";
@@ -360,10 +305,9 @@ function CharacterEditPage() {
           biography: updated?.biography ?? p.biography,
           strengths: updated?.strengths ?? p.strengths,
           weaknesses: updated?.weaknesses ?? p.weaknesses,
-          secret: updated?.secret ?? p.secret, // ✅ FIX: plus de "c.secret"
+          secret: updated?.secret ?? p.secret,
           clan: updated?.clan ?? p.clan,
           isPlayer: typeof updated?.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
-          locationId: updated?.location?.id ? String(updated.location.id) : p.locationId,
           ownerUserId: newOwnerId || p.ownerUserId,
         }));
 
@@ -422,18 +366,6 @@ function CharacterEditPage() {
             <input name="clan" value={form.clan} onChange={onChange} />
           </label>
 
-          <label className="edit-field">
-            <span>Lieu actuel</span>
-            <select name="locationId" value={form.locationId || ""} onChange={onChange}>
-              <option value="">Aucun lieu</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={String(loc.id)}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <label className="edit-field edit-checkbox">
             <input type="checkbox" name="isPlayer" checked={form.isPlayer} onChange={onChange} />
             <span>Personnage joueur</span>
@@ -443,7 +375,12 @@ function CharacterEditPage() {
         {form.isPlayer && (
           <label className="edit-field">
             <span>Attribuer à un joueur</span>
-            <select name="ownerUserId" value={form.ownerUserId || ""} onChange={onChange} disabled={membersLoading}>
+            <select
+              name="ownerUserId"
+              value={form.ownerUserId || ""}
+              onChange={onChange}
+              disabled={membersLoading}
+            >
               <option value="">{membersLoading ? "Chargement…" : "Choisir un joueur"}</option>
 
               {ownerCandidates.map((m) => {
@@ -545,7 +482,9 @@ function CharacterEditPage() {
           <div className="edit-media-block">
             <div className="edit-media-title">Vidéo de transition</div>
             <div className="edit-media-row">
-              <div className="edit-video-chip">{transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}</div>
+              <div className="edit-video-chip">
+                {transitionVideoFile ? transitionVideoFile.name : videoName || "Aucune"}
+              </div>
               <div className="edit-media-controls">
                 <input
                   type="file"
