@@ -1,6 +1,7 @@
 // src/components/Header.jsx
-import { useContext, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
 import defaultAvatar from "../assets/kenichi.png";
 import RightSidebar from "./RightSidebar.jsx";
@@ -9,6 +10,17 @@ import "./HeaderFooter.css";
 function Header() {
   const { isAuthenticated, user } = useContext(AuthContext);
   const [panelOpen, setPanelOpen] = useState(false);
+
+  const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
+
+  const profileAvatarSrc = useMemo(() => {
+    const path = user?.avatarUrl;
+
+    if (!path) return defaultAvatar;
+    if (path.startsWith("http")) return path;
+    if (path.startsWith("/")) return `${assetBase}${path}`;
+    return `${assetBase}/${path}`;
+  }, [user?.avatarUrl, assetBase]);
 
   const roles = Array.isArray(user?.roles) ? user.roles : [];
   const canSeeEditor = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_MJ");
@@ -28,7 +40,6 @@ function Header() {
           </Link>
         )}
 
-
         {!isAuthenticated && (
           <Link to="/login" className="nav-link">
             Se connecter
@@ -43,7 +54,7 @@ function Header() {
           >
             <Link to="/profile" className="profile-link">
               <img
-                src={user?.avatar || defaultAvatar}
+                src={profileAvatarSrc}
                 alt="Mon profil"
                 className="profile-avatar"
               />

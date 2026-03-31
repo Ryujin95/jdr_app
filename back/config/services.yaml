@@ -31,3 +31,7 @@ services:
   App\Service\CampaignService:
     arguments:
       $projectDir: '%kernel.project_dir%'
+
+  App\Service\MeService:
+    arguments:
+      $projectDir: '%kernel.project_dir%'

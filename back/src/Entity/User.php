@@ -25,14 +25,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     /**
-     * @var list<string> The user roles
+     * @var list<string>
      */
     #[ORM\Column]
     private array $roles = [];
 
-    /**
-     * @var string The hashed password
-     */
     #[ORM\Column]
     #[Assert\NotBlank(message: "Le mot de passe est obligatoire.")]
     #[Assert\Length(
@@ -85,12 +82,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastSeen = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $avatarUrl = null;
+
     public function __construct()
     {
         $this->deleted = false;
         $this->disableTransitions = false;
         $this->profileCampaignVisibility = 'COMMON_ONLY';
         $this->lastSeen = null;
+        $this->avatarUrl = null;
     }
 
     public function getId(): ?int
@@ -148,7 +149,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[\Deprecated]
     public function eraseCredentials(): void
     {
-        // @deprecated, to be removed when upgrading to Symfony 8
     }
 
     public function getUsername(): ?string
@@ -230,6 +230,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setLastSeen(?\DateTimeImmutable $lastSeen): static
     {
         $this->lastSeen = $lastSeen;
+        return $this;
+    }
+
+    public function getAvatarUrl(): ?string
+    {
+        return $this->avatarUrl;
+    }
+
+    public function setAvatarUrl(?string $avatarUrl): static
+    {
+        $this->avatarUrl = $avatarUrl;
         return $this;
     }
 }

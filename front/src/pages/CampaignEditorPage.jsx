@@ -228,7 +228,7 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
         </div>
 
         <div className="form-section">
-          <h2>Secret (MJ)</h2>
+          <h2>Secret</h2>
 
           <label>
             Secret principal

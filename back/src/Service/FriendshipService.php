@@ -191,6 +191,7 @@ class FriendshipService
                 'friendshipId' => $f->getId(),
                 'userId' => $other->getId(),
                 'username' => method_exists($other, 'getUsername') ? $other->getUsername() : (string) $other->getUserIdentifier(),
+                'avatarUrl' => method_exists($other, 'getAvatarUrl') ? $other->getAvatarUrl() : null,
                 'acceptedAt' => $f->getAcceptedAt()?->format(\DateTimeInterface::ATOM),
                 'isOnline' => $this->isUserOnline($other),
                 'lastSeen' => method_exists($other, 'getLastSeen') && $other->getLastSeen()
@@ -216,6 +217,7 @@ class FriendshipService
                 'friendshipId' => $f->getId(),
                 'userId' => $other->getId(),
                 'username' => method_exists($other, 'getUsername') ? $other->getUsername() : (string) $other->getUserIdentifier(),
+                'avatarUrl' => method_exists($other, 'getAvatarUrl') ? $other->getAvatarUrl() : null,
                 'createdAt' => $f->getCreatedAt()->format(\DateTimeInterface::ATOM),
             ];
         };
@@ -254,6 +256,7 @@ class FriendshipService
         return [
             'userId' => $other->getId(),
             'username' => method_exists($other, 'getUsername') ? $other->getUsername() : (string) $other->getUserIdentifier(),
+            'avatarUrl' => method_exists($other, 'getAvatarUrl') ? $other->getAvatarUrl() : null,
             'campaignVisibility' => method_exists($other, 'getProfileCampaignVisibility') ? $other->getProfileCampaignVisibility() : 'COMMON_ONLY',
             'campaigns' => $this->getVisibleCampaignsForViewer($other, $me),
         ];

@@ -94,7 +94,7 @@ export function AuthProvider({ children }) {
   }, [token, meSyncedOnce]);
 
   useEffect(() => {
-    if (!token || !user) return;
+    if (!token) return;
 
     let cancelled = false;
 
@@ -118,14 +118,13 @@ export function AuthProvider({ children }) {
       }
     };
 
-    pingPresence();
     const interval = setInterval(pingPresence, 30000);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [token, user]);
+  }, [token]);
 
   const saveAuth = (nextToken, nextUser) => {
     setToken(nextToken);

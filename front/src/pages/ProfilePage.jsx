@@ -18,16 +18,44 @@ export default function ProfilePage() {
 
   const [disableTransitions, setDisableTransitions] = useState(false);
   const [savingTransitions, setSavingTransitions] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) navigate("/login");
   }, [isAuthenticated, navigate]);
 
+  const parseResponse = async (res) => {
+    const contentType = res.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      return res.json().catch(() => null);
+    }
+
+    const text = await res.text().catch(() => "");
+    return { message: text || `HTTP ${res.status}` };
+  };
+
+  const buildAvatarUrl = (avatarUrl) => {
+    if (!avatarUrl) return defaultAvatar;
+
+    if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+      return `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+    }
+
+    const base = API_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
+    const path = avatarUrl.startsWith("/") ? avatarUrl : `/${avatarUrl}`;
+
+    return `${base}${path}?t=${Date.now()}`;
+  };
+
   useEffect(() => {
-    if (user?.avatar) setProfileImagePreview(user.avatar);
+    if (user?.avatarUrl) {
+      setProfileImagePreview(buildAvatarUrl(user.avatarUrl));
+    } else {
+      setProfileImagePreview(defaultAvatar);
+    }
   }, [user]);
 
-  // ✅ NOUVEAU : initialise le toggle depuis user
   useEffect(() => {
     setDisableTransitions(!!user?.disableTransitions);
   }, [user]);
@@ -42,16 +70,20 @@ export default function ProfilePage() {
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || data.message);
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || "Erreur lors de la mise à jour.");
+    }
 
     updateUser({
-      username: data.username ?? user.username,
-      email: data.email ?? user.email,
+      ...user,
+      username: data?.username ?? user.username,
+      email: data?.email ?? user.email,
       disableTransitions:
-        typeof data.disableTransitions === "boolean"
+        typeof data?.disableTransitions === "boolean"
           ? data.disableTransitions
           : (user?.disableTransitions ?? false),
+      avatarUrl: data?.avatarUrl ?? user?.avatarUrl ?? null,
     });
 
     addNotification({ type: "success", message: successMessage });
@@ -106,12 +138,10 @@ export default function ProfilePage() {
         next ? "Transitions désactivées." : "Transitions activées."
       );
 
-      // sécurité si le back renvoie autre chose
       if (typeof data?.disableTransitions === "boolean") {
         setDisableTransitions(data.disableTransitions);
       }
     } catch (err) {
-      // rollback UI si erreur
       setDisableTransitions(!next);
       addNotification({ type: "error", message: err.message });
     } finally {
@@ -119,19 +149,67 @@ export default function ProfilePage() {
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfileImagePreview(reader.result);
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
       addNotification({
-        type: "info",
-        message: "Avatar modifié côté front (non sauvegardé en back).",
+        type: "error",
+        message: "Format d'image non autorisé.",
       });
-    };
-    reader.readAsDataURL(file);
+      return;
+    }
+
+    const localPreview = URL.createObjectURL(file);
+    setProfileImagePreview(localPreview);
+    setSavingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res = await fetch(`${API_URL}/me`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await parseResponse(res);
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || "Erreur lors de l'envoi de l'avatar.");
+      }
+
+      const nextAvatarUrl = data?.avatarUrl ?? "/api/me/avatar";
+
+      updateUser({
+        ...user,
+        avatarUrl: nextAvatarUrl,
+      });
+
+      setProfileImagePreview(buildAvatarUrl(nextAvatarUrl));
+
+      addNotification({
+        type: "success",
+        message: "Avatar mis à jour !",
+      });
+    } catch (err) {
+      setProfileImagePreview(
+        user?.avatarUrl ? buildAvatarUrl(user.avatarUrl) : defaultAvatar
+      );
+
+      addNotification({
+        type: "error",
+        message: err.message,
+      });
+    } finally {
+      setSavingAvatar(false);
+      e.target.value = "";
+      URL.revokeObjectURL(localPreview);
+    }
   };
 
   const deleteAccount = async () => {
@@ -193,12 +271,11 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* ✅ NOUVEAU : Préférences */}
       <section className="profile-section">
         <h3>Préférences</h3>
 
         <div className="profile-form-inline" style={{ alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px" , color: "black" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "black" }}>
             <input
               type="checkbox"
               checked={disableTransitions}
@@ -272,12 +349,13 @@ export default function ProfilePage() {
         <h3>Photo de profil</h3>
         <form className="profile-form-inline" onSubmit={(e) => e.preventDefault()}>
           <label className="profile-image-label">
-            Choisir une nouvelle image
+            {savingAvatar ? "Envoi en cours..." : "Choisir une nouvelle image"}
             <input
               type="file"
               accept="image/*"
               className="profile-image-input"
               onChange={handleImageChange}
+              disabled={savingAvatar}
             />
           </label>
         </form>
