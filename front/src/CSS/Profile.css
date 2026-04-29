@@ -187,3 +187,18 @@
   background: #a50000;
   transform: scale(1.03);
 }
+
+.profile-preferences {
+  align-items: center;
+}
+
+.profile-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: black;
+}
+
+.profile-saving {
+  opacity: 0.75;
+}

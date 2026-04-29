@@ -2,49 +2,21 @@
 import { NavLink, Outlet, useParams, useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import "../CSS/CampaignPage.css";
-import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
 import TrashPanel from "../components/TrashPanel";
-import { apiGetCampaignMembers, apiTransferCampaignMj } from "../api/api";
-
-function getDiceHistoryKey(campaignId) {
-  return `dice-history:${String(campaignId)}`;
-}
-
-function readDiceHistory(campaignId) {
-  if (!campaignId) return [];
-  try {
-    const raw = localStorage.getItem(getDiceHistoryKey(campaignId));
-    const parsed = JSON.parse(raw || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDiceHistory(campaignId, history) {
-  if (!campaignId) return;
-  try {
-    localStorage.setItem(getDiceHistoryKey(campaignId), JSON.stringify(history));
-  } catch {
-    // rien
-  }
-}
+import { apiGetCampaign, apiDeleteCampaign, apiGetCampaignMembers, apiTransferCampaignMj } from "../api/api";
+import Dice3D from "../components/Dice3D.jsx";
 
 export default function CampaignPage() {
   const { id } = useParams();
   const { state } = useLocation();
   const navigate = useNavigate();
   const { token, user } = useContext(AuthContext);
+  const { addNotification } = useNotification();
 
   const [campaign, setCampaign] = useState(() => state?.campaign ?? null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const [overlayResult, setOverlayResult] = useState(null);
-
-  const [diceCount, setDiceCount] = useState(1);
-  const [diceFaces, setDiceFaces] = useState(20);
-  const [diceHistory, setDiceHistory] = useState(() => readDiceHistory(id));
 
   const [transferOpen, setTransferOpen] = useState(false);
   const [members, setMembers] = useState([]);
@@ -52,79 +24,24 @@ export default function CampaignPage() {
   const [membersError, setMembersError] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [transferLoading, setTransferLoading] = useState(false);
-  const [isDiceOpen, setIsDiceOpen] = useState(false);
 
   useEffect(() => {
-    if (state?.campaign) {
-      setCampaign(state.campaign);
-    }
-  }, [id, state]);
-
-  useEffect(() => {
-    setDiceHistory(readDiceHistory(id));
-  }, [id]);
-
-  const refreshDiceHistory = useCallback(() => {
-    setDiceHistory(readDiceHistory(id));
-  }, [id]);
-
-  const clearDiceHistory = useCallback(() => {
-    saveDiceHistory(id, []);
-    setDiceHistory([]);
-  }, [id]);
-
-  const handleRoll = useCallback(() => {
-    const count = Math.max(1, Number(diceCount) || 1);
-    const faces = Math.max(2, Number(diceFaces) || 20);
-
-    const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1);
-    const total = rolls.reduce((sum, value) => sum + value, 0);
-
-    const entry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      createdAt: new Date().toISOString(),
-      count,
-      faces,
-      rolls,
-      total,
-    };
-
-    const nextHistory = [entry, ...readDiceHistory(id)].slice(0, 50);
-    saveDiceHistory(id, nextHistory);
-    setDiceHistory(nextHistory);
-
-    setOverlayResult({
-      value: total,
-      label: `${count}d${faces}`,
-    });
-
-    window.setTimeout(() => {
-      setOverlayResult(null);
-    }, 1500);
-  }, [diceCount, diceFaces, id]);
+    if (state?.campaign) setCampaign(state.campaign);
+  }, [state]);
 
   const isAdmin = Array.isArray(user?.roles) && user.roles.includes("ROLE_ADMIN");
 
   useEffect(() => {
     if (!token || !id) return;
-
     const controller = new AbortController();
 
     (async () => {
       try {
-        const resShow = await fetch(`${API_URL}/campaigns/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        });
-
-        if (!resShow.ok) return;
-
-        const fromShow = await resShow.json().catch(() => null);
+        const fromShow = await apiGetCampaign(token, id, { signal: controller.signal });
         if (!fromShow?.id) return;
-
         setCampaign((prev) => ({
           ...(prev || {}),
-          ...(fromShow || {}),
+          ...fromShow,
           role: prev?.role ?? fromShow?.role ?? null,
         }));
       } catch (e) {
@@ -147,45 +64,31 @@ export default function CampaignPage() {
   }, [id, isMjInThisCampaign]);
 
   const campaignTitle = campaign?.title ?? `Campagne #${id}`;
-  const joinCode =
-    campaign?.joinCode && String(campaign.joinCode).trim() !== "" ? String(campaign.joinCode) : "—";
+  const joinCode = campaign?.joinCode && String(campaign.joinCode).trim() !== ""
+    ? String(campaign.joinCode)
+    : "—";
 
   const handleDeleteCampaign = async () => {
-    if (!token || !id) return;
-    if (!isMjInThisCampaign) return;
-    if (isDeleting) return;
-
-    const ok = window.confirm("Tu veux vraiment supprimer cette campagne ? Cette action est définitive.");
-    if (!ok) return;
+    if (!token || !id || !isMjInThisCampaign || isDeleting) return;
+    if (!window.confirm("Tu veux vraiment supprimer cette campagne ? Cette action est définitive.")) return;
 
     setIsDeleting(true);
     try {
-      const res = await fetch(`${API_URL}/campaigns/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.status === 204 || res.ok) {
-        if (String(localStorage.getItem("activeCampaignId")) === String(id)) {
-          localStorage.removeItem("activeCampaignId");
-          localStorage.removeItem("activeCampaignRole");
-        }
-        navigate("/dashboard", { replace: true });
-        return;
+      await apiDeleteCampaign(token, id);
+      if (String(localStorage.getItem("activeCampaignId")) === String(id)) {
+        localStorage.removeItem("activeCampaignId");
+        localStorage.removeItem("activeCampaignRole");
       }
-
-      const txt = await res.text().catch(() => "");
-      throw new Error(txt || `Erreur suppression (${res.status})`);
+      navigate("/dashboard", { replace: true });
     } catch (e) {
-      alert(e?.message || "Impossible de supprimer la campagne.");
+      addNotification({ type: "error", message: e?.message || "Impossible de supprimer la campagne." });
     } finally {
       setIsDeleting(false);
     }
   };
 
   const openTransfer = useCallback(async () => {
-    if (!token || !id) return;
-    if (!isMjInThisCampaign) return;
+    if (!token || !id || !isMjInThisCampaign) return;
 
     setTransferOpen(true);
     setMembersError("");
@@ -195,9 +98,7 @@ export default function CampaignPage() {
 
     try {
       const list = await apiGetCampaignMembers(token, id);
-
-      const cleaned = Array.isArray(list) ? list : [];
-      const candidates = cleaned.filter((m) => {
+      const candidates = (Array.isArray(list) ? list : []).filter((m) => {
         const uid = String(m?.id ?? m?.userId ?? "");
         if (!uid) return false;
         if (String(user?.id) && uid === String(user.id)) return false;
@@ -206,10 +107,8 @@ export default function CampaignPage() {
       });
 
       setMembers(candidates);
-
       if (candidates.length > 0) {
-        const firstId = String(candidates[0].id ?? candidates[0].userId);
-        setSelectedUserId(firstId);
+        setSelectedUserId(String(candidates[0].id ?? candidates[0].userId));
       } else {
         setMembersError("Aucun joueur disponible. Il faut au moins 1 Player dans la campagne.");
       }
@@ -226,281 +125,151 @@ export default function CampaignPage() {
   }, [transferLoading]);
 
   const confirmTransfer = useCallback(async () => {
-    if (!token || !id) return;
-    if (!isMjInThisCampaign) return;
-    if (!selectedUserId) return;
-    if (transferLoading) return;
+    if (!token || !id || !isMjInThisCampaign || !selectedUserId || transferLoading) return;
 
     const chosen = members.find((m) => String(m?.id ?? m?.userId) === String(selectedUserId));
     const chosenName = chosen?.username || chosen?.name || chosen?.email || "ce joueur";
 
-    const ok = window.confirm(
-      `Tu es sûr de vouloir transférer le rôle MJ à ${chosenName} ?\nTu deviendras Player.`
-    );
-    if (!ok) return;
+    if (!window.confirm(`Tu es sûr de vouloir transférer le rôle MJ à ${chosenName} ?\nTu deviendras Player.`)) return;
 
     setTransferLoading(true);
     try {
       await apiTransferCampaignMj(token, id, Number(selectedUserId));
-
-      setCampaign((prev) => ({
-        ...(prev || {}),
-        role: "Player",
-      }));
-
+      setCampaign((prev) => ({ ...(prev || {}), role: "Player" }));
       setTransferOpen(false);
-      alert("Rôle MJ transféré.");
+      addNotification({ type: "success", message: "Rôle MJ transféré." });
     } catch (e) {
-      alert(String(e?.message || "Impossible de transférer le rôle MJ."));
+      addNotification({ type: "error", message: e?.message || "Impossible de transférer le rôle MJ." });
     } finally {
       setTransferLoading(false);
     }
   }, [token, id, isMjInThisCampaign, selectedUserId, members, transferLoading]);
 
- return (
-  <main className="campaign">
-    <div className="campaign-head">
-      <h1 className="campaign-title">{campaignTitle}</h1>
-
-      <div className="campaign-invite">
-        <span className="campaign-invite-label">Code de la partie</span>
-        <code className="campaign-invite-code">{joinCode}</code>
-      </div>
-    </div>
-
-    <div className="campaign-top-actions-row">
-      <div className="campaign-dice-wrap">
-        <button
-          type="button"
-          className="campaign-dice-toggle"
-          onClick={() => setIsDiceOpen((prev) => !prev)}
-        >
-          {isDiceOpen ? "Fermer les dés" : "Lancer de dés"}
-        </button>
-
-        {isDiceOpen && (
-          <div className="campaign-dice-panel campaign-dice-panel--floating">
-            <div className="campaign-dice-top">
-              <h2 className="campaign-dice-title">Lancer de dés</h2>
-
-              <div className="campaign-dice-actions">
-                <button
-                  type="button"
-                  className="campaign-dice-secondary"
-                  onClick={clearDiceHistory}
-                >
-                  Vider
-                </button>
-              </div>
-            </div>
-
-            <div className="campaign-dice-controls">
-              <div className="campaign-dice-field">
-                <label>Nombre</label>
-                <select value={diceCount} onChange={(e) => setDiceCount(Number(e.target.value))}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="campaign-dice-field">
-                <label>Dé</label>
-                <select value={diceFaces} onChange={(e) => setDiceFaces(Number(e.target.value))}>
-                  {[4, 6, 8, 10, 12, 20, 100].map((value) => (
-                    <option key={value} value={value}>
-                      d{value}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button type="button" className="campaign-dice-roll" onClick={handleRoll}>
-                Lancer
-              </button>
-            </div>
-
-            <div className="campaign-dice-history">
-              {diceHistory.length === 0 ? (
-                <div className="campaign-dice-empty">Aucun lancer pour le moment.</div>
-              ) : (
-                diceHistory.map((entry) => {
-                  const hour = new Date(entry.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-
-                  return (
-                    <div key={entry.id} className="campaign-dice-history-item">
-                      <span className="campaign-dice-history-main">
-                        {entry.count}d{entry.faces} → [{entry.rolls.join(", ")}]
-                      </span>
-                      <span className="campaign-dice-history-total">Total : {entry.total}</span>
-                      <span className="campaign-dice-history-time">{hour}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="campaign-delete-button-container">
-        {isMjInThisCampaign && (
-          <>
-            <button
-              className="delete-campaign-button"
-              type="button"
-              onClick={handleDeleteCampaign}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Suppression..." : "Supprimer la campagne"}
-            </button>
-
-            <button
-              type="button"
-              className="transfer-mj-button"
-              onClick={openTransfer}
-              disabled={membersLoading || transferLoading}
-            >
-              Transférer le rôle MJ
-            </button>
-
-            <button
-              type="button"
-              className="transfer-mj-button"
-              onClick={() => navigate(`/campaigns/${id}/attributes`)}
-            >
-              Gérer les attributs
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-
-    {overlayResult && (
-      <div className="dice-overlay">
-        <div className="dice-result">
-          <div className="dice-value">{overlayResult.value}</div>
-          <div className="dice-label">{overlayResult.label}</div>
+  return (
+    <main className="campaign">
+      <div className="campaign-head">
+        <h1 className="campaign-title">{campaignTitle}</h1>
+        <div className="campaign-invite">
+          <span className="campaign-invite-label">Code de la partie</span>
+          <code className="campaign-invite-code">{joinCode}</code>
         </div>
       </div>
-    )}
 
-    <div className="campaign-tabs">
-      <NavLink
-        to={`/campaigns/${id}/wall`}
-        className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-        end
-      >
-        Mur
-      </NavLink>
+      <div className="campaign-top-actions-row">
+        <Dice3D campaignId={id} />
 
-      <NavLink
-        to={`/campaigns/${id}/characters`}
-        className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-      >
-        Personnages
-      </NavLink>
-
-      <NavLink
-        to={`/campaigns/${id}/map`}
-        className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-      >
-        Carte
-      </NavLink>
-
-      {isMjInThisCampaign && (
-        <NavLink
-          to={`/campaigns/${id}/createMap`}
-          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
-        >
-          Ajouter une carte
-        </NavLink>
-      )}
-    </div>
-
-    <section className="campaign-content">
-      <Outlet context={{ campaignId: id, isMjInThisCampaign, campaign }} />
-    </section>
-
-    <TrashPanel />
-
-    {transferOpen && (
-      <div className="modal-overlay" onClick={closeTransfer}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-title">Transférer le rôle MJ</div>
-
-          {membersLoading && <div className="dash-state">Chargement…</div>}
-
-          {!membersLoading && membersError && (
-            <div className="create-error" style={{ marginBottom: "12px" }}>
-              {membersError}
-            </div>
-          )}
-
-          {!membersLoading && !membersError && (
+        <div className="campaign-delete-button-container">
+          {isMjInThisCampaign && (
             <>
-              <div style={{ marginBottom: "10px" }}>
-                Choisis le joueur qui deviendra MJ.
-              </div>
-
-              <select
-                className="create-input"
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
+              <button
+                className="delete-campaign-button"
+                type="button"
+                onClick={handleDeleteCampaign}
+                disabled={isDeleting}
               >
-                {members.map((m) => {
-                  const uid = String(m?.id ?? m?.userId);
-                  const label = m?.username || m?.name || m?.email || `User #${uid}`;
-                  return (
-                    <option key={uid} value={uid}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
+                {isDeleting ? "Suppression..." : "Supprimer la campagne"}
+              </button>
 
-              <div className="modal-actions" style={{ marginTop: "12px" }}>
-                <button
-                  type="button"
-                  className="modal-cancel"
-                  onClick={closeTransfer}
-                  disabled={transferLoading}
-                >
-                  Annuler
-                </button>
-
-                <button
-                  type="button"
-                  className="modal-confirm"
-                  onClick={confirmTransfer}
-                  disabled={transferLoading || !selectedUserId}
-                >
-                  {transferLoading ? "Transfert…" : "Transférer"}
-                </button>
-              </div>
-            </>
-          )}
-
-          {!membersLoading && membersError && (
-            <div className="modal-actions" style={{ marginTop: "12px" }}>
               <button
                 type="button"
-                className="modal-cancel"
-                onClick={closeTransfer}
-                disabled={transferLoading}
+                className="transfer-mj-button"
+                onClick={openTransfer}
+                disabled={membersLoading || transferLoading}
               >
-                Fermer
+                Transférer le rôle MJ
               </button>
-            </div>
+            </>
           )}
         </div>
       </div>
-    )}
-  </main>
-);
+
+      <div className="campaign-tabs">
+        <NavLink
+          to={`/campaigns/${id}/wall`}
+          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
+          end
+        >
+          Mur
+        </NavLink>
+
+        <NavLink
+          to={`/campaigns/${id}/characters`}
+          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
+        >
+          Personnages
+        </NavLink>
+
+        <NavLink
+          to={`/campaigns/${id}/map`}
+          className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
+        >
+          Carte
+        </NavLink>
+
+        {isMjInThisCampaign && (
+          <NavLink
+            to={`/campaigns/${id}/createMap`}
+            className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
+          >
+            Ajouter une carte
+          </NavLink>
+        )}
+      </div>
+
+      <section className="campaign-content">
+        <Outlet context={{ campaignId: id, isMjInThisCampaign, campaign }} />
+      </section>
+
+      <TrashPanel />
+
+      {transferOpen && (
+        <div className="modal-overlay" onClick={closeTransfer}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">Transférer le rôle MJ</div>
+
+            {membersLoading && <div className="dash-state">Chargement…</div>}
+
+            {!membersLoading && membersError && (
+              <div className="create-error">{membersError}</div>
+            )}
+
+            {!membersLoading && !membersError && (
+              <>
+                <div className="modal-hint">Choisis le joueur qui deviendra MJ.</div>
+
+                <select
+                  className="create-input"
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                >
+                  {members.map((m) => {
+                    const uid = String(m?.id ?? m?.userId);
+                    const label = m?.username || m?.name || m?.email || `User #${uid}`;
+                    return <option key={uid} value={uid}>{label}</option>;
+                  })}
+                </select>
+
+                <div className="modal-actions">
+                  <button type="button" className="modal-cancel" onClick={closeTransfer} disabled={transferLoading}>
+                    Annuler
+                  </button>
+                  <button type="button" className="modal-confirm" onClick={confirmTransfer} disabled={transferLoading || !selectedUserId}>
+                    {transferLoading ? "Transfert…" : "Transférer"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {!membersLoading && membersError && (
+              <div className="modal-actions">
+                <button type="button" className="modal-cancel" onClick={closeTransfer} disabled={transferLoading}>
+                  Fermer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
+  );
 }

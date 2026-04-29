@@ -12,10 +12,7 @@ function TrashPanel({ open, setOpen }) {
     return roles.includes("ROLE_ADMIN") || roles.includes("ROLE_MJ");
   }, [user]);
 
-  const hasCampaignRights = useMemo(() => {
-    return localStorage.getItem("activeCampaignRole") === "MJ";
-  }, []);
-
+  const hasCampaignRights = localStorage.getItem("activeCampaignRole") === "MJ";
   const canSeeTrash = token && (hasGlobalRights || hasCampaignRights);
 
   const [internalOpen, setInternalOpen] = useState(false);
@@ -28,20 +25,13 @@ function TrashPanel({ open, setOpen }) {
 
   const fetchTrash = useCallback(async () => {
     if (!token) return;
-
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-
       const res = await fetch(`${API_URL}/trash`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!res.ok) throw new Error("Erreur lors du chargement de la corbeille");
-
       const data = await res.json();
       setTrash({
         characters: data.characters || [],
@@ -53,6 +43,37 @@ function TrashPanel({ open, setOpen }) {
       setLoading(false);
     }
   }, [token]);
+
+  const handleRestore = async (type, id) => {
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/trash/restore/${type}/${id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Impossible de restaurer cet élément");
+      await fetchTrash();
+      window.dispatchEvent(new Event("trash:changed"));
+    } catch (e) {
+      setError(e.message || "Erreur lors de la restauration");
+    }
+  };
+
+  const handleForceDelete = async (type, id) => {
+    if (!window.confirm("Supprimer définitivement cet élément ?")) return;
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/trash/force/${type}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Impossible de supprimer définitivement cet élément");
+      await fetchTrash();
+      window.dispatchEvent(new Event("trash:changed"));
+    } catch (e) {
+      setError(e.message || "Erreur lors de la suppression définitive");
+    }
+  };
 
   useEffect(() => {
     if (isOpen) fetchTrash();
@@ -83,16 +104,10 @@ function TrashPanel({ open, setOpen }) {
                   <div key={`character-${c.id}`} className="trash-footer-item">
                     <span className="trash-footer-label">{c.nickname || "(sans pseudo)"}</span>
                     <div className="trash-footer-actions">
-                      <button
-                        className="trash-btn trash-btn-restore"
-                        onClick={() => handleRestore("character", c.id, token, fetchTrash, setError)}
-                      >
+                      <button className="trash-btn trash-btn-restore" onClick={() => handleRestore("character", c.id)}>
                         Remettre
                       </button>
-                      <button
-                        className="trash-btn trash-btn-delete"
-                        onClick={() => handleForceDelete("character", c.id, token, fetchTrash, setError)}
-                      >
+                      <button className="trash-btn trash-btn-delete" onClick={() => handleForceDelete("character", c.id)}>
                         Supprimer
                       </button>
                     </div>
@@ -107,16 +122,10 @@ function TrashPanel({ open, setOpen }) {
                   <div key={`location-${l.id}`} className="trash-footer-item">
                     <span className="trash-footer-label">{l.name}</span>
                     <div className="trash-footer-actions">
-                      <button
-                        className="trash-btn trash-btn-restore"
-                        onClick={() => handleRestore("location", l.id, token, fetchTrash, setError)}
-                      >
+                      <button className="trash-btn trash-btn-restore" onClick={() => handleRestore("location", l.id)}>
                         Remettre
                       </button>
-                      <button
-                        className="trash-btn trash-btn-delete"
-                        onClick={() => handleForceDelete("location", l.id, token, fetchTrash, setError)}
-                      >
+                      <button className="trash-btn trash-btn-delete" onClick={() => handleForceDelete("location", l.id)}>
                         Supprimer
                       </button>
                     </div>
@@ -129,36 +138,6 @@ function TrashPanel({ open, setOpen }) {
       )}
     </div>
   );
-}
-
-async function handleRestore(type, id, token, fetchTrash, setError) {
-  try {
-    setError(null);
-    const res = await fetch(`${API_URL}/trash/restore/${type}/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Impossible de restaurer cet élément");
-    await fetchTrash();
-  } catch (e) {
-    setError(e.message || "Erreur lors de la restauration");
-  }
-}
-
-async function handleForceDelete(type, id, token, fetchTrash, setError) {
-  if (!window.confirm("Supprimer définitivement cet élément ?")) return;
-
-  try {
-    setError(null);
-    const res = await fetch(`${API_URL}/trash/force/${type}/${id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Impossible de supprimer définitivement cet élément");
-    await fetchTrash();
-  } catch (e) {
-    setError(e.message || "Erreur lors de la suppression définitive");
-  }
 }
 
 export default TrashPanel;

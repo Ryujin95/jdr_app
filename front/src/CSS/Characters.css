@@ -134,6 +134,22 @@
   border: 1px solid #3b82f6;
 }
 
+.characters-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.characters-page-title {
+  margin: 0;
+  color: #1f2937;
+}
+
+.modal-content--large {
+  width: min(1200px, 95vw);
+}
+
 /* Actions */
 .character-actions {
   margin-top: 0.75rem;

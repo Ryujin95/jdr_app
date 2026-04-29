@@ -15,35 +15,25 @@ function Header() {
 
   const profileAvatarSrc = useMemo(() => {
     const path = user?.avatarUrl;
-
     if (!path) return defaultAvatar;
     if (path.startsWith("http")) return path;
     if (path.startsWith("/")) return `${assetBase}${path}`;
     return `${assetBase}/${path}`;
   }, [user?.avatarUrl, assetBase]);
 
-  const roles = Array.isArray(user?.roles) ? user.roles : [];
-  const canSeeEditor = roles.includes("ROLE_ADMIN") || roles.includes("ROLE_MJ");
-
   return (
     <header className="header">
       <h1 className="logo">JDR</h1>
 
       <nav className="nav">
-        <Link to="/" className="nav-link">
-          Accueil
-        </Link>
+        <Link to="/" className="nav-link">Accueil</Link>
 
         {isAuthenticated && (
-          <Link to="/dashboard" className="nav-link">
-            Mes JDR
-          </Link>
+          <Link to="/dashboard" className="nav-link">Mes JDR</Link>
         )}
 
         {!isAuthenticated && (
-          <Link to="/login" className="nav-link">
-            Se connecter
-          </Link>
+          <Link to="/login" className="nav-link">Se connecter</Link>
         )}
 
         {isAuthenticated && (

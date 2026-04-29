@@ -1,15 +1,14 @@
 // src/pages/ForgotPasswordPage.jsx
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import "../CSS/Login.css";
-import { API_URL } from "../config";
 import { useNotification } from "../context/NotificationContext";
+import { API_URL } from "../config";
+import "../CSS/Login.css";
 
 function ForgotPasswordPage() {
+  const { addNotification } = useNotification();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const { addNotification } = useNotification();
 
   const BASE_URL = API_URL.replace(/\/api\/?$/, "");
 
@@ -20,29 +19,17 @@ function ForgotPasswordPage() {
     try {
       const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
       const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.message || data?.detail || "Erreur d'envoi");
 
-      if (!res.ok) {
-        throw new Error(data?.message || data?.detail || "Erreur d’envoi");
-      }
-
-      addNotification({
-        type: "success",
-        message: "Si l’email existe, tu recevras un lien.",
-      });
-
+      addNotification({ type: "success", message: "Si l'email existe, tu recevras un lien." });
       setEmail("");
     } catch (err) {
-      addNotification({
-        type: "error",
-        message: err.message || "Erreur réseau",
-      });
+      addNotification({ type: "error", message: err.message || "Erreur réseau" });
     } finally {
       setLoading(false);
     }
@@ -62,7 +49,6 @@ function ForgotPasswordPage() {
           required
           autoComplete="email"
         />
-
         <button className="login-button" type="submit" disabled={loading}>
           {loading ? "Envoi..." : "Envoyer le lien"}
         </button>

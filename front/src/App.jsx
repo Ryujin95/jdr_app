@@ -1,9 +1,7 @@
 // src/App.jsx
-import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-import Header from "./components/Header.jsx";
-import Footer from "./components/Footer.jsx";
+import Layout from "./components/Layout.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -19,21 +17,16 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import CreateCampaignPage from "./pages/CreateCampaignPage.jsx";
 import CampaignPage from "./pages/CampaignPage.jsx";
 import CampaignWallPage from "./pages/CampaignWallPage.jsx";
-import CampaignCharactersPage from "./pages/characters/CampaignCharactersPage.jsx"
+import CampaignCharactersPage from "./pages/characters/CampaignCharactersPage.jsx";
 import CampaignMapPage from "./pages/map/CampaignMapPage.jsx";
 import CampaignEditorPage from "./pages/CampaignEditorPage.jsx";
 import CampaignCreateMapPage from "./pages/CampaignCreateMapPage.jsx";
 import FriendProfilePage from "./pages/FriendProfilePage.jsx";
 
 function App() {
-  const [trashOpen, setTrashOpen] = useState(false);
-
   return (
-    <div className="app">
-      <Header />
-
+    <Layout>
       <NotificationBox />
-
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -46,16 +39,9 @@ function App() {
         <Route path="/transition-video/:id" element={<TransitionVideo />} />
         <Route path="/locations/:locationId/characters" element={<LocationCharactersPage />} />
         <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
-
         <Route path="/campaigns/create" element={<CreateCampaignPage />} />
-
-        {/* ✅ NOUVEAU : page profil ami */}
         <Route path="/friends/:userId" element={<FriendProfilePage />} />
-
-        <Route
-          path="/campaigns/:id"
-          element={<CampaignPage onOpenTrash={() => setTrashOpen(true)} />}
-        >
+        <Route path="/campaigns/:id" element={<CampaignPage />}>
           <Route index element={<Navigate to="wall" replace />} />
           <Route path="wall" element={<CampaignWallPage />} />
           <Route path="characters" element={<CampaignCharactersPage />} />
@@ -63,10 +49,9 @@ function App() {
           <Route path="editor" element={<CampaignEditorPage />} />
           <Route path="createMap" element={<CampaignCreateMapPage />} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-
-      <Footer />
-    </div>
+    </Layout>
   );
 }
 

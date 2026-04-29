@@ -177,4 +177,12 @@
     margin-left: auto;
     font-size: 0.9rem;
   }
+
+  .detail-notice {
+  padding: 2rem;
+}
+
+.detail-notice--error {
+  color: red;
+}
   

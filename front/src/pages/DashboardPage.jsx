@@ -1,10 +1,9 @@
 // src/pages/DashboardPage.jsx
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../CSS/DashboardPage.css";
-import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
-import { apiLeaveCampaign } from "../api/api";
+import { apiListCampaigns, apiJoinCampaign, apiLeaveCampaign } from "../api/api";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -18,26 +17,10 @@ export default function DashboardPage() {
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState("");
 
-  const authHeaders = useMemo(() => {
-    const h = { "Content-Type": "application/json" };
-    if (token) h.Authorization = `Bearer ${token}`;
-    return h;
-  }, [token]);
-
   const fetchCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-
-      const res = await fetch(`${API_URL}/campaigns`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        setCampaigns([]);
-        return;
-      }
-
-      const data = await res.json();
+      const data = await apiListCampaigns(token);
       setCampaigns(Array.isArray(data) ? data : []);
     } catch {
       setCampaigns([]);
@@ -82,19 +65,7 @@ export default function DashboardPage() {
 
     setJoinLoading(true);
     try {
-      const res = await fetch(`${API_URL}/campaigns/join`, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify({ code }),
-      });
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `Erreur HTTP ${res.status}`);
-      }
-
-      const data = await res.json().catch(() => null);
-
+      const data = await apiJoinCampaign(token, code);
       const campaignId = data?.campaignId ?? data?.id ?? data?.campaign?.id ?? null;
 
       if (!campaignId) {
@@ -105,13 +76,12 @@ export default function DashboardPage() {
 
       localStorage.setItem("activeCampaignId", String(campaignId));
       setJoinOpen(false);
-
       navigate(`/campaigns/${campaignId}/wall`, { state: { campaign: data } });
     } catch (err) {
       const msg = String(err?.message || "Impossible de rejoindre la campagne.");
 
       if (msg.includes("<!DOCTYPE") || msg.includes("No route found")) {
-        setJoinError("Route join inexistante côté backend (POST /api/campaigns/join).");
+        setJoinError("Route join inexistante côté backend.");
       } else if (msg.includes("JWT") || msg.includes("Unauthorized") || msg.includes("401")) {
         setJoinError("Token invalide ou expiré. Reconnecte-toi.");
       } else {
@@ -122,10 +92,8 @@ export default function DashboardPage() {
     }
   };
 
-
- const leaveCampaign = useCallback(
-  async (campaignId) => {
-    const ok = window.confirm("Tu es sûr de vouloir quitter ce JDR ? Tu n'y auras plus accès.");
+  const leaveCampaign = useCallback(async (campaignId) => {
+    const ok = window.confirm("Tu es sûr de vouloir quitter ce JDR ?");
     if (!ok) return;
 
     try {
@@ -134,9 +102,7 @@ export default function DashboardPage() {
     } catch (err) {
       alert(String(err?.message || "Impossible de quitter la campagne."));
     }
-  },
-  [token]
-);
+  }, [token]);
 
   if (!token) {
     return (
@@ -205,21 +171,20 @@ export default function DashboardPage() {
               </div>
 
               <div className="card-action">
-  Ouvrir
-
-  {c.role === "Player" && (
-    <button
-      type="button"
-      className="btn-quit"
-      onClick={(e) => {
-        e.stopPropagation();
-        leaveCampaign(c.id);
-      }}
-    >
-      Quitter
-    </button>
-  )}
-</div>
+                Ouvrir
+                {c.role === "Player" && (
+                  <button
+                    type="button"
+                    className="btn-quit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      leaveCampaign(c.id);
+                    }}
+                  >
+                    Quitter
+                  </button>
+                )}
+              </div>
             </article>
           ))}
         </section>
@@ -230,11 +195,7 @@ export default function DashboardPage() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-title">Rejoindre un JDR</div>
 
-            {joinError && (
-              <div className="create-error" style={{ marginBottom: "12px" }}>
-                {joinError}
-              </div>
-            )}
+            {joinError && <div className="create-error">{joinError}</div>}
 
             <form onSubmit={submitJoin}>
               <input
@@ -246,11 +207,10 @@ export default function DashboardPage() {
                 autoFocus
               />
 
-              <div className="modal-actions" style={{ marginTop: "12px" }}>
+              <div className="modal-actions">
                 <button type="button" className="modal-cancel" onClick={closeJoin} disabled={joinLoading}>
                   Annuler
                 </button>
-
                 <button type="submit" className="modal-confirm" disabled={joinLoading}>
                   {joinLoading ? "Connexion…" : "Rejoindre"}
                 </button>

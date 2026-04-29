@@ -6,19 +6,11 @@ import "../CSS/HomePage.css";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const auth = useContext(AuthContext);
+  const { token } = useContext(AuthContext);
 
   const goToStart = () => {
-    const lsToken = localStorage.getItem("token") || localStorage.getItem("jwt") || localStorage.getItem("access_token");
-    const ssToken = sessionStorage.getItem("token") || sessionStorage.getItem("jwt") || sessionStorage.getItem("access_token");
-
-    const ctxToken = auth?.token;
-    const ctxUser = auth?.user;
-
-    const isConnected = Boolean(ctxToken || ctxUser || lsToken || ssToken);
-
-    if (isConnected) {
-      navigate("/campaigns/new"); // ou /campaigns/create si c’est ta route
+    if (token) {
+      navigate("/campaigns/create");
     } else {
       navigate("/login");
     }
@@ -35,12 +27,20 @@ export default function HomePage() {
           </p>
 
           <div className="home-hero__actions">
-            <button className="btn btn-primary" onClick={goToStart}>
-              Se connecter
-            </button>
-            <button className="btn btn-ghost" onClick={() => navigate("/register")}>
-              Créer un compte
-            </button>
+            {token ? (
+              <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>
+                Mes campagnes
+              </button>
+            ) : (
+              <>
+                <button className="btn btn-primary" onClick={() => navigate("/login")}>
+                  Se connecter
+                </button>
+                <button className="btn btn-ghost" onClick={() => navigate("/register")}>
+                  Créer un compte
+                </button>
+              </>
+            )}
           </div>
 
           <p className="home-hero__note">

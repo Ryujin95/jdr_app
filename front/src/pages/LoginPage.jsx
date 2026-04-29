@@ -1,4 +1,4 @@
-// front/src/pages/LoginPage.jsx
+// src/pages/LoginPage.jsx
 import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
@@ -21,27 +21,16 @@ function LoginPage() {
 
     try {
       await login(email, password);
-
-      addNotification({
-        type: "success",
-        message: "Connexion réussie, bienvenue !",
-      });
-
+      addNotification({ type: "success", message: "Connexion réussie, bienvenue !" });
       navigate("/dashboard");
     } catch (err) {
       const raw = err?.message || "";
-      let msg = raw || "Erreur de connexion";
-
-      if (raw.includes("Invalid credentials")) {
-        msg = "Email ou mot de passe incorrect.";
-      }
+      const msg = raw.includes("Invalid credentials")
+        ? "Email ou mot de passe incorrect."
+        : raw || "Erreur de connexion";
 
       setError(msg);
-
-      addNotification({
-        type: "error",
-        message: msg,
-      });
+      addNotification({ type: "error", message: msg });
     }
   };
 
@@ -88,6 +77,8 @@ function LoginPage() {
             {showPassword ? "⚫" : "👁"}
           </span>
         </div>
+
+        {error && <p className="login-error">{error}</p>}
 
         <div className="login-actions">
           <Link className="forgot-link" to="/forgot-password">

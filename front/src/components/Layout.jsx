@@ -1,18 +1,13 @@
-// front/src/components/Layout.jsx
-import RightSidebar from "./RightSidebar";
+// src/components/Layout.jsx
 import Header from "./Header";
 import Footer from "./Footer";
 
 function Layout({ children }) {
   return (
-    <div style={{ display: "flex" }}>
-      <div style={{ flex: 1, marginRight: "250px" }}>
-        <Header />
-        {children}
-        <Footer />
-      </div>
-
-      <RightSidebar />
+    <div className="app">
+      <Header />
+      {children}
+      <Footer />
     </div>
   );
 }

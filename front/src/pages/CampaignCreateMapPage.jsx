@@ -1,9 +1,8 @@
 // src/pages/CampaignCreateMapPage.jsx
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { apiDeleteMap, apiListMaps } from "../api/api";
-import { API_URL } from "../config";
+import { apiCreateMap, apiDeleteMap, apiListMaps } from "../api/api";
 import "../CSS/CampaignCreateMap.css";
 
 export default function CampaignMapCreatePage() {
@@ -23,24 +22,16 @@ export default function CampaignMapCreatePage() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
 
-  const canSubmit = useMemo(() => {
-    if (!token || !campaignId) return false;
-    if (!name.trim()) return false;
-    if (!imageFile) return false; // image obligatoire
-    return true;
-  }, [token, campaignId, name, imageFile]);
+  const canSubmit = token && campaignId && name.trim() && imageFile;
 
   const refreshMaps = useCallback(async () => {
     if (!token || !campaignId) return;
-
     setLoadingMaps(true);
     setError(null);
-
     try {
       const data = await apiListMaps(token, campaignId);
       const list = Array.isArray(data) ? data : [];
       setMaps(list);
-
       setDeleteMapId((prev) => {
         if (!prev) return list.length > 0 ? String(list[0].id) : "";
         const stillExists = list.some((m) => String(m.id) === String(prev));
@@ -64,16 +55,13 @@ export default function CampaignMapCreatePage() {
   }, [imagePreview]);
 
   const handleFileChange = (e) => {
-    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
-
+    const file = e.target.files?.[0] || null;
     if (imagePreview) URL.revokeObjectURL(imagePreview);
-
     if (!file) {
       setImageFile(null);
       setImagePreview(null);
       return;
     }
-
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   };
@@ -87,28 +75,10 @@ export default function CampaignMapCreatePage() {
 
     try {
       const fd = new FormData();
-      fd.append("campaignId", String(campaignId));
       fd.append("name", name.trim());
       fd.append("image", imageFile);
 
-      const res = await fetch(`${API_URL}/maps`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // surtout PAS de Content-Type ici
-        },
-        body: fd,
-      });
-
-      if (!res.ok) {
-        const ct = res.headers.get("content-type") || "";
-        if (ct.includes("application/json")) {
-          const j = await res.json().catch(() => null);
-          throw new Error(j?.message || `HTTP ${res.status}`);
-        }
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `HTTP ${res.status}`);
-      }
+      await apiCreateMap(token, campaignId, fd);
 
       setName("");
       setImageFile(null);
@@ -126,18 +96,14 @@ export default function CampaignMapCreatePage() {
 
   const handleDeleteMap = async () => {
     setError(null);
-
-    if (!token || !campaignId) return;
-
-    if (!deleteMapId) {
+    if (!token || !campaignId || !deleteMapId) {
       setError("Choisis une map à supprimer.");
       return;
     }
 
     const m = maps.find((x) => String(x.id) === String(deleteMapId));
     const label = m?.name ? ` "${m.name}"` : "";
-    const ok = window.confirm(`Supprimer définitivement la map${label} ?`);
-    if (!ok) return;
+    if (!window.confirm(`Supprimer définitivement la map${label} ?`)) return;
 
     setDeleting(true);
     try {
@@ -150,10 +116,6 @@ export default function CampaignMapCreatePage() {
     }
   };
 
-  const handleCancel = () => {
-    navigate(`/campaigns/${campaignId}/map`);
-  };
-
   return (
     <div className="campaign-map-create">
       <h2 className="campaign-map-create-title">Créer une map</h2>
@@ -162,9 +124,7 @@ export default function CampaignMapCreatePage() {
 
       <form className="campaign-map-create-form" onSubmit={handleSubmit}>
         <div className="campaign-map-create-field">
-          <label className="campaign-map-create-label" htmlFor="map-name">
-            Nom
-          </label>
+          <label className="campaign-map-create-label" htmlFor="map-name">Nom</label>
           <input
             id="map-name"
             className="campaign-map-create-input"
@@ -197,12 +157,11 @@ export default function CampaignMapCreatePage() {
           <button
             type="button"
             className="campaign-map-create-btn campaign-map-create-btn-secondary"
-            onClick={handleCancel}
+            onClick={() => navigate(`/campaigns/${campaignId}/map`)}
             disabled={loading}
           >
             Annuler
           </button>
-
           <button
             type="submit"
             className="campaign-map-create-btn campaign-map-create-btn-primary"

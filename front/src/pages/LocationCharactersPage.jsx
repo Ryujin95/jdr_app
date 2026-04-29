@@ -24,10 +24,13 @@ function LocationCharactersPage() {
   };
 
   useEffect(() => {
+    if (!token || !locationId) return;
+
+    let cancelled = false;
+
     const fetchCharacters = async () => {
       setLoading(true);
       setError(null);
-
       try {
         const res = await fetch(`${API_URL}/locations/${locationId}/characters`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -39,47 +42,24 @@ function LocationCharactersPage() {
         }
 
         const data = await res.json();
+        if (cancelled) return;
         setCharacters(Array.isArray(data) ? data : []);
       } catch (e) {
+        if (cancelled) return;
         setError(e.message);
         setCharacters([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    if (token && locationId) fetchCharacters();
+    fetchCharacters();
+    return () => { cancelled = true; };
   }, [token, locationId]);
 
-  if (!token) {
-    return (
-      <div className="location-characters-page">
-        <p className="location-characters-message">
-          Connecte-toi pour voir les personnages.
-        </p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="location-characters-page">
-        <p className="location-characters-message">
-          Chargement des personnages…
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="location-characters-page">
-        <p className="location-characters-message location-characters-error">
-          Erreur : {error}
-        </p>
-      </div>
-    );
-  }
+  if (!token) return <div className="location-characters-page"><p className="location-characters-message">Connecte-toi pour voir les personnages.</p></div>;
+  if (loading) return <div className="location-characters-page"><p className="location-characters-message">Chargement des personnages…</p></div>;
+  if (error) return <div className="location-characters-page"><p className="location-characters-message location-characters-error">Erreur : {error}</p></div>;
 
   return (
     <div className="location-characters-page">
@@ -95,7 +75,6 @@ function LocationCharactersPage() {
         <div className="location-characters-grid">
           {characters.map((c) => {
             const avatar = buildAssetUrl(c.avatarUrl);
-
             return (
               <div
                 key={c.id}
@@ -106,23 +85,14 @@ function LocationCharactersPage() {
               >
                 <div className="location-characters-card-header">
                   {avatar ? (
-                    <img
-                      src={avatar}
-                      alt={c.nickname}
-                      className="location-characters-avatar"
-                    />
+                    <img src={avatar} alt={c.nickname} className="location-characters-avatar" />
                   ) : (
                     <div className="location-characters-avatar location-characters-avatar-placeholder" />
                   )}
-
                   <div>
                     <h2 className="location-characters-nickname">{c.nickname}</h2>
-                    <p className="location-characters-name">
-                      {c.firstname} {c.lastname}
-                    </p>
-                    <p className="location-characters-meta">
-                      {c.age} ans · {c.clan || "Sans clan"}
-                    </p>
+                    <p className="location-characters-name">{c.firstname} {c.lastname}</p>
+                    <p className="location-characters-meta">{c.age} ans · {c.clan || "Sans clan"}</p>
                   </div>
                 </div>
               </div>

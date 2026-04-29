@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, useContext } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
-import { NotificationContext } from "../context/NotificationContext";
+import { useNotification } from "../context/NotificationContext";
 import {
   apiGetAdminCharacter,
   apiUpdateCharacter,
@@ -17,7 +17,7 @@ import "../CSS/CharacterEdit.css";
 function CharacterEditPage() {
   const { id } = useParams();
   const { token } = useContext(AuthContext);
-  const { addNotification } = useContext(NotificationContext);
+  const { addNotification } = useNotification();
   const navigate = useNavigate();
 
   const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
@@ -48,17 +48,14 @@ function CharacterEditPage() {
   });
 
   const [campaignId, setCampaignId] = useState(null);
-
   const [members, setMembers] = useState([]);
   const [ownerCandidates, setOwnerCandidates] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [transitionVideoFile, setTransitionVideoFile] = useState(null);
-
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [videoName, setVideoName] = useState("");
-
   const [initialOwnerUserId, setInitialOwnerUserId] = useState("");
 
   const [visOpen, setVisOpen] = useState(false);
@@ -72,21 +69,18 @@ function CharacterEditPage() {
   }, [id]);
 
   const playersForModal = useMemo(() => {
-    const list = Array.isArray(members) ? members : [];
-    return list.filter((m) => String(m?.role || "").toLowerCase() === "player");
+    return (Array.isArray(members) ? members : []).filter(
+      (m) => String(m?.role || "").toLowerCase() === "player"
+    );
   }, [members]);
 
   const fieldLabel = (f) => {
-    if (f === "biography") return "Histoire";
-    if (f === "strengths") return "Points forts";
-    if (f === "weaknesses") return "Faiblesses";
-    if (f === "secret") return "Secret";
-    return f;
+    const labels = { biography: "Histoire", strengths: "Points forts", weaknesses: "Faiblesses", secret: "Secret" };
+    return labels[f] || f;
   };
 
   const openVisibilityModal = async (fieldKey) => {
-    if (!token) return;
-    if (!characterIdNum) return;
+    if (!token || !characterIdNum) return;
 
     setVisOpen(true);
     setVisField(fieldKey);
@@ -98,7 +92,7 @@ function CharacterEditPage() {
       const allowed = Array.isArray(out?.allowedViewerIds) ? out.allowedViewerIds : [];
       setVisAllowedIds(new Set(allowed.map((x) => String(x))));
     } catch (e) {
-      addNotification?.({ type: "error", message: e?.message || "Erreur visibilité." });
+      addNotification({ type: "error", message: e?.message || "Erreur visibilité." });
       setVisAllowedIds(new Set());
     } finally {
       setVisLoading(false);
@@ -106,9 +100,7 @@ function CharacterEditPage() {
   };
 
   const toggleViewer = async (viewerIdRaw) => {
-    if (!token) return;
-    if (!characterIdNum) return;
-    if (!visField) return;
+    if (!token || !characterIdNum || !visField) return;
 
     const viewerId = Number(viewerIdRaw);
     if (!Number.isFinite(viewerId) || viewerId <= 0) return;
@@ -118,55 +110,40 @@ function CharacterEditPage() {
 
     setVisAllowedIds((prev) => {
       const next = new Set(prev);
-      if (wasAllowed) next.delete(key);
-      else next.add(key);
+      wasAllowed ? next.delete(key) : next.add(key);
       return next;
     });
 
     try {
       if (wasAllowed) {
-        await apiRevokeKnowledge(token, {
-          viewerId,
-          characterId: characterIdNum,
-          field: visField,
-        });
+        await apiRevokeKnowledge(token, { viewerId, characterId: characterIdNum, field: visField });
       } else {
-        await apiGrantKnowledge(token, {
-          viewerId,
-          characterId: characterIdNum,
-          field: visField,
-          notes: null,
-        });
+        await apiGrantKnowledge(token, { viewerId, characterId: characterIdNum, field: visField, notes: null });
       }
     } catch (e) {
       setVisAllowedIds((prev) => {
         const next = new Set(prev);
-        if (wasAllowed) next.add(key);
-        else next.delete(key);
+        wasAllowed ? next.add(key) : next.delete(key);
         return next;
       });
-      addNotification?.({ type: "error", message: e?.message || "Erreur toggle visibilité." });
+      addNotification({ type: "error", message: e?.message || "Erreur toggle visibilité." });
     }
   };
 
   useEffect(() => {
     if (!token) return;
-
     const controller = new AbortController();
 
     const fetchCharacter = async () => {
       setLoading(true);
       setError(null);
-
       try {
         const c = await apiGetAdminCharacter(token, id, { signal: controller.signal });
-
         const campId = c?.campaign?.id ? String(c.campaign.id) : null;
-        setCampaignId(campId);
-
         const ownerId = c?.owner?.id ? String(c.owner.id) : "";
-        setInitialOwnerUserId(ownerId);
 
+        setCampaignId(campId);
+        setInitialOwnerUserId(ownerId);
         setForm({
           nickname: c?.nickname ?? "",
           firstname: c?.firstname ?? "",
@@ -180,14 +157,13 @@ function CharacterEditPage() {
           isPlayer: !!c?.isPlayer,
           ownerUserId: ownerId,
         });
-
         setAvatarPreview(buildAssetUrl(c?.avatarUrl));
         setVideoName(c?.transitionVideoUrl ? c.transitionVideoUrl.split("/").pop() || "" : "");
       } catch (e) {
         if (e?.name === "AbortError") return;
         const msg = e?.message || "Erreur lors du chargement.";
         setError(msg);
-        addNotification?.({ type: "error", message: msg });
+        addNotification({ type: "error", message: msg });
       } finally {
         setLoading(false);
       }
@@ -195,11 +171,10 @@ function CharacterEditPage() {
 
     fetchCharacter();
     return () => controller.abort();
-  }, [id, token, addNotification]);
+  }, [id, token]);
 
   useEffect(() => {
-    if (!token) return;
-    if (!campaignId) {
+    if (!token || !campaignId) {
       setMembers([]);
       setOwnerCandidates([]);
       return;
@@ -213,9 +188,7 @@ function CharacterEditPage() {
         const data = await apiGetCampaignMembers(token, campaignId, { signal: controller.signal });
         const list = Array.isArray(data) ? data : [];
         setMembers(list);
-
-        const candidates = list.filter((m) => String(m?.role || "").toLowerCase() === "player");
-        setOwnerCandidates(candidates);
+        setOwnerCandidates(list.filter((m) => String(m?.role || "").toLowerCase() === "player"));
       } catch (e) {
         if (e?.name === "AbortError") return;
         setMembers([]);
@@ -237,7 +210,6 @@ function CharacterEditPage() {
 
   const onChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     if (type === "checkbox") {
       setForm((p) => {
         const next = { ...p, [name]: checked };
@@ -246,7 +218,6 @@ function CharacterEditPage() {
       });
       return;
     }
-
     setForm((p) => ({ ...p, [name]: value }));
   };
 
@@ -280,11 +251,7 @@ function CharacterEditPage() {
       } else {
         const current = String(form.ownerUserId || "");
         const initial = String(initialOwnerUserId || "");
-        if (!current) {
-          fd.append("ownerUserId", "");
-        } else if (current !== initial) {
-          fd.append("ownerUserId", current);
-        }
+        fd.append("ownerUserId", !current ? "" : current !== initial ? current : "");
       }
 
       if (avatarFile) fd.append("avatar", avatarFile);
@@ -295,7 +262,6 @@ function CharacterEditPage() {
       if (updated && typeof updated === "object") {
         const newOwnerId = updated?.owner?.id ? String(updated.owner.id) : "";
         setInitialOwnerUserId(newOwnerId);
-
         setForm((p) => ({
           ...p,
           nickname: updated?.nickname ?? p.nickname,
@@ -310,19 +276,17 @@ function CharacterEditPage() {
           isPlayer: typeof updated?.isPlayer === "boolean" ? updated.isPlayer : p.isPlayer,
           ownerUserId: newOwnerId || p.ownerUserId,
         }));
-
         setAvatarPreview(buildAssetUrl(updated?.avatarUrl));
         setVideoName(updated?.transitionVideoUrl ? updated.transitionVideoUrl.split("/").pop() || "" : "");
       }
 
       setSuccess("Modifications enregistrées.");
-      addNotification?.({ type: "success", message: "Modifications enregistrées." });
-
+      addNotification({ type: "success", message: "Modifications enregistrées." });
       setTimeout(() => navigate(-1), 450);
     } catch (err) {
       const msg = err?.message || "Erreur lors de l'enregistrement.";
       setError(msg);
-      addNotification?.({ type: "error", message: msg });
+      addNotification({ type: "error", message: msg });
     } finally {
       setSaving(false);
     }
@@ -334,9 +298,7 @@ function CharacterEditPage() {
 
   return (
     <div className="character-edit-page">
-      <button className="edit-back-button" onClick={() => navigate(-1)}>
-        ← Retour
-      </button>
+      <button className="edit-back-button" onClick={() => navigate(-1)}>← Retour</button>
       <h1 className="edit-title">Modifier le personnage</h1>
 
       <form className="edit-form" onSubmit={onSubmit}>
@@ -345,27 +307,22 @@ function CharacterEditPage() {
             <span>Surnom</span>
             <input name="nickname" value={form.nickname} onChange={onChange} required />
           </label>
-
           <label className="edit-field">
             <span>Prénom</span>
             <input name="firstname" value={form.firstname} onChange={onChange} />
           </label>
-
           <label className="edit-field">
             <span>Nom</span>
             <input name="lastname" value={form.lastname} onChange={onChange} />
           </label>
-
           <label className="edit-field">
             <span>Âge</span>
             <input name="age" value={form.age} onChange={onChange} inputMode="numeric" />
           </label>
-
           <label className="edit-field">
             <span>Clan</span>
             <input name="clan" value={form.clan} onChange={onChange} />
           </label>
-
           <label className="edit-field edit-checkbox">
             <input type="checkbox" name="isPlayer" checked={form.isPlayer} onChange={onChange} />
             <span>Personnage joueur</span>
@@ -375,18 +332,11 @@ function CharacterEditPage() {
         {form.isPlayer && (
           <label className="edit-field">
             <span>Attribuer à un joueur</span>
-            <select
-              name="ownerUserId"
-              value={form.ownerUserId || ""}
-              onChange={onChange}
-              disabled={membersLoading}
-            >
+            <select name="ownerUserId" value={form.ownerUserId || ""} onChange={onChange} disabled={membersLoading}>
               <option value="">{membersLoading ? "Chargement…" : "Choisir un joueur"}</option>
-
               {ownerCandidates.map((m) => {
                 const uid = m.userId ?? m.id;
                 if (!uid) return null;
-
                 return (
                   <option key={String(uid)} value={String(uid)}>
                     {m.username || m.email || `User #${uid}`}
@@ -397,67 +347,27 @@ function CharacterEditPage() {
           </label>
         )}
 
-        <label className="edit-field">
-          <div className="knowledge-field-header">
-            <span>Histoire</span>
-            <button
-              type="button"
-              className="knowledge-btn"
-              onClick={() => openVisibilityModal("biography")}
-              disabled={membersLoading || !campaignId}
-            >
-              Visibilité
-            </button>
-          </div>
-          <textarea name="biography" value={form.biography} onChange={onChange} rows={5} />
-        </label>
-
-        <div className="edit-grid-2">
-          <label className="edit-field">
+        {["biography", "strengths", "weaknesses", "secret"].map((field) => (
+          <label key={field} className="edit-field">
             <div className="knowledge-field-header">
-              <span>Points forts</span>
+              <span>{fieldLabel(field)}</span>
               <button
                 type="button"
                 className="knowledge-btn"
-                onClick={() => openVisibilityModal("strengths")}
+                onClick={() => openVisibilityModal(field)}
                 disabled={membersLoading || !campaignId}
               >
                 Visibilité
               </button>
             </div>
-            <textarea name="strengths" value={form.strengths} onChange={onChange} rows={4} />
+            <textarea
+              name={field}
+              value={form[field]}
+              onChange={onChange}
+              rows={field === "biography" || field === "secret" ? 5 : 4}
+            />
           </label>
-
-          <label className="edit-field">
-            <div className="knowledge-field-header">
-              <span>Faiblesses</span>
-              <button
-                type="button"
-                className="knowledge-btn"
-                onClick={() => openVisibilityModal("weaknesses")}
-                disabled={membersLoading || !campaignId}
-              >
-                Visibilité
-              </button>
-            </div>
-            <textarea name="weaknesses" value={form.weaknesses} onChange={onChange} rows={4} />
-          </label>
-        </div>
-
-        <label className="edit-field">
-          <div className="knowledge-field-header">
-            <span>Secret</span>
-            <button
-              type="button"
-              className="knowledge-btn"
-              onClick={() => openVisibilityModal("secret")}
-              disabled={membersLoading || !campaignId}
-            >
-              Visibilité
-            </button>
-          </div>
-          <textarea name="secret" value={form.secret} onChange={onChange} rows={5} />
-        </label>
+        ))}
 
         <div className="edit-media">
           <div className="edit-media-block">
@@ -509,9 +419,7 @@ function CharacterEditPage() {
           className="knowledge-modal-overlay"
           role="dialog"
           aria-modal="true"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setVisOpen(false);
-          }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setVisOpen(false); }}
         >
           <div className="knowledge-modal" onMouseDown={(e) => e.stopPropagation()}>
             <div className="knowledge-modal-header">
@@ -530,10 +438,8 @@ function CharacterEditPage() {
                 {playersForModal.map((m) => {
                   const uid = m.userId ?? m.id;
                   if (!uid) return null;
-
                   const isOn = visAllowedIds.has(String(uid));
                   const label = m.username || m.email || `User #${uid}`;
-
                   return (
                     <button
                       key={String(uid)}

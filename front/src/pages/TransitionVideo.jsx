@@ -5,14 +5,14 @@ import "../CSS/TransitionVideo.css";
 import CharacterDetailPage from "./CharacterDetailPage";
 import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContext";
+import { apiGetCharacter } from "../api/api";
 
 function TransitionVideo() {
   const { id } = useParams();
-  const { token, user } = useContext(AuthContext); // ✅ SEULE MODIFICATION
+  const { token, user } = useContext(AuthContext);
 
   const [character, setCharacter] = useState(null);
   const [loadingCharacter, setLoadingCharacter] = useState(true);
-
   const [showOverlay, setShowOverlay] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -20,16 +20,13 @@ function TransitionVideo() {
   const videoRef = useRef(null);
 
   const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
-  const buildAssetUrl = useCallback(
-    (path) => {
-      if (!path) return null;
-      if (typeof path !== "string") return null;
-      if (path.startsWith("http")) return path;
-      if (path.startsWith("/")) return `${assetBase}${path}`;
-      return `${assetBase}/${path}`;
-    },
-    [assetBase]
-  );
+
+  const buildAssetUrl = useCallback((path) => {
+    if (!path || typeof path !== "string") return null;
+    if (path.startsWith("http")) return path;
+    if (path.startsWith("/")) return `${assetBase}${path}`;
+    return `${assetBase}/${path}`;
+  }, [assetBase]);
 
   const transitionVideoSrc = useMemo(() => {
     return buildAssetUrl(character?.transitionVideoUrl || null);
@@ -37,71 +34,57 @@ function TransitionVideo() {
 
   const handleRemoveVideo = useCallback(() => {
     if (leaving) return;
-
     setLeaving(true);
-    setTimeout(() => {
-      setShowOverlay(false);
-    }, 800);
+    setTimeout(() => setShowOverlay(false), 800);
   }, [leaving]);
 
-  // 1) Charge le personnage UNE SEULE FOIS
+  // Charge le personnage
   useEffect(() => {
+    if (!token || !id) {
+      setCharacter(null);
+      setLoadingCharacter(false);
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchCharacter = async () => {
       setLoadingCharacter(true);
       try {
-        const res = await fetch(`${API_URL}/characters/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          setCharacter(null);
-          return;
-        }
-
-        const data = await res.json();
+        const data = await apiGetCharacter(token, id);
+        if (cancelled) return;
         setCharacter(data);
       } catch {
+        if (cancelled) return;
         setCharacter(null);
       } finally {
-        setLoadingCharacter(false);
+        if (!cancelled) setLoadingCharacter(false);
       }
     };
 
-    if (token && id) fetchCharacter();
-    else {
-      setCharacter(null);
-      setLoadingCharacter(false);
-    }
+    fetchCharacter();
+    return () => { cancelled = true; };
   }, [id, token]);
 
-  // 2) animation apparition overlay
+  // Animation d'apparition
   useEffect(() => {
-    const mountTimer = setTimeout(() => setMounted(true), 10);
-    return () => clearTimeout(mountTimer);
+    const timer = setTimeout(() => setMounted(true), 10);
+    return () => clearTimeout(timer);
   }, []);
 
-  // 3) Pas de vidéo → on enlève l’overlay
+  // Pas de vidéo → retire l'overlay
   useEffect(() => {
-    if (loadingCharacter) return;
-    if (!showOverlay) return;
-
-    if (!transitionVideoSrc) {
-      handleRemoveVideo();
-    }
+    if (loadingCharacter || !showOverlay || transitionVideoSrc) return;
+    handleRemoveVideo();
   }, [loadingCharacter, transitionVideoSrc, showOverlay, handleRemoveVideo]);
 
-  // 4) timers vidéo
+  // Gestion fin de vidéo + timer de sécurité
   useEffect(() => {
-    if (!showOverlay) return;
-    if (!transitionVideoSrc) return;
-
+    if (!showOverlay || !transitionVideoSrc) return;
     const video = videoRef.current;
     if (!video) return;
 
     const onEnded = () => handleRemoveVideo();
-
     video.addEventListener("ended", onEnded);
     const safetyTimer = setTimeout(handleRemoveVideo, 11000);
 
@@ -111,10 +94,11 @@ function TransitionVideo() {
     };
   }, [showOverlay, transitionVideoSrc, handleRemoveVideo]);
 
-  const overlayClassName =
-    "transition-video-overlay" +
-    (mounted ? " visible" : "") +
-    (leaving ? " leaving" : "");
+  const overlayClassName = [
+    "transition-video-overlay",
+    mounted ? "visible" : "",
+    leaving ? "leaving" : "",
+  ].filter(Boolean).join(" ");
 
   return (
     <div className="transition-video-page">
@@ -135,12 +119,7 @@ function TransitionVideo() {
               className="transition-video"
             />
           )}
-
-          <button
-            type="button"
-            className="transition-skip-button"
-            onClick={handleRemoveVideo}
-          >
+          <button type="button" className="transition-skip-button" onClick={handleRemoveVideo}>
             Skip
           </button>
         </div>

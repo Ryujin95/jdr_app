@@ -1,8 +1,10 @@
+// src/pages/ProfilePage.jsx
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { API_URL } from "../config";
+import { apiUpdateMe, apiDeleteMe, apiUploadMeAvatar } from "../api/api";
 import "../CSS/Profile.css";
 import defaultAvatar from "../assets/kenichi.png";
 
@@ -15,7 +17,6 @@ export default function ProfilePage() {
   const [newUsername, setNewUsername] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
-
   const [disableTransitions, setDisableTransitions] = useState(false);
   const [savingTransitions, setSavingTransitions] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
@@ -24,27 +25,13 @@ export default function ProfilePage() {
     if (!isAuthenticated) navigate("/login");
   }, [isAuthenticated, navigate]);
 
-  const parseResponse = async (res) => {
-    const contentType = res.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      return res.json().catch(() => null);
-    }
-
-    const text = await res.text().catch(() => "");
-    return { message: text || `HTTP ${res.status}` };
-  };
-
   const buildAvatarUrl = (avatarUrl) => {
     if (!avatarUrl) return defaultAvatar;
-
     if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
       return `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
     }
-
     const base = API_URL.replace(/\/api\/?$/, "").replace(/\/$/, "");
     const path = avatarUrl.startsWith("/") ? avatarUrl : `/${avatarUrl}`;
-
     return `${base}${path}?t=${Date.now()}`;
   };
 
@@ -61,19 +48,7 @@ export default function ProfilePage() {
   }, [user]);
 
   const callUpdateApi = async (body, successMessage) => {
-    const res = await fetch(`${API_URL}/me`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await parseResponse(res);
-    if (!res.ok) {
-      throw new Error(data?.error || data?.message || "Erreur lors de la mise à jour.");
-    }
+    const data = await apiUpdateMe(token, body);
 
     updateUser({
       ...user,
@@ -93,7 +68,6 @@ export default function ProfilePage() {
   const handleUsernameSave = async (e) => {
     e.preventDefault();
     if (!newUsername.trim()) return;
-
     try {
       await callUpdateApi({ username: newUsername }, "Nom d'utilisateur mis à jour !");
       setNewUsername("");
@@ -105,7 +79,6 @@ export default function ProfilePage() {
   const handleEmailSave = async (e) => {
     e.preventDefault();
     if (!newEmail.trim()) return;
-
     try {
       await callUpdateApi({ email: newEmail }, "Email mis à jour !");
       setNewEmail("");
@@ -117,7 +90,6 @@ export default function ProfilePage() {
   const handlePasswordSave = async (e) => {
     e.preventDefault();
     if (!newPassword.trim()) return;
-
     try {
       await callUpdateApi({ password: newPassword }, "Mot de passe mis à jour !");
       setNewPassword("");
@@ -128,16 +100,13 @@ export default function ProfilePage() {
 
   const handleToggleTransitions = async () => {
     const next = !disableTransitions;
-
     setDisableTransitions(next);
     setSavingTransitions(true);
-
     try {
       const data = await callUpdateApi(
         { disableTransitions: next },
         next ? "Transitions désactivées." : "Transitions activées."
       );
-
       if (typeof data?.disableTransitions === "boolean") {
         setDisableTransitions(data.disableTransitions);
       }
@@ -155,10 +124,7 @@ export default function ProfilePage() {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
-      addNotification({
-        type: "error",
-        message: "Format d'image non autorisé.",
-      });
+      addNotification({ type: "error", message: "Format d'image non autorisé." });
       return;
     }
 
@@ -167,44 +133,14 @@ export default function ProfilePage() {
     setSavingAvatar(true);
 
     try {
-      const formData = new FormData();
-      formData.append("avatar", file);
-
-      const res = await fetch(`${API_URL}/me`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      const data = await parseResponse(res);
-      if (!res.ok) {
-        throw new Error(data?.error || data?.message || "Erreur lors de l'envoi de l'avatar.");
-      }
-
+      const data = await apiUploadMeAvatar(token, file);
       const nextAvatarUrl = data?.avatarUrl ?? "/api/me/avatar";
-
-      updateUser({
-        ...user,
-        avatarUrl: nextAvatarUrl,
-      });
-
+      updateUser({ ...user, avatarUrl: nextAvatarUrl });
       setProfileImagePreview(buildAvatarUrl(nextAvatarUrl));
-
-      addNotification({
-        type: "success",
-        message: "Avatar mis à jour !",
-      });
+      addNotification({ type: "success", message: "Avatar mis à jour !" });
     } catch (err) {
-      setProfileImagePreview(
-        user?.avatarUrl ? buildAvatarUrl(user.avatarUrl) : defaultAvatar
-      );
-
-      addNotification({
-        type: "error",
-        message: err.message,
-      });
+      setProfileImagePreview(user?.avatarUrl ? buildAvatarUrl(user.avatarUrl) : defaultAvatar);
+      addNotification({ type: "error", message: err.message });
     } finally {
       setSavingAvatar(false);
       e.target.value = "";
@@ -212,39 +148,15 @@ export default function ProfilePage() {
     }
   };
 
-  const deleteAccount = async () => {
+  const handleDeleteRequest = async () => {
+    if (!window.confirm("Es-tu sûr ? Cela supprimera définitivement ton compte et toutes tes données.")) return;
     try {
-      const res = await fetch(`${API_URL}/me`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error("Suppression impossible");
-
-      addNotification({
-        type: "success",
-        message: "Compte supprimé avec succès !",
-      });
-
+      await apiDeleteMe(token);
+      addNotification({ type: "success", message: "Compte supprimé avec succès !" });
       logout();
       navigate("/");
     } catch (err) {
-      addNotification({
-        type: "error",
-        message: err.message,
-      });
-    }
-  };
-
-  const handleDeleteRequest = () => {
-    if (
-      window.confirm(
-        "Es-tu sûr ? Cela supprimera définitivement ton compte et toutes tes données."
-      )
-    ) {
-      deleteAccount();
+      addNotification({ type: "error", message: err.message });
     }
   };
 
@@ -254,18 +166,13 @@ export default function ProfilePage() {
     <main className="profile-container">
       <div className="profile-header-line">
         <div className="profile-header-left">
-          <img
-            src={profileImagePreview}
-            alt="Avatar"
-            className="profile-avatar-big"
-          />
+          <img src={profileImagePreview} alt="Avatar" className="profile-avatar-big" />
           <div>
             <h2>Mon profil</h2>
             <p className="profile-username">@{user.username}</p>
             <p className="profile-email">{user.email}</p>
           </div>
         </div>
-
         <button className="logout-btn" onClick={logout}>
           Se déconnecter
         </button>
@@ -273,9 +180,8 @@ export default function ProfilePage() {
 
       <section className="profile-section">
         <h3>Préférences</h3>
-
-        <div className="profile-form-inline" style={{ alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px", color: "black" }}>
+        <div className="profile-form-inline profile-preferences">
+          <label className="profile-checkbox-label">
             <input
               type="checkbox"
               checked={disableTransitions}
@@ -284,18 +190,13 @@ export default function ProfilePage() {
             />
             Désactiver les transitions vidéo
           </label>
-
-          <span style={{ opacity: 0.75 }}>
-            {savingTransitions ? "Enregistrement..." : ""}
-          </span>
+          {savingTransitions && <span className="profile-saving">Enregistrement...</span>}
         </div>
       </section>
 
       <section className="profile-section">
         <h3>Nom d'utilisateur</h3>
-        <p className="profile-current">
-          Actuel : <strong>{user.username}</strong>
-        </p>
+        <p className="profile-current">Actuel : <strong>{user.username}</strong></p>
         <form className="profile-form-inline" onSubmit={handleUsernameSave}>
           <input
             type="text"
@@ -304,17 +205,13 @@ export default function ProfilePage() {
             value={newUsername}
             onChange={(e) => setNewUsername(e.target.value)}
           />
-          <button type="submit" className="profile-save-btn">
-            Mettre à jour
-          </button>
+          <button type="submit" className="profile-save-btn">Mettre à jour</button>
         </form>
       </section>
 
       <section className="profile-section">
         <h3>Email</h3>
-        <p className="profile-current">
-          Actuel : <strong>{user.email}</strong>
-        </p>
+        <p className="profile-current">Actuel : <strong>{user.email}</strong></p>
         <form className="profile-form-inline" onSubmit={handleEmailSave}>
           <input
             type="email"
@@ -323,9 +220,7 @@ export default function ProfilePage() {
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
-          <button type="submit" className="profile-save-btn">
-            Mettre à jour
-          </button>
+          <button type="submit" className="profile-save-btn">Mettre à jour</button>
         </form>
       </section>
 
@@ -339,9 +234,7 @@ export default function ProfilePage() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
-          <button type="submit" className="profile-save-btn">
-            Mettre à jour
-          </button>
+          <button type="submit" className="profile-save-btn">Mettre à jour</button>
         </form>
       </section>
 
@@ -363,12 +256,7 @@ export default function ProfilePage() {
 
       <section className="profile-section delete-section">
         <h3>Supprimer mon compte</h3>
-
-        <button
-          type="button"
-          className="profile-delete-btn"
-          onClick={handleDeleteRequest}
-        >
+        <button type="button" className="profile-delete-btn" onClick={handleDeleteRequest}>
           Supprimer mon compte
         </button>
       </section>

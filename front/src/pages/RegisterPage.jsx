@@ -1,18 +1,15 @@
 // src/pages/RegisterPage.jsx
 import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useNotification } from "../context/NotificationContext";
 import "../CSS/Register.css";
 import { API_URL } from "../config";
 
 function RegisterPage() {
   const { addNotification } = useNotification();
+  const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    username: "",
-    email: "",
-    password: ""
-  });
-
+  const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
 
   const updateField = (e) =>
@@ -31,25 +28,16 @@ function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        addNotification({
-          type: "error",
-          message: data.error || "Impossible de créer le compte"
-        });
+        addNotification({ type: "error", message: data.error || "Impossible de créer le compte" });
         return;
       }
 
-      addNotification({
-        type: "success",
-        message: "Compte créé avec succès !"
-      });
-
+      addNotification({ type: "success", message: "Compte créé avec succès !" });
       setForm({ username: "", email: "", password: "" });
+      navigate("/login");
 
     } catch {
-      addNotification({
-        type: "error",
-        message: "Erreur réseau"
-      });
+      addNotification({ type: "error", message: "Erreur réseau" });
     }
   };
 
@@ -90,15 +78,28 @@ function RegisterPage() {
           />
 
           <span
+            role="button"
+            tabIndex={0}
             className="password-toggle"
             onClick={() => setShowPassword((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setShowPassword((v) => !v);
+              }
+            }}
+            aria-label="Afficher ou masquer le mot de passe"
           >
             {showPassword ? "⚫" : "👁"}
           </span>
         </div>
 
-        <button className="register-button">Créer le compte</button>
+        <button type="submit" className="register-button">Créer le compte</button>
       </form>
+
+      <p className="register-link">
+        Déjà un compte ? <Link to="/login">Se connecter</Link>
+      </p>
     </main>
   );
 }

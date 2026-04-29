@@ -1,8 +1,8 @@
 // src/pages/CampaignEditorPage.jsx
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { API_URL } from "../config";
+import { createCharacter } from "../api/charactersApi";
 import "../CSS/Editor.css";
 
 function CampaignEditorPage({ onClose, onCreated, embed = false }) {
@@ -31,12 +31,6 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
-  const authHeaders = useMemo(() => {
-    const h = {};
-    if (token) h.Authorization = `Bearer ${token}`;
-    return h;
-  }, [token]);
-
   useEffect(() => {
     return () => {
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
@@ -49,14 +43,12 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
   };
 
   const handleAvatarChange = (e) => {
-    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
-
+    const file = e.target.files?.[0] || null;
     if (!file || !(file instanceof File) || file.size === 0) {
       setAvatarFile(null);
       setAvatarPreview(null);
       return;
     }
-
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
@@ -82,7 +74,7 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
     setInfo(null);
 
     if (!campaignId) {
-      setError("CampaignId manquant (ouvre une campagne puis l’onglet Personnages).");
+      setError("CampaignId manquant (ouvre une campagne puis l'onglet Personnages).");
       return;
     }
 
@@ -96,7 +88,6 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
     try {
       const formData = new FormData();
       formData.append("campaignId", campaignId);
-
       formData.append("firstname", firstname);
       formData.append("lastname", lastname);
       formData.append("nickname", nickname);
@@ -108,22 +99,11 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
       formData.append("isPlayer", isPlayer ? "1" : "0");
       formData.append("secret", secret);
 
-      if (avatarFile && avatarFile instanceof File && avatarFile.size > 0) {
+      if (avatarFile instanceof File && avatarFile.size > 0) {
         formData.append("avatar", avatarFile);
       }
 
-      const res = await fetch(`${API_URL}/characters`, {
-        method: "POST",
-        headers: authHeaders,
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text || `Erreur création personnage (HTTP ${res.status})`);
-      }
-
-      await res.json().catch(() => null);
+      await createCharacter(token, formData);
 
       setInfo("Personnage créé avec succès.");
       resetCharacterForm();
@@ -131,14 +111,12 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
       if (typeof onCreated === "function") {
         try {
           await onCreated();
-        } catch {
-          // ignore
+        } catch (e) {
+          console.error("onCreated error:", e);
         }
       }
 
-      if (embed && typeof onClose === "function") {
-        onClose();
-      }
+      if (embed && typeof onClose === "function") onClose();
     } catch (e2) {
       setError(e2?.message || "Erreur inconnue côté personnage.");
     } finally {
@@ -146,9 +124,9 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
     }
   };
 
-  if (!token) return <p style={{ padding: "2rem" }}>Tu dois être connecté.</p>;
-  if (!campaignId) return <p style={{ padding: "2rem" }}>Aucune campagne active (ouvre une campagne).</p>;
-  if (!isMjInThisCampaign) return <p style={{ padding: "2rem" }}>Tu n’es pas MJ sur cette campagne.</p>;
+  if (!token) return <p className="editor-notice">Tu dois être connecté.</p>;
+  if (!campaignId) return <p className="editor-notice">Aucune campagne active (ouvre une campagne).</p>;
+  if (!isMjInThisCampaign) return <p className="editor-notice">Tu n'es pas MJ sur cette campagne.</p>;
 
   const content = (
     <div className={`character-form-page ${embed ? "character-form-page--embed" : ""}`}>
@@ -166,7 +144,6 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
               Prénom
               <input type="text" value={firstname} onChange={(e) => setFirstname(e.target.value)} />
             </label>
-
             <label>
               Nom
               <input type="text" value={lastname} onChange={(e) => setLastname(e.target.value)} />
@@ -176,14 +153,8 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
           <div className="form-row">
             <label>
               Surnom (obligatoire)
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                required
-              />
+              <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} required />
             </label>
-
             <label>
               Âge
               <input type="number" min="0" value={age} onChange={(e) => setAge(e.target.value)} />
@@ -193,14 +164,8 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
           <div className="form-row">
             <label>
               Clan
-              <input
-                type="text"
-                value={clan}
-                onChange={(e) => setClan(e.target.value)}
-                placeholder="Ex: Groupe de la prison"
-              />
+              <input type="text" value={clan} onChange={(e) => setClan(e.target.value)} placeholder="Ex: Groupe de la prison" />
             </label>
-
             <label className="checkbox-label">
               <input type="checkbox" checked={isPlayer} onChange={(e) => setIsPlayer(e.target.checked)} />
               Personnage joueur
@@ -210,17 +175,14 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
 
         <div className="form-section">
           <h2>Histoire et personnalité</h2>
-
           <label>
             Biographie
             <textarea value={biography} onChange={(e) => setBiography(e.target.value)} rows={5} />
           </label>
-
           <label>
             Points forts
             <textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} rows={3} />
           </label>
-
           <label>
             Points faibles
             <textarea value={weaknesses} onChange={(e) => setWeaknesses(e.target.value)} rows={3} />
@@ -229,7 +191,6 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
 
         <div className="form-section">
           <h2>Secret</h2>
-
           <label>
             Secret principal
             <textarea value={secret} onChange={(e) => setSecret(e.target.value)} rows={3} />
@@ -238,13 +199,11 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
 
         <div className="form-section">
           <h2>Avatar</h2>
-
           <div className="form-row">
             <label>
               Image du personnage
               <input type="file" accept="image/*" onChange={handleAvatarChange} />
             </label>
-
             {avatarPreview && (
               <div className="avatar-preview">
                 <p>Aperçu :</p>
@@ -258,7 +217,6 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
           <button type="button" className="secondary-button" onClick={close} disabled={submitting}>
             Annuler
           </button>
-
           <button type="submit" className="primary-button" disabled={submitting}>
             {submitting ? "Enregistrement..." : "Créer le personnage"}
           </button>
@@ -269,12 +227,7 @@ function CampaignEditorPage({ onClose, onCreated, embed = false }) {
 
   if (embed) {
     return (
-      <div
-        className="editor-overlay"
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget) close();
-        }}
-      >
+      <div className="editor-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
         <div className="editor-overlay__panel">{content}</div>
       </div>
     );

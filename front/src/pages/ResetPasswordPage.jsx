@@ -1,7 +1,9 @@
+// src/pages/ResetPasswordPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { API_URL } from "../config";
 import { useNotification } from "../context/NotificationContext";
+import "../CSS/Login.css";
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -26,9 +28,7 @@ export default function ResetPasswordPage() {
       try {
         const res = await fetch(`${API_URL}/auth/reset-password-info?token=${encodeURIComponent(token)}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data.message || "Token invalide ou expiré.");
-        }
+        if (!res.ok) throw new Error(data.message || "Token invalide ou expiré.");
         setUsername(data.username || "");
       } catch (e) {
         addNotification({ type: "error", message: e.message || "Erreur." });
@@ -61,52 +61,51 @@ export default function ResetPasswordPage() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || "Impossible de modifier le mot de passe.");
-      }
+      if (!res.ok) throw new Error(data.message || "Impossible de modifier le mot de passe.");
 
       addNotification({ type: "success", message: "Mot de passe mis à jour. Connecte-toi !" });
-
       setTimeout(() => navigate("/login"), 600);
     } catch (e) {
       addNotification({ type: "error", message: e.message || "Erreur." });
     }
   };
 
-  if (loading) return <div style={{ padding: 24 }}>Chargement...</div>;
+  if (loading) return <div className="login-container">Chargement...</div>;
 
   return (
-    <div style={{ maxWidth: 420, margin: "60px auto", padding: 24 }}>
-      <h1>Réinitialiser le mot de passe</h1>
+    <main className="login-container">
+      <h2 className="login-title">Réinitialiser le mot de passe</h2>
 
-      <form onSubmit={submit}>
-        <label>Pseudo</label>
+      <form className="login-form" onSubmit={submit}>
+        <label className="login-label">Pseudo</label>
         <input
+          className="login-input"
           value={username}
           disabled
-          style={{ width: "100%", marginBottom: 12 }}
         />
 
-        <label>Nouveau mot de passe</label>
+        <label className="login-label">Nouveau mot de passe</label>
         <input
+          className="login-input"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", marginBottom: 12 }}
+          required
         />
 
-        <label>Confirmer</label>
+        <label className="login-label">Confirmer</label>
         <input
+          className="login-input"
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          style={{ width: "100%", marginBottom: 16 }}
+          required
         />
 
-        <button type="submit" style={{ width: "100%" }}>
+        <button type="submit" className="login-button">
           Modifier le mot de passe
         </button>
       </form>
-    </div>
+    </main>
   );
 }

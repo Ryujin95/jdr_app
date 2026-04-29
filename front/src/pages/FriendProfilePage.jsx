@@ -4,7 +4,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { apiGetFriendProfile, apiRemoveFriend } from "../api/api";
 import "../CSS/FriendProfilePage.css";
-import "../CSS/HomePage.css";
 
 export default function FriendProfilePage() {
   const navigate = useNavigate();
@@ -54,20 +53,16 @@ export default function FriendProfilePage() {
     }
 
     run();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [token, friendId]);
 
   async function onRemoveFriend() {
     if (!token || !friendId) return;
-
-    const ok = window.confirm("Retirer cet ami ?");
-    if (!ok) return;
+    if (!window.confirm("Retirer cet ami ?")) return;
 
     try {
       await apiRemoveFriend(token, friendId);
-      navigate("/friends");
+      navigate(-1);
     } catch (e) {
       setErr(e?.message || "Impossible de retirer cet ami.");
     }
@@ -75,14 +70,6 @@ export default function FriendProfilePage() {
 
   const username = profile?.username || "Profil ami";
   const campaigns = Array.isArray(profile?.campaigns) ? profile.campaigns : [];
-
-  const visibility = String(profile?.campaignVisibility || "");
-  const visibilityLabel =
-    visibility === "ALL_FRIENDS"
-      ? "tout"
-      : visibility === "COMMON_ONLY"
-      ? "en commun"
-      : "";
 
   return (
     <div className="friend-profile-page">
@@ -96,7 +83,6 @@ export default function FriendProfilePage() {
           <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
             Retour
           </button>
-
           <button type="button" className="btn-danger" onClick={onRemoveFriend}>
             Retirer des amis
           </button>
@@ -104,7 +90,6 @@ export default function FriendProfilePage() {
       </div>
 
       {loading && <div className="friend-profile-loading">Chargement…</div>}
-
       {!loading && err && <div className="friend-profile-error">{err}</div>}
 
       {!loading && !err && (
@@ -121,33 +106,30 @@ export default function FriendProfilePage() {
                 const friendRole = c?.friendRole ? String(c.friendRole) : null;
 
                 return (
-                 <div key={String(id ?? title)} className="friend-card">
-  <div className="friend-card__header">
-    <div className="friend-card__title">{title}</div>
-  </div>
+                  <div key={String(id ?? title)} className="friend-card">
+                    <div className="friend-card__header">
+                      <div className="friend-card__title">{title}</div>
+                    </div>
 
-  <div className="friend-card__stats">
-    <div className="mini-box">
-      <div className="mini-box__label">Personnages</div>
-      <div className="mini-box__value">{c?.charactersCount ?? "-"}</div>
-    </div>
-
-    <div className="mini-box">
-      <div className="mini-box__label">Lieux</div>
-      <div className="mini-box__value">{c?.locationsCount ?? "-"}</div>
-    </div>
-
-    <div className="mini-box">
-      <div className="mini-box__label">Invités</div>
-      <div className="mini-box__value">{c?.membersCount ?? "-"}</div>
-    </div>
-
-    <div className="mini-box">
-      <div className="mini-box__label">Rôle</div>
-      <div className="mini-box__value">{friendRole ?? "-"}</div>
-    </div>
-  </div>
-</div>
+                    <div className="friend-card__stats">
+                      <div className="mini-box">
+                        <div className="mini-box__label">Personnages</div>
+                        <div className="mini-box__value">{c?.charactersCount ?? "-"}</div>
+                      </div>
+                      <div className="mini-box">
+                        <div className="mini-box__label">Lieux</div>
+                        <div className="mini-box__value">{c?.locationsCount ?? "-"}</div>
+                      </div>
+                      <div className="mini-box">
+                        <div className="mini-box__label">Invités</div>
+                        <div className="mini-box__value">{c?.membersCount ?? "-"}</div>
+                      </div>
+                      <div className="mini-box">
+                        <div className="mini-box__label">Rôle</div>
+                        <div className="mini-box__value">{friendRole ?? "-"}</div>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>

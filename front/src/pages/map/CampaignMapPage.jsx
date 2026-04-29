@@ -13,6 +13,15 @@ import { makeResolveUrl } from "./utils/resolveUrl";
 import { useCampaignMapData } from "./hooks/useCampaignMapData";
 import { useZoneEditor } from "./hooks/useZoneEditor";
 
+function MapPageWrapper({ children }) {
+  return (
+    <div className="map-page">
+      <h1 className="map-title">Carte</h1>
+      {children}
+    </div>
+  );
+}
+
 export default function CampaignMapPage() {
   const outlet = useOutletContext() || {};
   const campaignId = outlet?.campaignId ? String(outlet.campaignId) : null;
@@ -26,31 +35,14 @@ export default function CampaignMapPage() {
   const [draggedCharacter, setDraggedCharacter] = useState(null);
 
   const resolveUrl = useMemo(() => makeResolveUrl(API_URL), []);
+
   const {
-    maps,
-    selectedMap,
-    selectedMapId,
-    setSelectedMapId,
-
-    loadingMap,
-    error,
-    setError,
-
-    locations,
-    loadingLocations,
-    selectedLocationId,
-    setSelectedLocationId,
-
-    zones,
-    setZones,
-    loadingZones,
-
-    refreshLocations,
-    refreshZones,
-
-    createLocation,
-    deleteLocationToTrash,
-
+    maps, selectedMap, selectedMapId, setSelectedMapId,
+    loadingMap, error, setError,
+    locations, loadingLocations, selectedLocationId, setSelectedLocationId,
+    zones, setZones, loadingZones,
+    refreshLocations, refreshZones,
+    createLocation, deleteLocationToTrash,
     moveCharacterToZone,
   } = useCampaignMapData({ token, campaignId });
 
@@ -64,12 +56,7 @@ export default function CampaignMapPage() {
   }, [isMjInThisCampaign]);
 
   const { activeZoneId, onZonePointerDown, onZonePointerMove, onZonePointerUp } = useZoneEditor({
-    token,
-    isEditing,
-    isMjInThisCampaign,
-    zones,
-    setZones,
-    setError,
+    token, isEditing, isMjInThisCampaign, zones, setZones, setError,
   });
 
   useEffect(() => {
@@ -77,20 +64,14 @@ export default function CampaignMapPage() {
       refreshLocations();
       refreshZones();
     };
-
     window.addEventListener("trash:changed", onTrashChanged);
     return () => window.removeEventListener("trash:changed", onTrashChanged);
   }, [refreshLocations, refreshZones]);
 
-  const openZoneZoom = useCallback(
-    (z) => {
-      if (!img) return;
-      if (isEditing) return;
-      if (draggedCharacter) return;
-      setZoomZone(z);
-    },
-    [img, isEditing, draggedCharacter]
-  );
+  const openZoneZoom = useCallback((z) => {
+    if (!img || isEditing || draggedCharacter) return;
+    setZoomZone(z);
+  }, [img, isEditing, draggedCharacter]);
 
   const closeZoneZoom = useCallback(async () => {
     setZoomZone(null);
@@ -98,94 +79,52 @@ export default function CampaignMapPage() {
   }, [refreshZones]);
 
   const handleCharacterDragStart = useCallback((character, fromZone) => {
-    setDraggedCharacter({
-      id: character?.id,
-      fromZoneId: fromZone?.id ?? null,
-    });
+    setDraggedCharacter({ id: character?.id, fromZoneId: fromZone?.id ?? null });
   }, []);
 
-  const handleCharacterDropOnZone = useCallback(
-    async (targetZone) => {
-      if (!draggedCharacter?.id) return;
+  const handleCharacterDropOnZone = useCallback(async (targetZone) => {
+    if (!draggedCharacter?.id) return;
+    if (!targetZone?.id || String(targetZone.id) === String(draggedCharacter.fromZoneId)) {
+      setDraggedCharacter(null);
+      return;
+    }
+    try {
+      await moveCharacterToZone(draggedCharacter.id, targetZone);
+    } catch (e) {
+      setError(e?.message || "Impossible de déplacer le personnage.");
+    } finally {
+      setDraggedCharacter(null);
+    }
+  }, [draggedCharacter, moveCharacterToZone, setError]);
 
-      if (!targetZone?.id) {
-        setDraggedCharacter(null);
-        return;
-      }
-
-      if (String(targetZone.id) === String(draggedCharacter.fromZoneId)) {
-        setDraggedCharacter(null);
-        return;
-      }
-
-      try {
-        await moveCharacterToZone(draggedCharacter.id, targetZone);
-      } catch (e) {
-        setError(e?.message || "Impossible de déplacer le personnage.");
-      } finally {
-        setDraggedCharacter(null);
-      }
-    },
-    [draggedCharacter, moveCharacterToZone, setError]
-  );
-
-  if (!campaignId) {
-    return (
-      <div className="map-page">
-        <h1 className="map-title">Carte</h1>
-        <div className="map-empty">Aucune campagne active.</div>
-      </div>
-    );
-  }
-
-  if (loadingMap) {
-    return (
-      <div className="map-page">
-        <h1 className="map-title">Carte</h1>
-        <div className="map-empty">Chargement…</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="map-page">
-        <h1 className="map-title">Carte</h1>
-        <div className="map-empty">{error}</div>
-      </div>
-    );
-  }
-
-  if (!selectedMap) {
-    return (
-      <div className="map-page">
-        <h1 className="map-title">Carte</h1>
-        <div className="map-empty">Aucune map pour cette campagne.</div>
-      </div>
-    );
-  }
+  if (!campaignId) return <MapPageWrapper><div className="map-empty">Aucune campagne active.</div></MapPageWrapper>;
+  if (loadingMap) return <MapPageWrapper><div className="map-empty">Chargement…</div></MapPageWrapper>;
+  if (error) return <MapPageWrapper><div className="map-empty">{error}</div></MapPageWrapper>;
+  if (!selectedMap) return <MapPageWrapper><div className="map-empty">Aucune map pour cette campagne.</div></MapPageWrapper>;
 
   return (
     <div className="map-page">
       <div className="map-header">
-        <h1 className="map-title">{selectedMap?.name ? `Carte : ${selectedMap.name}` : "Carte"}</h1>
+        <h1 className="map-title">
+          {selectedMap?.name ? `Carte : ${selectedMap.name}` : "Carte"}
+        </h1>
 
-        {Array.isArray(maps) && maps.length > 0 ? (
+        {Array.isArray(maps) && maps.length > 0 && (
           <div className="map-switcher">
             {maps.map((m) => (
               <button
                 key={m.id}
                 type="button"
-                className={String(m.id) === String(selectedMapId) ? "map-tab active" : "map-tab"}
+                className={`map-tab ${String(m.id) === String(selectedMapId) ? "active" : ""}`}
                 onClick={() => setSelectedMapId(m.id)}
               >
                 {m.name}
               </button>
             ))}
           </div>
-        ) : null}
+        )}
 
-        {isMjInThisCampaign ? (
+        {isMjInThisCampaign && (
           <div className="map-actions">
             <button
               type="button"
@@ -206,43 +145,29 @@ export default function CampaignMapPage() {
 
             <button
               type="button"
-              className={isEditing ? "map-edit-btn active" : "map-edit-btn"}
+              className={`map-edit-btn ${isEditing ? "active" : ""}`}
               onClick={() => setIsEditing((v) => !v)}
               disabled={!img}
-              title={!img ? "Ajoute une image à la map d’abord" : undefined}
+              title={!img ? "Ajoute une image à la map d'abord" : undefined}
             >
-              {isEditing ? "Quitter l’édition" : "Éditer"}
+              {isEditing ? "Quitter l'édition" : "Éditer"}
             </button>
           </div>
-        ) : null}
+        )}
       </div>
 
-      {isMjInThisCampaign && panel === "create" ? (
+      {isMjInThisCampaign && panel === "create" && (
         <MapCreateLocationPanel
           onClose={() => setPanel(null)}
           onSubmit={async (name, description) => {
             setError("");
-            const clean = String(name || "")
-              .trim()
-              .toLowerCase()
-              .replace(/\s+/g, " ");
-            const exists = (Array.isArray(locations) ? locations : []).some((l) => {
-              const lname = String(l?.name || "")
-                .trim()
-                .toLowerCase()
-                .replace(/\s+/g, " ");
-              return lname === clean;
-            });
+            const clean = String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+            const exists = (Array.isArray(locations) ? locations : []).some(
+              (l) => String(l?.name || "").trim().toLowerCase().replace(/\s+/g, " ") === clean
+            );
 
-            if (!clean) {
-              setError("Le nom du lieu est obligatoire.");
-              return;
-            }
-
-            if (exists) {
-              setError("Ce lieu existe déjà. Choisis un autre nom.");
-              return;
-            }
+            if (!clean) { setError("Le nom du lieu est obligatoire."); return; }
+            if (exists) { setError("Ce lieu existe déjà. Choisis un autre nom."); return; }
 
             await createLocation({ name, description });
             await refreshLocations();
@@ -250,9 +175,9 @@ export default function CampaignMapPage() {
             setPanel(null);
           }}
         />
-      ) : null}
+      )}
 
-      {isMjInThisCampaign && panel === "delete" ? (
+      {isMjInThisCampaign && panel === "delete" && (
         <MapDeleteLocationPanel
           locations={locations}
           selectedLocationId={selectedLocationId}
@@ -272,7 +197,7 @@ export default function CampaignMapPage() {
             setPanel(null);
           }}
         />
-      ) : null}
+      )}
 
       {!img ? (
         <div className="map-empty">Map sans image.</div>
@@ -295,7 +220,7 @@ export default function CampaignMapPage() {
         />
       )}
 
-      {zoomZone && img ? (
+      {zoomZone && img && (
         <ZoneZoomOverlay
           img={img}
           zone={zoomZone}
@@ -303,7 +228,7 @@ export default function CampaignMapPage() {
           resolveUrl={resolveUrl}
           onClose={closeZoneZoom}
         />
-      ) : null}
+      )}
     </div>
   );
 }
