@@ -1,6 +1,7 @@
 // src/pages/RegisterPage.jsx
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useNotification } from "../context/NotificationContext";
 import "../CSS/Register.css";
 import { API_URL } from "../config";
@@ -8,6 +9,7 @@ import { API_URL } from "../config";
 function RegisterPage() {
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -28,29 +30,28 @@ function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        addNotification({ type: "error", message: data.error || "Impossible de créer le compte" });
+        addNotification({ type: "error", message: data.error || t("register.error") });
         return;
       }
 
-      addNotification({ type: "success", message: "Compte créé avec succès !" });
+      addNotification({ type: "success", message: t("register.success") });
       setForm({ username: "", email: "", password: "" });
       navigate("/login");
-
     } catch {
-      addNotification({ type: "error", message: "Erreur réseau" });
+      addNotification({ type: "error", message: t("register.networkError") });
     }
   };
 
   return (
     <main className="register-container">
-      <h2 className="register-title">Créer un compte</h2>
+      <h2 className="register-title">{t("register.title")}</h2>
 
       <form className="register-form" onSubmit={submit}>
         <input
           type="text"
           name="username"
           className="register-input"
-          placeholder="Nom d'utilisateur"
+          placeholder={t("register.username")}
           value={form.username}
           onChange={updateField}
           required
@@ -60,7 +61,7 @@ function RegisterPage() {
           type="email"
           name="email"
           className="register-input"
-          placeholder="Email"
+          placeholder={t("register.email")}
           value={form.email}
           onChange={updateField}
           required
@@ -71,7 +72,7 @@ function RegisterPage() {
             type={showPassword ? "text" : "password"}
             name="password"
             className="register-input"
-            placeholder="Mot de passe"
+            placeholder={t("register.password")}
             value={form.password}
             onChange={updateField}
             required
@@ -88,17 +89,17 @@ function RegisterPage() {
                 setShowPassword((v) => !v);
               }
             }}
-            aria-label="Afficher ou masquer le mot de passe"
+            aria-label={t("login.showPassword")}
           >
             {showPassword ? "⚫" : "👁"}
           </span>
         </div>
 
-        <button type="submit" className="register-button">Créer le compte</button>
+        <button type="submit" className="register-button">{t("register.submit")}</button>
       </form>
 
       <p className="register-link">
-        Déjà un compte ? <Link to="/login">Se connecter</Link>
+        {t("register.alreadyAccount")} <Link to="/login">{t("register.login")}</Link>
       </p>
     </main>
   );

@@ -10,6 +10,7 @@
 .login-container h2 {
   font-size: 2rem;
   margin-bottom: 25px;
+  color: white;
 }
 
 /* Formulaire */
@@ -27,18 +28,21 @@
   font-size: 1rem;
 }
 
-/* NEW → espace INPUT / EMOJI */
+/* Espace INPUT / EMOJI */
 .password-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;   /* ← l’espace demandé */
+  gap: 10px;
 }
 
-/* Bouton */
+/* Bouton afficher mot de passe */
 .password-toggle {
   cursor: pointer;
+  color: white;
+  font-size: 1.2rem;
 }
 
+/* Bouton submit */
 .login-form button {
   background: #111;
   color: white;
@@ -54,23 +58,35 @@
   background: #333;
 }
 
-/* Lien bas de page */
-.login-footer {
-  margin-top: 20px;
-  font-size: 1rem;
+/* Lien mot de passe oublié */
+.forgot-link {
+  color: #93c5fd;
+  font-size: 0.9rem;
+  text-decoration: none;
 }
 
-.login-footer a {
-  color: #4b00d1;
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+/* Lien bas de page */
+.login-link {
+  margin-top: 20px;
+  font-size: 1rem;
+  color: white;
+}
+
+.login-link a {
+  color: #93c5fd;
   font-weight: 600;
   text-decoration: none;
 }
 
-.login-footer a:hover {
+.login-link a:hover {
   text-decoration: underline;
 }
 
-/* message d'erreur */
+/* Message d'erreur */
 .login-error {
   color: #e53e3e;
   font-size: 0.9rem;

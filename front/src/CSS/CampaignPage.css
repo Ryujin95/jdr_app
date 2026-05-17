@@ -11,6 +11,9 @@
   display: flex;
   justify-content: center;
 }
+.campaign-invite-label{
+  color: white;
+}
 
 .campaign-invite-code {
   display: inline-block;
@@ -49,6 +52,7 @@
 .campaign-title {
   font-size: 2rem;
   font-weight: 700;
+  color: white;
 }
 
 .campaign-subtitle {

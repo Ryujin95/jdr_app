@@ -1,6 +1,7 @@
 // src/pages/CreateCampaignPage.jsx
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AuthContext } from "../context/AuthContext";
 import { apiCreateCampaign } from "../api/api";
 import "../CSS/CreateCampaignPage.css";
@@ -8,6 +9,7 @@ import "../CSS/CreateCampaignPage.css";
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
   const { token } = useContext(AuthContext);
+  const { t } = useTranslation();
 
   const [title, setTitle] = useState("");
   const [theme, setTheme] = useState("");
@@ -22,7 +24,7 @@ export default function CreateCampaignPage() {
     const cleanTheme = theme.trim();
 
     if (!cleanTitle) {
-      setError("Le titre est obligatoire.");
+      setError(t("createCampaign.titleRequired"));
       return;
     }
 
@@ -40,7 +42,7 @@ export default function CreateCampaignPage() {
         navigate("/dashboard");
       }
     } catch (err) {
-      setError(err?.message || "Erreur");
+      setError(err?.message || t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -49,19 +51,19 @@ export default function CreateCampaignPage() {
   return (
     <main className="create-campaign">
       <div className="create-card">
-        <h1 className="create-title">Créer une campagne</h1>
-        <p className="create-subtitle">Tu deviens MJ automatiquement.</p>
+        <h1 className="create-title">{t("createCampaign.title")}</h1>
+        <p className="create-subtitle">{t("createCampaign.subtitle")}</p>
 
         {error && <div className="create-error">{error}</div>}
 
         <form className="create-form" onSubmit={submit}>
           <label className="create-label">
-            Titre du JDR
+            {t("createCampaign.titleLabel")}
             <input
               className="create-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Zombies"
+              placeholder={t("createCampaign.titlePlaceholder")}
               maxLength={255}
               required
               disabled={loading}
@@ -69,12 +71,12 @@ export default function CreateCampaignPage() {
           </label>
 
           <label className="create-label">
-            Thème
+            {t("createCampaign.themeLabel")}
             <input
               className="create-input"
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              placeholder="Ex: Survie, Fantasy, Cyberpunk…"
+              placeholder={t("createCampaign.themePlaceholder")}
               maxLength={255}
               disabled={loading}
             />
@@ -87,11 +89,11 @@ export default function CreateCampaignPage() {
               onClick={() => navigate("/dashboard")}
               disabled={loading}
             >
-              Retour
+              {t("createCampaign.cancel")}
             </button>
 
             <button type="submit" className="create-btn" disabled={loading}>
-              {loading ? "Création…" : "Créer"}
+              {loading ? t("createCampaign.creating") : t("createCampaign.submit")}
             </button>
           </div>
         </form>

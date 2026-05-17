@@ -1,3 +1,4 @@
+// src/pages/characters/components/CreateCharacterModal.jsx
 function CreateCharacterModal({
   open,
   error,
@@ -16,7 +17,7 @@ function CreateCharacterModal({
       <div className="modal character-create-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-title">Créer un personnage</div>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
+        {error && <p className="form-error">{error}</p>}
 
         <form onSubmit={onSubmit}>
           <input
@@ -26,34 +27,24 @@ function CreateCharacterModal({
             onChange={(e) => onChange("nickname", e.target.value)}
             required
           />
-
           <input
             type="text"
             placeholder="Prénom"
             value={formValues.firstname}
             onChange={(e) => onChange("firstname", e.target.value)}
           />
-
           <input
             type="text"
             placeholder="Nom"
             value={formValues.lastname}
             onChange={(e) => onChange("lastname", e.target.value)}
           />
+          <input type="file" accept="image/*" onChange={onAvatarChange} />
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={onAvatarChange}
-          />
-
-          {avatarPreview && <img src={avatarPreview} alt="Preview" width="100" />}
+          {avatarPreview && <img src={avatarPreview} alt="Preview" className="create-modal-preview" />}
 
           <div className="form-actions">
-            <button type="button" onClick={onCancel} disabled={submitting}>
-              Annuler
-            </button>
-
+            <button type="button" onClick={onCancel} disabled={submitting}>Annuler</button>
             <button type="submit" disabled={submitting}>
               {submitting ? "Enregistrement..." : "Créer"}
             </button>

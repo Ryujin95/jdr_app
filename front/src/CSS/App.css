@@ -9,9 +9,17 @@ html, body {
   height: 100%;
 }
 
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: #f5f7fa;
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: #333;
   line-height: 1.5;
 
@@ -21,7 +29,27 @@ body {
   display: flex;
   justify-content: center;
 
-  padding: 60px 0;
+  padding:0;
+}
+
+body[data-theme="dark-fantasy"] {
+  background-image: url("/images/dark-fantasy.png");
+}
+
+body[data-theme="epic-gold"] {
+  background-image: url("/images/epic-gold.png");
+}
+
+body[data-theme="mystic-forest"] {
+  background-image: url("/images/mystic-forest.png");
+}
+
+body[data-theme="frost-wind"] {
+  background-image: url("/images/frost-wind.png");
+}
+
+body[data-theme="shadow-tech"] {
+  background-image: url("/images/shadow-tech.png");
 }
 
 /* Container principal */
@@ -30,10 +58,8 @@ body {
   max-width: 1500px;        /* ✅ limite sur très grands écrans */
   min-width: 320px;         /* ✅ évite les écrans trop étroits */
 
-  padding: 30px;
-  background: white;
+  padding: 200px;
   border-radius: 14px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 
 /* Responsive tablette */

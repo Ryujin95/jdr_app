@@ -2,6 +2,7 @@
   padding: 2rem;
   min-height: 100vh;
   color: #e5e7eb;
+  background: transparent;
 }
 
 .characters-page h1 {
@@ -148,6 +149,15 @@
 
 .modal-content--large {
   width: min(1200px, 95vw);
+}
+
+.relationship-hint {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.create-modal-preview {
+  width: 100px;
 }
 
 /* Actions */

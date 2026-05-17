@@ -1,1 +1,416 @@
-{}
+{
+  "nav": {
+    "home": "Home",
+    "myJdr": "My RPGs",
+    "login": "Log in"
+  },
+  "home": {
+    "hero": {
+      "title": "Create and manage your RPG sessions, whatever the theme",
+      "subtitle": "A simple platform to create a campaign, invite your players, manage characters, and control information visibility as GM.",
+      "loginBtn": "Log in",
+      "profileBtn": "My profile",
+      "registerBtn": "Create an account",
+      "note": "After logging in, you can create an RPG. The creator becomes GM, others join as players."
+    },
+      "card": {
+  "campaign": "Campaign",
+  "freeTheme": "Free theme",
+  "jdrName": "RPG Name",
+  "desc": "Guests: 4 players • Role: GM • Visibility: controlled",
+  "characters": "Characters",
+  "locations": "Locations",
+  "secrets": "Secrets",
+  "knowledge": "Knowledge"
+},
+    "features": {
+      "title": "What the site offers",
+      "multiTheme": {
+        "title": "Multi-theme",
+        "text": "A campaign can be zombie, fantasy, sci-fi, mystery… the system stays the same."
+      },
+      "roles": {
+        "title": "Clear roles",
+        "text": "The creator is GM. Others are players. The GM can transfer the role later."
+      },
+      "privacy": {
+        "title": "Privacy",
+        "text": "Reveal secrets when you decide… not before."
+      }
+    },
+    "howItWorks": {
+      "title": "How it works",
+      "step1": {
+        "title": "Create a campaign",
+        "text": "Title + theme, and you become GM automatically."
+      },
+      "step2": {
+        "title": "Invite your players",
+        "text": "They join the campaign as players."
+      },
+      "step3": {
+        "title": "Play and master",
+        "text": "Characters, relations, knowledge, secrets: everything is controlled."
+      },
+      "cta": "Ready to start a session?",
+      "ctaBtn": "Start a session"
+    }
+  },
+  "login": {
+    "title": "Log in",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "submit": "Login",
+    "noAccount": "No account?",
+    "createAccount": "Create an account",
+    "success": "Login successful, welcome!",
+    "invalidCredentials": "Invalid email or password.",
+    "error": "Login error",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "register": {
+    "title": "Create an account",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Create account",
+    "alreadyAccount": "Already have an account?",
+    "login": "Log in",
+    "success": "Account created successfully!",
+    "error": "Unable to create account",
+    "networkError": "Network error"
+  },
+  "forgotPassword": {
+    "title": "Forgot password",
+    "email": "Your email",
+    "submit": "Send link",
+    "sending": "Sending...",
+    "success": "If the email exists, you will receive a link.",
+    "backToLogin": "Back to login"
+  },
+  "resetPassword": {
+    "title": "Reset password",
+    "username": "Username",
+    "newPassword": "New password",
+    "confirm": "Confirm",
+    "submit": "Change password",
+    "success": "Password updated. Log in!",
+    "tooShort": "Password too short.",
+    "mismatch": "Passwords do not match.",
+    "missingToken": "Token missing from link.",
+    "invalidToken": "Invalid or expired token.",
+    "loading": "Loading..."
+  },
+  "dashboard": {
+    "title": "My RPGs",
+    "loading": "Loading…",
+    "notLoggedIn": "Log in to create or join an RPG.",
+    "loginBtn": "Log in",
+    "createTitle": "Create an RPG",
+    "createMeta": "Title + theme, you become GM.",
+    "createBtn": "Create",
+    "joinTitle": "Join an RPG",
+    "joinMeta": "Enter a code (e.g. 75J867).",
+    "joinBtn": "Join",
+    "openBtn": "Open",
+    "quitBtn": "Leave",
+    "lastActivity": "Last activity",
+    "joinModal": {
+      "title": "Join an RPG",
+      "placeholder": "Campaign code (e.g. 75J867)",
+      "cancel": "Cancel",
+      "submit": "Join",
+      "loading": "Connecting…",
+      "enterCode": "Enter a code.",
+      "error": "Unable to join campaign."
+    },
+    "leaveConfirm": "Are you sure you want to leave this RPG?",
+    "leaveError": "Unable to leave campaign."
+  },
+  "profile": {
+    "title": "My profile",
+    "logout": "Log out",
+    "preferences": "Preferences",
+    "disableTransitions": "Disable video transitions",
+    "saving": "Saving...",
+    "username": "Username",
+    "current": "Current",
+    "email": "Email",
+    "password": "Password",
+    "newUsername": "New username",
+    "newEmail": "New email",
+    "newPassword": "New password",
+    "update": "Update",
+    "avatar": "Profile picture",
+    "chooseImage": "Choose a new image",
+    "uploading": "Uploading...",
+    "deleteAccount": "Delete my account",
+    "deleteConfirm": "Are you sure? This will permanently delete your account and all your data.",
+    "usernameUpdated": "Username updated!",
+    "emailUpdated": "Email updated!",
+    "passwordUpdated": "Password updated!",
+    "avatarUpdated": "Avatar updated!",
+    "accountDeleted": "Account deleted successfully!",
+    "transitionsEnabled": "Transitions enabled.",
+    "transitionsDisabled": "Transitions disabled.",
+    "invalidFormat": "Image format not allowed.",
+    "theme": "Application theme"
+  },
+  "campaign": {
+    "code": "Game code",
+    "delete": "Delete campaign",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Are you sure you want to delete this campaign? This action is permanent.",
+    "transferMj": "Transfer GM role",
+    "tabs": {
+      "wall": "Wall",
+      "characters": "Characters",
+      "map": "Map",
+      "addMap": "Add a map"
+    },
+    "transfer": {
+      "title": "Transfer GM role",
+      "hint": "Choose the player who will become GM.",
+      "cancel": "Cancel",
+      "submit": "Transfer",
+      "loading": "Transferring…",
+      "success": "GM role transferred.",
+      "noPlayers": "No players available. At least 1 Player is needed in the campaign.",
+      "error": "Unable to transfer GM role."
+    }
+  },
+  "createCampaign": {
+    "title": "Create a campaign",
+    "subtitle": "You become GM automatically.",
+    "titleLabel": "RPG title",
+    "titlePlaceholder": "E.g. Zombies",
+    "themeLabel": "Theme",
+    "themePlaceholder": "E.g. Survival, Fantasy, Cyberpunk…",
+    "cancel": "Back",
+    "submit": "Create",
+    "creating": "Creating…",
+    "titleRequired": "Title is required."
+  },
+  "characters": {
+    "title": "Characters",
+    "create": "+ Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "notLoggedIn": "Log in.",
+    "noClan": "No clan",
+    "player": "Player",
+    "npc": "NPC",
+    "edit": "Edit",
+    "delete": "Delete",
+    "trashConfirm": "Send this character to the trash?",
+    "relations": {
+      "title": "Relations",
+      "addKnown": "Add a known",
+      "loading": "Loading...",
+      "empty": "No known characters yet.",
+      "added": "Relation added.",
+      "error": "Relation error."
+    },
+    "addKnownModal": {
+      "title": "Add a known",
+      "choose": "Choose a character",
+      "neutral": "Neutral",
+      "friend": "Friend",
+      "enemy": "Enemy",
+      "cancel": "Cancel",
+      "submit": "Add"
+    }
+  },
+  "characterDetail": {
+    "back": "← Back",
+    "loading": "Loading character...",
+    "notFound": "Character not found.",
+    "notLoggedIn": "Log in to view characters.",
+    "player": "Player character",
+    "npc": "Non-player character",
+    "biography": "History",
+    "strengths": "Strengths",
+    "weaknesses": "Weaknesses",
+    "secret": "Secret",
+    "attributes": "Attributes",
+    "skills": "Skills",
+    "age": "years old"
+  },
+  "characterEdit": {
+    "title": "Edit character",
+    "back": "← Back",
+    "loading": "Loading…",
+    "notLoggedIn": "Log in to edit a character.",
+    "nickname": "Nickname",
+    "firstname": "First name",
+    "lastname": "Last name",
+    "age": "Age",
+    "clan": "Clan",
+    "isPlayer": "Player character",
+    "assignPlayer": "Assign to a player",
+    "choosePlayer": "Choose a player",
+    "biography": "History",
+    "strengths": "Strengths",
+    "weaknesses": "Weaknesses",
+    "secret": "Secret",
+    "visibility": "Visibility",
+    "avatar": "Avatar",
+    "video": "Transition video",
+    "noVideo": "None",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Changes saved.",
+    "nicknameRequired": "Nickname is required.",
+    "visibilityModal": {
+      "title": "Visibility",
+      "loading": "Loading…",
+      "noPlayers": "No players found in /members.",
+      "close": "Close"
+    }
+  },
+  "map": {
+    "title": "Map",
+    "noMap": "No map for this campaign.",
+    "noCampaign": "No active campaign.",
+    "loading": "Loading…",
+    "noImage": "Map without image.",
+    "createLocation": "Create a location",
+    "delete": "Delete",
+    "edit": "Edit",
+    "exitEdit": "Exit editing",
+    "createMap": {
+      "title": "Create a map",
+      "name": "Name",
+      "namePlaceholder": "Main map",
+      "image": "Image (required)",
+      "cancel": "Cancel",
+      "submit": "Create map",
+      "creating": "Creating...",
+      "error": "Error creating map."
+    },
+    "deleteMap": {
+      "title": "Delete a map",
+      "existing": "Existing maps",
+      "noMap": "No map",
+      "submit": "Delete",
+      "deleting": "Deleting...",
+      "confirmDelete": "Permanently delete map"
+    },
+    "locationName": "Location name",
+    "locationDescription": "Description (optional)",
+    "close": "Close",
+    "create": "Create",
+    "creating": "Creating…",
+    "locationCreated": "Location created successfully.",
+    "deleteLocation": "Location to delete",
+    "sendToTrash": "Send to trash",
+    "locationTrashed": "Location sent to trash.",
+    "noLocation": "No location"
+  },
+  "trash": {
+    "title": "Trash",
+    "loading": "Loading…",
+    "characters": "Characters",
+    "locations": "Locations",
+    "empty": "None.",
+    "restore": "Restore",
+    "delete": "Delete",
+    "deleteConfirm": "Permanently delete this item?",
+    "restoreError": "Error restoring item",
+    "deleteError": "Error permanently deleting item"
+  },
+  "friends": {
+    "connected": "Online",
+    "offline": "Offline",
+    "noOnline": "No users online",
+    "noOffline": "No offline friends",
+    "loading": "Loading...",
+    "add": "Add a friend",
+    "search": "Search for a player…",
+    "searching": "Searching…",
+    "noResults": "No results",
+    "alreadyFriend": "Already friends",
+    "sent": "Sent",
+    "requestReceived": "Request received",
+    "addBtn": "Add",
+    "incomingRequests": "Incoming requests",
+    "pendingRequests": "Pending",
+    "accept": "Accept",
+    "decline": "Decline",
+    "cancel": "Cancel",
+    "requestSent": "Friend request sent.",
+    "accepted": "Friend added.",
+    "declined": "Request declined.",
+    "cancelled": "Request cancelled.",
+    "removed": "Friend removed.",
+    "removeConfirm": "Remove this friend?",
+    "profile": "Profile",
+    "remove": "Remove friend"
+  },
+  "friendProfile": {
+    "subtitle": "Friend profile",
+    "back": "Back",
+    "remove": "Remove friend",
+    "loading": "Loading…",
+    "jdr": "Their RPGs",
+    "noJdr": "No visible RPGs.",
+    "characters": "Characters",
+    "locations": "Locations",
+    "members": "Members",
+    "role": "Role"
+  },
+  "editor": {
+    "title": "Create a character",
+    "fullTitle": "Content editor",
+    "identity": "Character identity",
+    "nickname": "Nickname (required)",
+    "firstname": "First name",
+    "lastname": "Last name",
+    "age": "Age",
+    "clan": "Clan",
+    "clanPlaceholder": "E.g. Prison group",
+    "isPlayer": "Player character",
+    "history": "History and personality",
+    "biography": "Biography",
+    "strengths": "Strengths",
+    "weaknesses": "Weaknesses",
+    "secret": "Secret",
+    "secretLabel": "Main secret",
+    "avatar": "Avatar",
+    "avatarImage": "Character image",
+    "preview": "Preview:",
+    "cancel": "Cancel",
+    "submit": "Create character",
+    "saving": "Saving...",
+    "notLoggedIn": "You must be logged in.",
+    "noCampaign": "No active campaign (open a campaign).",
+    "notMj": "You are not GM on this campaign.",
+    "nicknameRequired": "Nickname is required for the character.",
+    "success": "Character created successfully."
+  },
+  "location": {
+    "title": "Characters in this location",
+    "back": "← Back",
+    "loading": "Loading characters…",
+    "empty": "No characters in this location.",
+    "notLoggedIn": "Log in to view characters.",
+    "age": "years old",
+    "noClan": "No clan"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Error",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "save": "Save",
+    "back": "Back",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "transition": {
+    "skip": "Skip"
+  }
+}

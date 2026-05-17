@@ -1,6 +1,7 @@
 // src/pages/ProfilePage.jsx
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import { API_URL } from "../config";
@@ -12,6 +13,7 @@ export default function ProfilePage() {
   const { user, token, isAuthenticated, logout, updateUser } = useContext(AuthContext);
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [profileImagePreview, setProfileImagePreview] = useState(defaultAvatar);
   const [newUsername, setNewUsername] = useState("");
@@ -21,9 +23,18 @@ export default function ProfilePage() {
   const [savingTransitions, setSavingTransitions] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
 
+  const [selectedTheme, setSelectedTheme] = useState(
+    localStorage.getItem("appTheme") || "dark-fantasy"
+  );
+
   useEffect(() => {
     if (!isAuthenticated) navigate("/login");
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    document.body.dataset.theme = selectedTheme;
+    localStorage.setItem("appTheme", selectedTheme);
+  }, [selectedTheme]);
 
   const buildAvatarUrl = (avatarUrl) => {
     if (!avatarUrl) return defaultAvatar;
@@ -49,7 +60,6 @@ export default function ProfilePage() {
 
   const callUpdateApi = async (body, successMessage) => {
     const data = await apiUpdateMe(token, body);
-
     updateUser({
       ...user,
       username: data?.username ?? user.username,
@@ -60,7 +70,6 @@ export default function ProfilePage() {
           : (user?.disableTransitions ?? false),
       avatarUrl: data?.avatarUrl ?? user?.avatarUrl ?? null,
     });
-
     addNotification({ type: "success", message: successMessage });
     return data;
   };
@@ -69,7 +78,7 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!newUsername.trim()) return;
     try {
-      await callUpdateApi({ username: newUsername }, "Nom d'utilisateur mis à jour !");
+      await callUpdateApi({ username: newUsername }, t("profile.usernameUpdated"));
       setNewUsername("");
     } catch (err) {
       addNotification({ type: "error", message: err.message });
@@ -80,7 +89,7 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!newEmail.trim()) return;
     try {
-      await callUpdateApi({ email: newEmail }, "Email mis à jour !");
+      await callUpdateApi({ email: newEmail }, t("profile.emailUpdated"));
       setNewEmail("");
     } catch (err) {
       addNotification({ type: "error", message: err.message });
@@ -91,7 +100,7 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!newPassword.trim()) return;
     try {
-      await callUpdateApi({ password: newPassword }, "Mot de passe mis à jour !");
+      await callUpdateApi({ password: newPassword }, t("profile.passwordUpdated"));
       setNewPassword("");
     } catch (err) {
       addNotification({ type: "error", message: err.message });
@@ -105,7 +114,7 @@ export default function ProfilePage() {
     try {
       const data = await callUpdateApi(
         { disableTransitions: next },
-        next ? "Transitions désactivées." : "Transitions activées."
+        next ? t("profile.transitionsDisabled") : t("profile.transitionsEnabled")
       );
       if (typeof data?.disableTransitions === "boolean") {
         setDisableTransitions(data.disableTransitions);
@@ -124,7 +133,7 @@ export default function ProfilePage() {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
-      addNotification({ type: "error", message: "Format d'image non autorisé." });
+      addNotification({ type: "error", message: t("profile.invalidFormat") });
       return;
     }
 
@@ -137,7 +146,7 @@ export default function ProfilePage() {
       const nextAvatarUrl = data?.avatarUrl ?? "/api/me/avatar";
       updateUser({ ...user, avatarUrl: nextAvatarUrl });
       setProfileImagePreview(buildAvatarUrl(nextAvatarUrl));
-      addNotification({ type: "success", message: "Avatar mis à jour !" });
+      addNotification({ type: "success", message: t("profile.avatarUpdated") });
     } catch (err) {
       setProfileImagePreview(user?.avatarUrl ? buildAvatarUrl(user.avatarUrl) : defaultAvatar);
       addNotification({ type: "error", message: err.message });
@@ -149,10 +158,10 @@ export default function ProfilePage() {
   };
 
   const handleDeleteRequest = async () => {
-    if (!window.confirm("Es-tu sûr ? Cela supprimera définitivement ton compte et toutes tes données.")) return;
+    if (!window.confirm(t("profile.deleteConfirm"))) return;
     try {
       await apiDeleteMe(token);
-      addNotification({ type: "success", message: "Compte supprimé avec succès !" });
+      addNotification({ type: "success", message: t("profile.accountDeleted") });
       logout();
       navigate("/");
     } catch (err) {
@@ -168,18 +177,29 @@ export default function ProfilePage() {
         <div className="profile-header-left">
           <img src={profileImagePreview} alt="Avatar" className="profile-avatar-big" />
           <div>
-            <h2>Mon profil</h2>
+            <h2>{t("profile.title")}</h2>
             <p className="profile-username">@{user.username}</p>
             <p className="profile-email">{user.email}</p>
           </div>
         </div>
         <button className="logout-btn" onClick={logout}>
-          Se déconnecter
+          {t("profile.logout")}
         </button>
       </div>
 
+      <section className="profile-themes">
+        <h3>{t("profile.theme")}</h3>
+        <select value={selectedTheme} onChange={(e) => setSelectedTheme(e.target.value)} className="profile-select">
+          <option value="dark-fantasy">Dark Fantasy</option>
+          <option value="frost-wind">Frost Wind</option>
+          <option value="shadow-tech">Shadow Tech</option>
+          <option value="mystic-forest">Mystic Forest</option>
+          <option value="epic-gold">Epic Gold</option>
+        </select>
+      </section>
+
       <section className="profile-section">
-        <h3>Préférences</h3>
+        <h3>{t("profile.preferences")}</h3>
         <div className="profile-form-inline profile-preferences">
           <label className="profile-checkbox-label">
             <input
@@ -188,61 +208,61 @@ export default function ProfilePage() {
               onChange={handleToggleTransitions}
               disabled={savingTransitions}
             />
-            Désactiver les transitions vidéo
+            {t("profile.disableTransitions")}
           </label>
-          {savingTransitions && <span className="profile-saving">Enregistrement...</span>}
+          {savingTransitions && <span className="profile-saving">{t("profile.saving")}</span>}
         </div>
       </section>
 
       <section className="profile-section">
-        <h3>Nom d'utilisateur</h3>
-        <p className="profile-current">Actuel : <strong>{user.username}</strong></p>
+        <h3>{t("profile.username")}</h3>
+        <p className="profile-current">{t("profile.current")} : <strong>{user.username}</strong></p>
         <form className="profile-form-inline" onSubmit={handleUsernameSave}>
           <input
             type="text"
             className="profile-input"
-            placeholder="Nouveau nom d'utilisateur"
+            placeholder={t("profile.newUsername")}
             value={newUsername}
             onChange={(e) => setNewUsername(e.target.value)}
           />
-          <button type="submit" className="profile-save-btn">Mettre à jour</button>
+          <button type="submit" className="profile-save-btn">{t("profile.update")}</button>
         </form>
       </section>
 
       <section className="profile-section">
-        <h3>Email</h3>
-        <p className="profile-current">Actuel : <strong>{user.email}</strong></p>
+        <h3>{t("profile.email")}</h3>
+        <p className="profile-current">{t("profile.current")} : <strong>{user.email}</strong></p>
         <form className="profile-form-inline" onSubmit={handleEmailSave}>
           <input
             type="email"
             className="profile-input"
-            placeholder="Nouvel email"
+            placeholder={t("profile.newEmail")}
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
-          <button type="submit" className="profile-save-btn">Mettre à jour</button>
+          <button type="submit" className="profile-save-btn">{t("profile.update")}</button>
         </form>
       </section>
 
       <section className="profile-section">
-        <h3>Mot de passe</h3>
+        <h3>{t("profile.password")}</h3>
         <form className="profile-form-inline" onSubmit={handlePasswordSave}>
           <input
             type="password"
             className="profile-input"
-            placeholder="Nouveau mot de passe"
+            placeholder={t("profile.newPassword")}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
-          <button type="submit" className="profile-save-btn">Mettre à jour</button>
+          <button type="submit" className="profile-save-btn">{t("profile.update")}</button>
         </form>
       </section>
 
       <section className="profile-section">
-        <h3>Photo de profil</h3>
+        <h3>{t("profile.avatar")}</h3>
         <form className="profile-form-inline" onSubmit={(e) => e.preventDefault()}>
           <label className="profile-image-label">
-            {savingAvatar ? "Envoi en cours..." : "Choisir une nouvelle image"}
+            {savingAvatar ? t("profile.uploading") : t("profile.chooseImage")}
             <input
               type="file"
               accept="image/*"
@@ -255,9 +275,9 @@ export default function ProfilePage() {
       </section>
 
       <section className="profile-section delete-section">
-        <h3>Supprimer mon compte</h3>
+        <h3>{t("profile.deleteAccount")}</h3>
         <button type="button" className="profile-delete-btn" onClick={handleDeleteRequest}>
-          Supprimer mon compte
+          {t("profile.deleteAccount")}
         </button>
       </section>
     </main>

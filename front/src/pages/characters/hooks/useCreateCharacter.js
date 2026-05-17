@@ -1,3 +1,4 @@
+// src/pages/characters/hooks/useCreateCharacter.js
 import { useState, useCallback } from "react";
 import { createCharacter } from "../../../api/charactersApi";
 
@@ -10,12 +11,8 @@ export function useCreateCharacter(token, campaignId, onSuccess) {
       try {
         setSubmitting(true);
         setError(null);
-
         await createCharacter(token, formData);
-
-        if (typeof onSuccess === "function") {
-          onSuccess();
-        }
+        if (typeof onSuccess === "function") onSuccess();
       } catch (e) {
         setError(e.message || "Erreur lors de la création.");
         throw e;
@@ -23,12 +20,8 @@ export function useCreateCharacter(token, campaignId, onSuccess) {
         setSubmitting(false);
       }
     },
-    [token, campaignId, onSuccess]
+    [token, onSuccess]
   );
 
-  return {
-    submitting,
-    error,
-    submit,
-  };
+  return { submitting, error, submit };
 }

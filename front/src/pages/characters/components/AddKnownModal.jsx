@@ -1,3 +1,5 @@
+// src/pages/characters/components/AddKnownModal.jsx
+
 function AddKnownModal({
   candidates,
   selectedId,
@@ -31,7 +33,6 @@ function AddKnownModal({
           <button type="button" className="modal-cancel" onClick={onCancel}>
             Annuler
           </button>
-
           <button type="button" className="modal-confirm" disabled={!selectedId} onClick={onConfirm}>
             Ajouter
           </button>

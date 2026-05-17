@@ -1,4 +1,4 @@
-/* Conteneur global : centre juste le contenu, aucun fond, aucune ombre */
+/* Conteneur global */
 .register-container {
   max-width: 380px;
   margin: 60px auto;
@@ -9,7 +9,7 @@
 .register-title {
   font-size: 2rem;
   margin-bottom: 24px;
-  color: #222;
+  color: white;
 }
 
 /* Formulaire */
@@ -25,7 +25,7 @@
   border-radius: 8px;
   border: 1px solid #ccc;
   font-size: 1rem;
-  background: #eef2ff; /* si tu veux plus minimal : mets background: white; */
+  background: #eef2ff;
 }
 
 .register-input:focus {
@@ -33,7 +33,14 @@
   outline: none;
 }
 
-/* Bouton */
+/* Bouton toggle password */
+.password-toggle {
+  cursor: pointer;
+  color: white;
+  font-size: 1.2rem;
+}
+
+/* Bouton submit */
 .register-button {
   margin-top: 8px;
   padding: 12px;
@@ -49,6 +56,23 @@
 
 .register-button:hover {
   background: #584fd6;
+}
+
+/* Lien bas de page */
+.register-link {
+  margin-top: 20px;
+  font-size: 1rem;
+  color: white;
+}
+
+.register-link a {
+  color: #93c5fd;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }
 
 /* Message d'erreur */

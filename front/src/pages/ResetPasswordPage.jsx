@@ -1,6 +1,7 @@
 // src/pages/ResetPasswordPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { API_URL } from "../config";
 import { useNotification } from "../context/NotificationContext";
 import "../CSS/Login.css";
@@ -9,6 +10,7 @@ export default function ResetPasswordPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { addNotification } = useNotification();
+  const { t } = useTranslation();
 
   const token = useMemo(() => params.get("token") || "", [params]);
 
@@ -19,7 +21,7 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     if (!token) {
-      addNotification({ type: "error", message: "Token manquant dans le lien." });
+      addNotification({ type: "error", message: t("resetPassword.missingToken") });
       setLoading(false);
       return;
     }
@@ -28,28 +30,28 @@ export default function ResetPasswordPage() {
       try {
         const res = await fetch(`${API_URL}/auth/reset-password-info?token=${encodeURIComponent(token)}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || "Token invalide ou expiré.");
+        if (!res.ok) throw new Error(data.message || t("resetPassword.invalidToken"));
         setUsername(data.username || "");
       } catch (e) {
-        addNotification({ type: "error", message: e.message || "Erreur." });
+        addNotification({ type: "error", message: e.message || t("common.error") });
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [token, addNotification]);
+  }, [token, addNotification, t]);
 
   const submit = async (e) => {
     e.preventDefault();
 
     if (password.length < 6) {
-      addNotification({ type: "error", message: "Mot de passe trop court." });
+      addNotification({ type: "error", message: t("resetPassword.tooShort") });
       return;
     }
 
     if (password !== confirm) {
-      addNotification({ type: "error", message: "Les mots de passe ne correspondent pas." });
+      addNotification({ type: "error", message: t("resetPassword.mismatch") });
       return;
     }
 
@@ -61,30 +63,30 @@ export default function ResetPasswordPage() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Impossible de modifier le mot de passe.");
+      if (!res.ok) throw new Error(data.message || t("common.error"));
 
-      addNotification({ type: "success", message: "Mot de passe mis à jour. Connecte-toi !" });
+      addNotification({ type: "success", message: t("resetPassword.success") });
       setTimeout(() => navigate("/login"), 600);
     } catch (e) {
-      addNotification({ type: "error", message: e.message || "Erreur." });
+      addNotification({ type: "error", message: e.message || t("common.error") });
     }
   };
 
-  if (loading) return <div className="login-container">Chargement...</div>;
+  if (loading) return <div className="login-container">{t("resetPassword.loading")}</div>;
 
   return (
     <main className="login-container">
-      <h2 className="login-title">Réinitialiser le mot de passe</h2>
+      <h2 className="login-title">{t("resetPassword.title")}</h2>
 
       <form className="login-form" onSubmit={submit}>
-        <label className="login-label">Pseudo</label>
+        <label className="login-label">{t("resetPassword.username")}</label>
         <input
           className="login-input"
           value={username}
           disabled
         />
 
-        <label className="login-label">Nouveau mot de passe</label>
+        <label className="login-label">{t("resetPassword.newPassword")}</label>
         <input
           className="login-input"
           type="password"
@@ -93,7 +95,7 @@ export default function ResetPasswordPage() {
           required
         />
 
-        <label className="login-label">Confirmer</label>
+        <label className="login-label">{t("resetPassword.confirm")}</label>
         <input
           className="login-input"
           type="password"
@@ -103,7 +105,7 @@ export default function ResetPasswordPage() {
         />
 
         <button type="submit" className="login-button">
-          Modifier le mot de passe
+          {t("resetPassword.submit")}
         </button>
       </form>
     </main>

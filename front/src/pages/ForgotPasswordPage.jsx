@@ -1,12 +1,14 @@
 // src/pages/ForgotPasswordPage.jsx
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useNotification } from "../context/NotificationContext";
 import { API_URL } from "../config";
 import "../CSS/Login.css";
 
 function ForgotPasswordPage() {
   const { addNotification } = useNotification();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -24,12 +26,12 @@ function ForgotPasswordPage() {
       });
 
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message || data?.detail || "Erreur d'envoi");
+      if (!res.ok) throw new Error(data?.message || data?.detail || t("common.error"));
 
-      addNotification({ type: "success", message: "Si l'email existe, tu recevras un lien." });
+      addNotification({ type: "success", message: t("forgotPassword.success") });
       setEmail("");
     } catch (err) {
-      addNotification({ type: "error", message: err.message || "Erreur réseau" });
+      addNotification({ type: "error", message: err.message || t("register.networkError") });
     } finally {
       setLoading(false);
     }
@@ -37,25 +39,25 @@ function ForgotPasswordPage() {
 
   return (
     <main className="login-container">
-      <h2 className="login-title">Mot de passe oublié</h2>
+      <h2 className="login-title">{t("forgotPassword.title")}</h2>
 
       <form className="login-form" onSubmit={handleSend}>
         <input
           className="login-input"
           type="email"
-          placeholder="Ton email"
+          placeholder={t("forgotPassword.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
         />
         <button className="login-button" type="submit" disabled={loading}>
-          {loading ? "Envoi..." : "Envoyer le lien"}
+          {loading ? t("forgotPassword.sending") : t("forgotPassword.submit")}
         </button>
       </form>
 
       <p className="login-link">
-        <Link to="/login">Retour connexion</Link>
+        <Link to="/login">{t("forgotPassword.backToLogin")}</Link>
       </p>
     </main>
   );

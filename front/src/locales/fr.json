@@ -1,1 +1,417 @@
-{}
+{
+  "nav": {
+    "home": "Accueil",
+    "myJdr": "Mes JDR",
+    "login": "Se connecter",
+    "myProfile": "Mon profil"
+  },
+  "home": {
+    "hero": {
+      "title": "Crée et gères tes parties de JDR, quel que soit le thème",
+      "subtitle": "Une plateforme simple pour créer une campagne, inviter tes joueurs, gérer les personnages, et contrôler la visibilité des infos sensibles côté MJ.",
+      "loginBtn": "Se connecter",
+      "profileBtn": "Mon profil",
+      "registerBtn": "Créer un compte",
+      "note": "Après connexion, tu peux créer un JDR. Le créateur devient MJ, les autres rejoignent en tant que joueurs."
+    },
+    "card": {
+      "campaign": "Campagne",
+      "freeTheme": "Thème libre",
+      "jdrName": "Nom du JDR",
+      "desc": "Invités: 4 joueurs • Rôle: MJ • Visibilité: contrôlée",
+      "characters": "Personnages",
+      "locations": "Lieux",
+      "secrets": "Secrets",
+      "knowledge": "Knowledge"
+    },
+    "features": {
+      "title": "Ce que le site apporte",
+      "multiTheme": {
+        "title": "Multi-thèmes",
+        "text": "Une campagne peut être zombie, fantasy, SF, enquête… le système reste le même."
+      },
+      "roles": {
+        "title": "Rôles clairs",
+        "text": "Le créateur est MJ. Les autres sont joueurs. Le MJ peut transférer le rôle plus tard."
+      },
+      "privacy": {
+        "title": "Confidentialité",
+        "text": "Révèle les secrets quand tu le décides… pas avant."
+      }
+    },
+    "howItWorks": {
+      "title": "Comment ça marche",
+      "step1": {
+        "title": "Crée une campagne",
+        "text": "Titre + thème, et tu deviens MJ automatiquement."
+      },
+      "step2": {
+        "title": "Invite tes joueurs",
+        "text": "Ils rejoignent la campagne en tant que joueurs."
+      },
+      "step3": {
+        "title": "Joue et maîtrise",
+        "text": "Personnages, relations, knowledge, secrets: tout est contrôlé."
+      },
+      "cta": "Prêt à lancer une partie ?",
+      "ctaBtn": "Lancer une partie"
+    }
+  },
+  "login": {
+    "title": "Se connecter",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "submit": "Connexion",
+    "noAccount": "Pas de compte ?",
+    "createAccount": "Créer un compte",
+    "success": "Connexion réussie, bienvenue !",
+    "invalidCredentials": "Email ou mot de passe incorrect.",
+    "error": "Erreur de connexion",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
+  },
+  "register": {
+    "title": "Créer un compte",
+    "username": "Nom d'utilisateur",
+    "email": "Email",
+    "password": "Mot de passe",
+    "submit": "Créer le compte",
+    "alreadyAccount": "Déjà un compte ?",
+    "login": "Se connecter",
+    "success": "Compte créé avec succès !",
+    "error": "Impossible de créer le compte",
+    "networkError": "Erreur réseau"
+  },
+  "forgotPassword": {
+    "title": "Mot de passe oublié",
+    "email": "Ton email",
+    "submit": "Envoyer le lien",
+    "sending": "Envoi...",
+    "success": "Si l'email existe, tu recevras un lien.",
+    "backToLogin": "Retour connexion"
+  },
+  "resetPassword": {
+    "title": "Réinitialiser le mot de passe",
+    "username": "Pseudo",
+    "newPassword": "Nouveau mot de passe",
+    "confirm": "Confirmer",
+    "submit": "Modifier le mot de passe",
+    "success": "Mot de passe mis à jour. Connecte-toi !",
+    "tooShort": "Mot de passe trop court.",
+    "mismatch": "Les mots de passe ne correspondent pas.",
+    "missingToken": "Token manquant dans le lien.",
+    "invalidToken": "Token invalide ou expiré.",
+    "loading": "Chargement..."
+  },
+  "dashboard": {
+    "title": "Mes JDR",
+    "loading": "Chargement…",
+    "notLoggedIn": "Connecte-toi pour créer ou rejoindre un JDR.",
+    "loginBtn": "Se connecter",
+    "createTitle": "Créer un JDR",
+    "createMeta": "Titre + thème, tu deviens MJ.",
+    "createBtn": "Créer",
+    "joinTitle": "Rejoindre un JDR",
+    "joinMeta": "Entre un code (ex: 75J867).",
+    "joinBtn": "Rejoindre",
+    "openBtn": "Ouvrir",
+    "quitBtn": "Quitter",
+    "lastActivity": "Dernière activité",
+    "joinModal": {
+      "title": "Rejoindre un JDR",
+      "placeholder": "Code de campagne (ex: 75J867)",
+      "cancel": "Annuler",
+      "submit": "Rejoindre",
+      "loading": "Connexion…",
+      "enterCode": "Entre un code.",
+      "error": "Impossible de rejoindre la campagne."
+    },
+    "leaveConfirm": "Tu es sûr de vouloir quitter ce JDR ?",
+    "leaveError": "Impossible de quitter la campagne."
+  },
+  "profile": {
+    "title": "Mon profil",
+    "logout": "Se déconnecter",
+    "preferences": "Préférences",
+    "disableTransitions": "Désactiver les transitions vidéo",
+    "saving": "Enregistrement...",
+    "username": "Nom d'utilisateur",
+    "current": "Actuel",
+    "email": "Email",
+    "password": "Mot de passe",
+    "newUsername": "Nouveau nom d'utilisateur",
+    "newEmail": "Nouvel email",
+    "newPassword": "Nouveau mot de passe",
+    "update": "Mettre à jour",
+    "avatar": "Photo de profil",
+    "chooseImage": "Choisir une nouvelle image",
+    "uploading": "Envoi en cours...",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteConfirm": "Es-tu sûr ? Cela supprimera définitivement ton compte et toutes tes données.",
+    "usernameUpdated": "Nom d'utilisateur mis à jour !",
+    "emailUpdated": "Email mis à jour !",
+    "passwordUpdated": "Mot de passe mis à jour !",
+    "avatarUpdated": "Avatar mis à jour !",
+    "accountDeleted": "Compte supprimé avec succès !",
+    "transitionsEnabled": "Transitions activées.",
+    "transitionsDisabled": "Transitions désactivées.",
+    "invalidFormat": "Format d'image non autorisé.",
+    "theme": "Thème de l'application"
+  },
+  "campaign": {
+    "code": "Code de la partie",
+    "delete": "Supprimer la campagne",
+    "deleting": "Suppression...",
+    "deleteConfirm": "Tu veux vraiment supprimer cette campagne ? Cette action est définitive.",
+    "transferMj": "Transférer le rôle MJ",
+    "tabs": {
+      "wall": "Mur",
+      "characters": "Personnages",
+      "map": "Carte",
+      "addMap": "Ajouter une carte"
+    },
+    "transfer": {
+      "title": "Transférer le rôle MJ",
+      "hint": "Choisis le joueur qui deviendra MJ.",
+      "cancel": "Annuler",
+      "submit": "Transférer",
+      "loading": "Transfert…",
+      "success": "Rôle MJ transféré.",
+      "noPlayers": "Aucun joueur disponible. Il faut au moins 1 Player dans la campagne.",
+      "error": "Impossible de transférer le rôle MJ."
+    }
+  },
+  "createCampaign": {
+    "title": "Créer une campagne",
+    "subtitle": "Tu deviens MJ automatiquement.",
+    "titleLabel": "Titre du JDR",
+    "titlePlaceholder": "Ex: Zombies",
+    "themeLabel": "Thème",
+    "themePlaceholder": "Ex: Survie, Fantasy, Cyberpunk…",
+    "cancel": "Retour",
+    "submit": "Créer",
+    "creating": "Création…",
+    "titleRequired": "Le titre est obligatoire."
+  },
+  "characters": {
+    "title": "Personnages",
+    "create": "+ Créer",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "notLoggedIn": "Connecte-toi.",
+    "noClan": "Sans clan",
+    "player": "Joueur",
+    "npc": "PNJ",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "trashConfirm": "Envoyer ce personnage dans la corbeille ?",
+    "relations": {
+      "title": "Relations",
+      "addKnown": "Ajouter un connu",
+      "loading": "Chargement...",
+      "empty": "Aucun personnage connu pour l'instant.",
+      "added": "Relation ajoutée.",
+      "error": "Erreur relation."
+    },
+    "addKnownModal": {
+      "title": "Ajouter un connu",
+      "choose": "Choisir un personnage",
+      "neutral": "Neutre",
+      "friend": "Ami",
+      "enemy": "Ennemi",
+      "cancel": "Annuler",
+      "submit": "Ajouter"
+    }
+  },
+  "characterDetail": {
+    "back": "← Retour",
+    "loading": "Chargement du personnage...",
+    "notFound": "Personnage introuvable.",
+    "notLoggedIn": "Connecte-toi pour voir les personnages.",
+    "player": "Personnage joueur",
+    "npc": "Personnage non joueur",
+    "biography": "Histoire",
+    "strengths": "Points forts",
+    "weaknesses": "Faiblesses",
+    "secret": "Secret",
+    "attributes": "Attributs",
+    "skills": "Compétences",
+    "age": "ans"
+  },
+  "characterEdit": {
+    "title": "Modifier le personnage",
+    "back": "← Retour",
+    "loading": "Chargement…",
+    "notLoggedIn": "Connecte-toi pour modifier un personnage.",
+    "nickname": "Surnom",
+    "firstname": "Prénom",
+    "lastname": "Nom",
+    "age": "Âge",
+    "clan": "Clan",
+    "isPlayer": "Personnage joueur",
+    "assignPlayer": "Attribuer à un joueur",
+    "choosePlayer": "Choisir un joueur",
+    "biography": "Histoire",
+    "strengths": "Points forts",
+    "weaknesses": "Faiblesses",
+    "secret": "Secret",
+    "visibility": "Visibilité",
+    "avatar": "Avatar",
+    "video": "Vidéo de transition",
+    "noVideo": "Aucune",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Modifications enregistrées.",
+    "nicknameRequired": "Le surnom (nickname) est obligatoire.",
+    "visibilityModal": {
+      "title": "Visibilité",
+      "loading": "Chargement…",
+      "noPlayers": "Aucun joueur trouvé dans /members.",
+      "close": "Fermer"
+    }
+  },
+  "map": {
+    "title": "Carte",
+    "noMap": "Aucune map pour cette campagne.",
+    "noCampaign": "Aucune campagne active.",
+    "loading": "Chargement…",
+    "noImage": "Map sans image.",
+    "delete": "Supprimer",
+    "edit": "Éditer",
+    "exitEdit": "Quitter l'édition",
+    "createMap": {
+      "title": "Créer une map",
+      "name": "Nom",
+      "namePlaceholder": "Map principale",
+      "image": "Image (obligatoire)",
+      "cancel": "Annuler",
+      "submit": "Créer la map",
+      "creating": "Création...",
+      "error": "Erreur lors de la création de la map."
+    },
+    "deleteMap": {
+      "title": "Supprimer une map",
+      "existing": "Maps existantes",
+      "noMap": "Aucune map",
+      "submit": "Supprimer",
+      "deleting": "Suppression...",
+      "confirmDelete": "Supprimer définitivement la map"
+    },
+    "createLocation": "Créer un lieu",
+    "locationName": "Nom du lieu",
+    "locationDescription": "Description (optionnel)",
+    "close": "Fermer",
+    "create": "Créer",
+    "creating": "Création…",
+    "locationCreated": "Lieu créé avec succès.",
+    "deleteLocation": "Lieu à supprimer",
+    "sendToTrash": "Envoyer à la corbeille",
+    "locationTrashed": "Lieu envoyé à la corbeille.",
+    "noLocation": "Aucun lieu"
+  },
+  "trash": {
+    "title": "Corbeille",
+    "loading": "Chargement…",
+    "characters": "Persos",
+    "locations": "Lieux",
+    "empty": "Aucun.",
+    "restore": "Remettre",
+    "delete": "Supprimer",
+    "deleteConfirm": "Supprimer définitivement cet élément ?",
+    "restoreError": "Erreur lors de la restauration",
+    "deleteError": "Erreur lors de la suppression définitive"
+  },
+  "friends": {
+    "connected": "Connecté",
+    "offline": "Hors ligne",
+    "noOnline": "Aucun utilisateur connecté",
+    "noOffline": "Aucun ami hors ligne",
+    "loading": "Chargement...",
+    "add": "Ajouter un ami",
+    "search": "Rechercher un joueur…",
+    "searching": "Recherche…",
+    "noResults": "Aucun résultat",
+    "alreadyFriend": "Déjà ami",
+    "sent": "Envoyé",
+    "requestReceived": "Demande reçue",
+    "addBtn": "Ajouter",
+    "incomingRequests": "Demandes reçues",
+    "pendingRequests": "En attente",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "cancel": "Annuler",
+    "requestSent": "Demande d'ami envoyée.",
+    "accepted": "Ami ajouté.",
+    "declined": "Demande refusée.",
+    "cancelled": "Demande annulée.",
+    "removed": "Ami retiré.",
+    "removeConfirm": "Retirer cet ami ?",
+    "profile": "Profil",
+    "remove": "Retirer des amis"
+  },
+  "friendProfile": {
+    "subtitle": "Profil ami",
+    "back": "Retour",
+    "remove": "Retirer des amis",
+    "loading": "Chargement…",
+    "jdr": "Ses JDR",
+    "noJdr": "Aucun JDR visible.",
+    "characters": "Personnages",
+    "locations": "Lieux",
+    "members": "Invités",
+    "role": "Rôle"
+  },
+  "editor": {
+    "title": "Créer un personnage",
+    "fullTitle": "Éditeur de contenu",
+    "identity": "Identité du personnage",
+    "nickname": "Surnom (obligatoire)",
+    "firstname": "Prénom",
+    "lastname": "Nom",
+    "age": "Âge",
+    "clan": "Clan",
+    "clanPlaceholder": "Ex: Groupe de la prison",
+    "isPlayer": "Personnage joueur",
+    "history": "Histoire et personnalité",
+    "biography": "Biographie",
+    "strengths": "Points forts",
+    "weaknesses": "Points faibles",
+    "secret": "Secret",
+    "secretLabel": "Secret principal",
+    "avatar": "Avatar",
+    "avatarImage": "Image du personnage",
+    "preview": "Aperçu :",
+    "cancel": "Annuler",
+    "submit": "Créer le personnage",
+    "saving": "Enregistrement...",
+    "notLoggedIn": "Tu dois être connecté.",
+    "noCampaign": "Aucune campagne active (ouvre une campagne).",
+    "notMj": "Tu n'es pas MJ sur cette campagne.",
+    "nicknameRequired": "Le surnom est obligatoire pour le personnage.",
+    "success": "Personnage créé avec succès."
+  },
+  "location": {
+    "title": "Personnages dans ce lieu",
+    "back": "← Retour",
+    "loading": "Chargement des personnages…",
+    "empty": "Aucun personnage dans ce lieu.",
+    "notLoggedIn": "Connecte-toi pour voir les personnages.",
+    "age": "ans",
+    "noClan": "Sans clan"
+  },
+  "common": {
+    "loading": "Chargement…",
+    "error": "Erreur",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "save": "Enregistrer",
+    "back": "Retour",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "transition": {
+    "skip": "Skip"
+  }
+}

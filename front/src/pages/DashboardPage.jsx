@@ -1,6 +1,7 @@
 // src/pages/DashboardPage.jsx
 import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import "../CSS/DashboardPage.css";
 import { AuthContext } from "../context/AuthContext";
 import { apiListCampaigns, apiJoinCampaign, apiLeaveCampaign } from "../api/api";
@@ -8,10 +9,10 @@ import { apiListCampaigns, apiJoinCampaign, apiLeaveCampaign } from "../api/api"
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { token } = useContext(AuthContext);
+  const { t } = useTranslation();
 
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   }, [token, fetchCampaigns]);
 
   const openCampaign = (c) => {
+    if (!c?.id) return;
     localStorage.setItem("activeCampaignId", String(c.id));
     navigate(`/campaigns/${c.id}/wall`, { state: { campaign: c } });
   };
@@ -59,7 +61,7 @@ export default function DashboardPage() {
 
     const code = String(joinCode || "").trim().toUpperCase();
     if (!code) {
-      setJoinError("Entre un code.");
+      setJoinError(t("dashboard.joinModal.enterCode"));
       return;
     }
 
@@ -78,7 +80,7 @@ export default function DashboardPage() {
       setJoinOpen(false);
       navigate(`/campaigns/${campaignId}/wall`, { state: { campaign: data } });
     } catch (err) {
-      const msg = String(err?.message || "Impossible de rejoindre la campagne.");
+      const msg = String(err?.message || t("dashboard.joinModal.error"));
 
       if (msg.includes("<!DOCTYPE") || msg.includes("No route found")) {
         setJoinError("Route join inexistante côté backend.");
@@ -93,24 +95,22 @@ export default function DashboardPage() {
   };
 
   const leaveCampaign = useCallback(async (campaignId) => {
-    const ok = window.confirm("Tu es sûr de vouloir quitter ce JDR ?");
-    if (!ok) return;
-
+    if (!window.confirm(t("dashboard.leaveConfirm"))) return;
     try {
       await apiLeaveCampaign(token, campaignId);
       setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
     } catch (err) {
-      alert(String(err?.message || "Impossible de quitter la campagne."));
+      alert(String(err?.message || t("dashboard.leaveError")));
     }
-  }, [token]);
+  }, [token, t]);
 
   if (!token) {
     return (
       <main className="dash">
-        <h1 className="dash-title">Mes JDR</h1>
-        <div className="dash-state">Connecte-toi pour créer ou rejoindre un JDR.</div>
+        <h1 className="dash-title">{t("dashboard.title")}</h1>
+        <div className="dash-state">{t("dashboard.notLoggedIn")}</div>
         <button className="dash-create" onClick={() => navigate("/login")}>
-          Se connecter
+          {t("dashboard.loginBtn")}
         </button>
       </main>
     );
@@ -118,9 +118,9 @@ export default function DashboardPage() {
 
   return (
     <main className="dash">
-      <h1 className="dash-title">Mes JDR</h1>
+      <h1 className="dash-title">{t("dashboard.title")}</h1>
 
-      {loading && <div className="dash-state">Chargement…</div>}
+      {loading && <div className="dash-state">{t("dashboard.loading")}</div>}
 
       {!loading && (
         <section className="grid">
@@ -131,12 +131,12 @@ export default function DashboardPage() {
             tabIndex={0}
           >
             <div className="card-top">
-              <span className="tag">Créer</span>
+              <span className="tag">{t("dashboard.createBtn")}</span>
               <span className="role role-mj">MJ</span>
             </div>
-            <div className="card-title">Créer un JDR</div>
-            <div className="card-meta">Titre + thème, tu deviens MJ.</div>
-            <div className="card-action">Créer</div>
+            <div className="card-title">{t("dashboard.createTitle")}</div>
+            <div className="card-meta">{t("dashboard.createMeta")}</div>
+            <div className="card-action">{t("dashboard.createBtn")}</div>
           </article>
 
           <article className="card card-join" onClick={openJoin} role="button" tabIndex={0}>
@@ -144,56 +144,58 @@ export default function DashboardPage() {
               <span className="tag">Code</span>
               <span className="role role-player">Player</span>
             </div>
-            <div className="card-title">Rejoindre un JDR</div>
-            <div className="card-meta">Entre un code (ex: 75J867).</div>
-            <div className="card-action">Rejoindre</div>
+            <div className="card-title">{t("dashboard.joinTitle")}</div>
+            <div className="card-meta">{t("dashboard.joinMeta")}</div>
+            <div className="card-action">{t("dashboard.joinBtn")}</div>
           </article>
 
-          {campaigns.map((c) => (
-            <article
-              key={c.id}
-              className="card"
-              onClick={() => openCampaign(c)}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="card-top">
-                <span className="tag">{c.theme || "Thème libre"}</span>
-                <span className={`role ${c.role === "MJ" ? "role-mj" : "role-player"}`}>
-                  {c.role || "Player"}
-                </span>
-              </div>
+          {campaigns.map((c) => {
+            if (!c?.id) return null;
+            return (
+              <article
+                key={c.id}
+                className="card"
+                onClick={() => openCampaign(c)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="card-top">
+                  <span className="tag">{c.theme || "Thème libre"}</span>
+                  <span className={`role ${c.role === "MJ" ? "role-mj" : "role-player"}`}>
+                    {c.role || "Player"}
+                  </span>
+                </div>
 
-              <div className="card-title">{c.title}</div>
+                <div className="card-title">{c.title}</div>
 
-              <div className="card-meta">
-                Dernière activité: {c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "—"}
-              </div>
+                <div className="card-meta">
+                  {t("dashboard.lastActivity")}: {c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "—"}
+                </div>
 
-              <div className="card-action">
-                Ouvrir
-                {c.role === "Player" && (
-                  <button
-                    type="button"
-                    className="btn-quit"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      leaveCampaign(c.id);
-                    }}
-                  >
-                    Quitter
-                  </button>
-                )}
-              </div>
-            </article>
-          ))}
+                <div className="card-action">
+                  {c.role === "Player" && (
+                    <button
+                      type="button"
+                      className="btn-quit"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        leaveCampaign(c.id);
+                      }}
+                    >
+                      {t("dashboard.quitBtn")}
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </section>
       )}
 
       {joinOpen && (
         <div className="modal-overlay" onClick={closeJoin}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Rejoindre un JDR</div>
+            <div className="modal-title">{t("dashboard.joinModal.title")}</div>
 
             {joinError && <div className="create-error">{joinError}</div>}
 
@@ -202,17 +204,17 @@ export default function DashboardPage() {
                 className="create-input"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value)}
-                placeholder="Code de campagne (ex: 75J867)"
+                placeholder={t("dashboard.joinModal.placeholder")}
                 maxLength={12}
                 autoFocus
               />
 
               <div className="modal-actions">
                 <button type="button" className="modal-cancel" onClick={closeJoin} disabled={joinLoading}>
-                  Annuler
+                  {t("dashboard.joinModal.cancel")}
                 </button>
                 <button type="submit" className="modal-confirm" disabled={joinLoading}>
-                  {joinLoading ? "Connexion…" : "Rejoindre"}
+                  {joinLoading ? t("dashboard.joinModal.loading") : t("dashboard.joinModal.submit")}
                 </button>
               </div>
             </form>

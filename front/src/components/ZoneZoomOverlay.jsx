@@ -1,6 +1,5 @@
 // src/components/ZoneZoomOverlay.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_URL } from "../config";
 import { clamp } from "../pages/map/utils/mapMath";
 import { apiGetZoneCharacterPositions, apiSaveZoneCharacterPosition } from "../api/api";
 
@@ -18,7 +17,6 @@ function getZoneZoomStorageKey(zoneId) {
 
 function readSavedZoomFactor(zoneId) {
   if (!zoneId) return 1;
-
   try {
     const raw = window.localStorage.getItem(getZoneZoomStorageKey(zoneId));
     const value = Number(raw);
@@ -30,11 +28,10 @@ function readSavedZoomFactor(zoneId) {
 
 function saveZoomFactor(zoneId, value) {
   if (!zoneId) return;
-
   try {
     window.localStorage.setItem(getZoneZoomStorageKey(zoneId), String(clamp(Number(value), 0.2, 3)));
-  } catch {
-    // rien
+  } catch (e) {
+    console.error("saveZoomFactor error:", e);
   }
 }
 
@@ -44,41 +41,29 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
   const [imgNatural, setImgNatural] = useState(null);
   const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 });
   const [viewportBox, setViewportBox] = useState({ w: 0, h: 0 });
-
   const [positions, setPositions] = useState({});
   const draggingRef = useRef(null);
   const [zoomFactor, setZoomFactor] = useState(() => readSavedZoomFactor(zone?.id));
 
-  const z = useMemo(() => {
-    const top = toNum(zone?.topPercent ?? zone?.top_percent);
-    const left = toNum(zone?.leftPercent ?? zone?.left_percent);
-    const width = toNum(zone?.widthPercent ?? zone?.width_percent);
-    const height = toNum(zone?.heightPercent ?? zone?.height_percent);
-    return { top, left, width, height };
-  }, [zone]);
+  const z = useMemo(() => ({
+    top: toNum(zone?.topPercent ?? zone?.top_percent),
+    left: toNum(zone?.leftPercent ?? zone?.left_percent),
+    width: toNum(zone?.widthPercent ?? zone?.width_percent),
+    height: toNum(zone?.heightPercent ?? zone?.height_percent),
+  }), [zone]);
 
   const zoneAspect = useMemo(() => {
     if (![z.width, z.height].every((n) => Number.isFinite(n)) || z.height <= 0) return "16/9";
-    const r = z.width / z.height;
-    const safe = clamp(r, 0.3, 3.5);
-    return `${safe}`;
+    return `${clamp(z.width / z.height, 0.3, 3.5)}`;
   }, [z.width, z.height]);
 
   const getZoneCharacters = useCallback(() => {
-    const candidates =
-      zone?.characters ??
-      zone?.personnages ??
-      zone?.persons ??
-      zone?.members ??
-      zone?.zoneCharacters ??
-      zone?.zone_characters ??
-      [];
+    const candidates = zone?.characters ?? zone?.personnages ?? zone?.persons ?? zone?.members ?? zone?.zoneCharacters ?? zone?.zone_characters ?? [];
     return Array.isArray(candidates) ? candidates : [];
   }, [zone]);
 
   const getCharacterNickname = useCallback(
-    (c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(),
-    []
+    (c) => String(c?.nickname ?? c?.surnom ?? c?.name ?? "").trim(), []
   );
 
   const getCharacterAvatarUrl = useCallback(
@@ -89,16 +74,15 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     [resolveUrl]
   );
 
+  // Bloque le scroll du body quand l'overlay est ouvert
   useEffect(() => {
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
-
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
     };
   }, []);
 
@@ -108,8 +92,7 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
   const computeCrop = useCallback(() => {
     const viewport = viewportRef.current;
-    if (!viewport) return;
-    if (!imgNatural) return;
+    if (!viewport || !imgNatural) return;
     if (![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) return;
 
     const zonePxW = (z.width / 100) * imgNatural.w;
@@ -125,193 +108,96 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
     let vw = maxW;
     let vh = Math.floor(vw / zoneRatio);
-
-    if (vh > maxH) {
-      vh = maxH;
-      vw = Math.floor(vh * zoneRatio);
-    }
+    if (vh > maxH) { vh = maxH; vw = Math.floor(vh * zoneRatio); }
 
     vw = Math.floor(vw * 0.98);
     vh = Math.floor(vh * 0.98);
-
     setViewportBox({ w: vw, h: vh });
 
-    const scaleX = vw / zonePxW;
-    const scaleY = vh / zonePxH;
-    const baseScale = Math.max(1, Math.min(scaleX, scaleY));
-    const scale = baseScale * zoomFactor;
-
+    const scale = Math.max(1, Math.min(vw / zonePxW, vh / zonePxH)) * zoomFactor;
     let tx = -zonePxX * scale + (vw - zonePxW * scale) / 2;
     let ty = -zonePxY * scale + (vh - zonePxH * scale) / 2;
 
     const scaledImgW = imgNatural.w * scale;
     const scaledImgH = imgNatural.h * scale;
 
-    if (scaledImgW <= vw) {
-      tx = (vw - scaledImgW) / 2;
-    } else {
-      tx = clamp(tx, vw - scaledImgW, 0);
-    }
-
-    if (scaledImgH <= vh) {
-      ty = (vh - scaledImgH) / 2;
-    } else {
-      ty = clamp(ty, vh - scaledImgH, 0);
-    }
+    tx = scaledImgW <= vw ? (vw - scaledImgW) / 2 : clamp(tx, vw - scaledImgW, 0);
+    ty = scaledImgH <= vh ? (vh - scaledImgH) / 2 : clamp(ty, vh - scaledImgH, 0);
 
     setView({ scale, tx, ty });
   }, [imgNatural, z.top, z.left, z.width, z.height, zoomFactor]);
 
+  // Charge les positions des personnages
   useEffect(() => {
     if (!token || !zone?.id) return;
-
     let cancelled = false;
 
     (async () => {
       try {
-        if (typeof apiGetZoneCharacterPositions === "function") {
-          const list = await apiGetZoneCharacterPositions(token, zone.id);
-          if (cancelled) return;
-
-          const next = {};
-          (Array.isArray(list) ? list : []).forEach((p) => {
-            const cid = p?.characterId ?? p?.character_id ?? p?.character?.id;
-            const x = p?.xPercent ?? p?.x_percent;
-            const y = p?.yPercent ?? p?.y_percent;
-
-            const cIdNum = Number(cid);
-            const xNum = Number(x);
-            const yNum = Number(y);
-
-            if (Number.isFinite(cIdNum) && Number.isFinite(xNum) && Number.isFinite(yNum)) {
-              next[String(cIdNum)] = { xPercent: xNum, yPercent: yNum };
-            }
-          });
-
-          setPositions(next);
-          return;
-        }
-
-        const res = await fetch(
-          `${API_URL}/character-zone-positions?zoneId=${encodeURIComponent(String(zone.id))}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (!res.ok) return;
-
-        const data = await res.json().catch(() => []);
-        const list = Array.isArray(data) ? data : [];
+        const list = await apiGetZoneCharacterPositions(token, zone.id);
+        if (cancelled) return;
 
         const next = {};
-        for (const row of list) {
-          const cid = row?.characterId ?? row?.character_id ?? row?.character?.id;
-          const x = row?.xPercent ?? row?.x_percent;
-          const y = row?.yPercent ?? row?.y_percent;
-
-          const cIdNum = Number(cid);
-          const xNum = Number(x);
-          const yNum = Number(y);
-
-          if (Number.isFinite(cIdNum) && Number.isFinite(xNum) && Number.isFinite(yNum)) {
-            next[String(cIdNum)] = { xPercent: xNum, yPercent: yNum };
+        (Array.isArray(list) ? list : []).forEach((p) => {
+          const cid = Number(p?.characterId ?? p?.character_id ?? p?.character?.id);
+          const x = Number(p?.xPercent ?? p?.x_percent);
+          const y = Number(p?.yPercent ?? p?.y_percent);
+          if (Number.isFinite(cid) && Number.isFinite(x) && Number.isFinite(y)) {
+            next[String(cid)] = { xPercent: x, yPercent: y };
           }
-        }
+        });
 
-        if (!cancelled) setPositions(next);
+        setPositions(next);
       } catch (e) {
         if (!cancelled) console.error("Erreur GET positions:", e);
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [token, zone?.id]);
 
-  const savePosition = useCallback(
-    async (characterId, xPercent, yPercent) => {
-      if (!token || !zone?.id) return;
+  const savePosition = useCallback(async (characterId, xPercent, yPercent) => {
+    if (!token || !zone?.id) return;
+    const cid = Number(characterId);
+    if (!Number.isFinite(cid)) return;
 
-      const cid = Number(characterId);
-      if (!Number.isFinite(cid)) return;
+    const x = clamp(Number(xPercent), 0, 100);
+    const y = clamp(Number(yPercent), 0, 100);
 
-      const x = clamp(Number(xPercent), 0, 100);
-      const y = clamp(Number(yPercent), 0, 100);
+    await apiSaveZoneCharacterPosition(token, zone.id, cid, x, y);
+    setPositions((prev) => ({ ...prev, [String(cid)]: { xPercent: x, yPercent: y } }));
+  }, [token, zone?.id]);
 
-      if (typeof apiSaveZoneCharacterPosition === "function") {
-        await apiSaveZoneCharacterPosition(token, zone.id, cid, x, y);
-        setPositions((prev) => ({ ...prev, [String(cid)]: { xPercent: x, yPercent: y } }));
-        return;
-      }
+  const percentToViewportPx = useCallback((xPercent, yPercent) => {
+    if (!imgNatural || ![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) return { x: 0, y: 0 };
 
-      const res = await fetch(
-        `${API_URL}/zones/${encodeURIComponent(String(zone.id))}/characters/${encodeURIComponent(String(cid))}/position`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({ xPercent: x, yPercent: y }),
-        }
-      );
+    const zonePxW = (z.width / 100) * imgNatural.w;
+    const zonePxH = (z.height / 100) * imgNatural.h;
+    const zonePxX = (z.left / 100) * imgNatural.w;
+    const zonePxY = (z.top / 100) * imgNatural.h;
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `HTTP ${res.status}`);
-      }
+    return {
+      x: (zonePxX + (clamp(xPercent, 0, 100) / 100) * zonePxW) * view.scale + view.tx,
+      y: (zonePxY + (clamp(yPercent, 0, 100) / 100) * zonePxH) * view.scale + view.ty,
+    };
+  }, [imgNatural, z.top, z.left, z.width, z.height, view.scale, view.tx, view.ty]);
 
-      setPositions((prev) => ({ ...prev, [String(cid)]: { xPercent: x, yPercent: y } }));
-    },
-    [token, zone?.id]
-  );
+  const viewportPxToPercent = useCallback((xPx, yPx) => {
+    if (!imgNatural || ![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) return { xPercent: 50, yPercent: 50 };
 
-  const percentToViewportPx = useCallback(
-    (xPercent, yPercent) => {
-      if (!imgNatural) return { x: 0, y: 0 };
-      if (![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) {
-        return { x: 0, y: 0 };
-      }
+    const zonePxW = (z.width / 100) * imgNatural.w;
+    const zonePxH = (z.height / 100) * imgNatural.h;
+    const zonePxX = (z.left / 100) * imgNatural.w;
+    const zonePxY = (z.top / 100) * imgNatural.h;
 
-      const zonePxW = (z.width / 100) * imgNatural.w;
-      const zonePxH = (z.height / 100) * imgNatural.h;
-      const zonePxX = (z.left / 100) * imgNatural.w;
-      const zonePxY = (z.top / 100) * imgNatural.h;
+    const imageX = (xPx - view.tx) / view.scale;
+    const imageY = (yPx - view.ty) / view.scale;
 
-      const imageX = zonePxX + (clamp(xPercent, 0, 100) / 100) * zonePxW;
-      const imageY = zonePxY + (clamp(yPercent, 0, 100) / 100) * zonePxH;
-
-      return {
-        x: imageX * view.scale + view.tx,
-        y: imageY * view.scale + view.ty,
-      };
-    },
-    [imgNatural, z.top, z.left, z.width, z.height, view.scale, view.tx, view.ty]
-  );
-
-  const viewportPxToPercent = useCallback(
-    (xPx, yPx) => {
-      if (!imgNatural) return { xPercent: 50, yPercent: 50 };
-      if (![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) {
-        return { xPercent: 50, yPercent: 50 };
-      }
-
-      const zonePxW = (z.width / 100) * imgNatural.w;
-      const zonePxH = (z.height / 100) * imgNatural.h;
-      const zonePxX = (z.left / 100) * imgNatural.w;
-      const zonePxY = (z.top / 100) * imgNatural.h;
-
-      const imageX = (xPx - view.tx) / view.scale;
-      const imageY = (yPx - view.ty) / view.scale;
-
-      const xPercent = clamp(((imageX - zonePxX) / zonePxW) * 100, 0, 100);
-      const yPercent = clamp(((imageY - zonePxY) / zonePxH) * 100, 0, 100);
-
-      return { xPercent, yPercent };
-    },
-    [imgNatural, z.top, z.left, z.width, z.height, view.scale, view.tx, view.ty]
-  );
+    return {
+      xPercent: clamp(((imageX - zonePxX) / zonePxW) * 100, 0, 100),
+      yPercent: clamp(((imageY - zonePxY) / zonePxH) * 100, 0, 100),
+    };
+  }, [imgNatural, z.top, z.left, z.width, z.height, view.scale, view.tx, view.ty]);
 
   const onAvatarPointerDown = (e, characterId) => {
     e.preventDefault();
@@ -321,16 +207,13 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     if (!viewport) return;
 
     const rect = viewport.getBoundingClientRect();
-    const current = positions[String(characterId)] || { xPercent: 50, yPercent: 50 };
-    const { x, y } = percentToViewportPx(current.xPercent, current.yPercent);
-
-    const pointerX = e.clientX - rect.left;
-    const pointerY = e.clientY - rect.top;
+    const pos = positions[String(characterId)] || { xPercent: 50, yPercent: 50 };
+    const { x, y } = percentToViewportPx(pos.xPercent, pos.yPercent);
 
     draggingRef.current = {
       characterId: String(characterId),
-      offsetX: pointerX - x,
-      offsetY: pointerY - y,
+      offsetX: e.clientX - rect.left - x,
+      offsetY: e.clientY - rect.top - y,
       pointerId: e.pointerId,
     };
 
@@ -343,33 +226,23 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     if (!viewport || !d) return;
 
     const rect = viewport.getBoundingClientRect();
-    const pointerX = e.clientX - rect.left;
-    const pointerY = e.clientY - rect.top;
+    const { xPercent, yPercent } = viewportPxToPercent(
+      e.clientX - rect.left - d.offsetX,
+      e.clientY - rect.top - d.offsetY
+    );
 
-    const xPx = pointerX - d.offsetX;
-    const yPx = pointerY - d.offsetY;
-
-    const { xPercent, yPercent } = viewportPxToPercent(xPx, yPx);
-
-    setPositions((prev) => ({
-      ...prev,
-      [d.characterId]: { xPercent, yPercent },
-    }));
+    setPositions((prev) => ({ ...prev, [d.characterId]: { xPercent, yPercent } }));
   };
 
-  const onViewportWheel = useCallback(
-    (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      setZoomFactor((prev) => {
-        const next = clamp(Number(e.deltaY > 0 ? prev * 0.9 : prev * 1.1), 0.2, 3);
-        saveZoomFactor(zone?.id, next);
-        return next;
-      });
-    },
-    [zone?.id]
-  );
+  const onViewportWheel = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setZoomFactor((prev) => {
+      const next = clamp(Number(e.deltaY > 0 ? prev * 0.9 : prev * 1.1), 0.2, 3);
+      saveZoomFactor(zone?.id, next);
+      return next;
+    });
+  }, [zone?.id]);
 
   const onViewportPointerUp = async () => {
     const d = draggingRef.current;
@@ -393,15 +266,12 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
   useEffect(() => {
     computeCrop();
-    const onResize = () => computeCrop();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("resize", computeCrop);
+    return () => window.removeEventListener("resize", computeCrop);
   }, [computeCrop]);
 
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") handleClose();
-    };
+    const onKey = (e) => { if (e.key === "Escape") handleClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [handleClose]);
@@ -451,7 +321,6 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
 
               const nickname = getCharacterNickname(c);
               const avatarUrl = getCharacterAvatarUrl(c);
-
               const pos = positions[String(characterId)] || { xPercent: 50, yPercent: 50 };
               const { x, y } = percentToViewportPx(pos.xPercent, pos.yPercent);
 
@@ -465,16 +334,11 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
                   tabIndex={0}
                 >
                   {avatarUrl ? (
-                    <img
-                      className="zonezoom-avatar-img"
-                      src={avatarUrl}
-                      alt={nickname || "avatar"}
-                      draggable={false}
-                    />
+                    <img className="zonezoom-avatar-img" src={avatarUrl} alt={nickname || "avatar"} draggable={false} />
                   ) : (
                     <div className="zonezoom-avatar-fallback" />
                   )}
-                  {nickname ? <div className="zonezoom-avatar-label">{nickname}</div> : null}
+                  {nickname && <div className="zonezoom-avatar-label">{nickname}</div>}
                 </div>
               );
             })}

@@ -1,6 +1,7 @@
 // src/pages/CampaignPage.jsx
 import { NavLink, Outlet, useParams, useLocation, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import "../CSS/CampaignPage.css";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
@@ -14,10 +15,10 @@ export default function CampaignPage() {
   const navigate = useNavigate();
   const { token, user } = useContext(AuthContext);
   const { addNotification } = useNotification();
+  const { t } = useTranslation();
 
   const [campaign, setCampaign] = useState(() => state?.campaign ?? null);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const [transferOpen, setTransferOpen] = useState(false);
   const [members, setMembers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -70,7 +71,7 @@ export default function CampaignPage() {
 
   const handleDeleteCampaign = async () => {
     if (!token || !id || !isMjInThisCampaign || isDeleting) return;
-    if (!window.confirm("Tu veux vraiment supprimer cette campagne ? Cette action est définitive.")) return;
+    if (!window.confirm(t("campaign.deleteConfirm"))) return;
 
     setIsDeleting(true);
     try {
@@ -81,7 +82,7 @@ export default function CampaignPage() {
       }
       navigate("/dashboard", { replace: true });
     } catch (e) {
-      addNotification({ type: "error", message: e?.message || "Impossible de supprimer la campagne." });
+      addNotification({ type: "error", message: e?.message || t("common.error") });
     } finally {
       setIsDeleting(false);
     }
@@ -110,14 +111,14 @@ export default function CampaignPage() {
       if (candidates.length > 0) {
         setSelectedUserId(String(candidates[0].id ?? candidates[0].userId));
       } else {
-        setMembersError("Aucun joueur disponible. Il faut au moins 1 Player dans la campagne.");
+        setMembersError(t("campaign.transfer.noPlayers"));
       }
     } catch (e) {
-      setMembersError(String(e?.message || "Impossible de charger les membres."));
+      setMembersError(String(e?.message || t("campaign.transfer.error")));
     } finally {
       setMembersLoading(false);
     }
-  }, [token, id, isMjInThisCampaign, user?.id]);
+  }, [token, id, isMjInThisCampaign, user?.id, t]);
 
   const closeTransfer = useCallback(() => {
     if (transferLoading) return;
@@ -130,27 +131,27 @@ export default function CampaignPage() {
     const chosen = members.find((m) => String(m?.id ?? m?.userId) === String(selectedUserId));
     const chosenName = chosen?.username || chosen?.name || chosen?.email || "ce joueur";
 
-    if (!window.confirm(`Tu es sûr de vouloir transférer le rôle MJ à ${chosenName} ?\nTu deviendras Player.`)) return;
+    if (!window.confirm(`${t("campaign.transfer.hint")} ${chosenName} ?`)) return;
 
     setTransferLoading(true);
     try {
       await apiTransferCampaignMj(token, id, Number(selectedUserId));
       setCampaign((prev) => ({ ...(prev || {}), role: "Player" }));
       setTransferOpen(false);
-      addNotification({ type: "success", message: "Rôle MJ transféré." });
+      addNotification({ type: "success", message: t("campaign.transfer.success") });
     } catch (e) {
-      addNotification({ type: "error", message: e?.message || "Impossible de transférer le rôle MJ." });
+      addNotification({ type: "error", message: e?.message || t("campaign.transfer.error") });
     } finally {
       setTransferLoading(false);
     }
-  }, [token, id, isMjInThisCampaign, selectedUserId, members, transferLoading]);
+  }, [token, id, isMjInThisCampaign, selectedUserId, members, transferLoading, t]);
 
   return (
     <main className="campaign">
       <div className="campaign-head">
         <h1 className="campaign-title">{campaignTitle}</h1>
         <div className="campaign-invite">
-          <span className="campaign-invite-label">Code de la partie</span>
+          <span className="campaign-invite-label">{t("campaign.code")}</span>
           <code className="campaign-invite-code">{joinCode}</code>
         </div>
       </div>
@@ -167,7 +168,7 @@ export default function CampaignPage() {
                 onClick={handleDeleteCampaign}
                 disabled={isDeleting}
               >
-                {isDeleting ? "Suppression..." : "Supprimer la campagne"}
+                {isDeleting ? t("campaign.deleting") : t("campaign.delete")}
               </button>
 
               <button
@@ -176,7 +177,7 @@ export default function CampaignPage() {
                 onClick={openTransfer}
                 disabled={membersLoading || transferLoading}
               >
-                Transférer le rôle MJ
+                {t("campaign.transferMj")}
               </button>
             </>
           )}
@@ -189,21 +190,21 @@ export default function CampaignPage() {
           className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
           end
         >
-          Mur
+          {t("campaign.tabs.wall")}
         </NavLink>
 
         <NavLink
           to={`/campaigns/${id}/characters`}
           className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
         >
-          Personnages
+          {t("campaign.tabs.characters")}
         </NavLink>
 
         <NavLink
           to={`/campaigns/${id}/map`}
           className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
         >
-          Carte
+          {t("campaign.tabs.map")}
         </NavLink>
 
         {isMjInThisCampaign && (
@@ -211,7 +212,7 @@ export default function CampaignPage() {
             to={`/campaigns/${id}/createMap`}
             className={({ isActive }) => `campaign-tab ${isActive ? "active" : ""}`}
           >
-            Ajouter une carte
+            {t("campaign.tabs.addMap")}
           </NavLink>
         )}
       </div>
@@ -225,9 +226,9 @@ export default function CampaignPage() {
       {transferOpen && (
         <div className="modal-overlay" onClick={closeTransfer}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Transférer le rôle MJ</div>
+            <div className="modal-title">{t("campaign.transfer.title")}</div>
 
-            {membersLoading && <div className="dash-state">Chargement…</div>}
+            {membersLoading && <div className="dash-state">{t("common.loading")}</div>}
 
             {!membersLoading && membersError && (
               <div className="create-error">{membersError}</div>
@@ -235,7 +236,7 @@ export default function CampaignPage() {
 
             {!membersLoading && !membersError && (
               <>
-                <div className="modal-hint">Choisis le joueur qui deviendra MJ.</div>
+                <div className="modal-hint">{t("campaign.transfer.hint")}</div>
 
                 <select
                   className="create-input"
@@ -251,10 +252,10 @@ export default function CampaignPage() {
 
                 <div className="modal-actions">
                   <button type="button" className="modal-cancel" onClick={closeTransfer} disabled={transferLoading}>
-                    Annuler
+                    {t("campaign.transfer.cancel")}
                   </button>
                   <button type="button" className="modal-confirm" onClick={confirmTransfer} disabled={transferLoading || !selectedUserId}>
-                    {transferLoading ? "Transfert…" : "Transférer"}
+                    {transferLoading ? t("campaign.transfer.loading") : t("campaign.transfer.submit")}
                   </button>
                 </div>
               </>
@@ -263,7 +264,7 @@ export default function CampaignPage() {
             {!membersLoading && membersError && (
               <div className="modal-actions">
                 <button type="button" className="modal-cancel" onClick={closeTransfer} disabled={transferLoading}>
-                  Fermer
+                  {t("common.close")}
                 </button>
               </div>
             )}

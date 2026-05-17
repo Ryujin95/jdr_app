@@ -1,7 +1,7 @@
 // src/pages/map/hooks/useZoneEditor.js
 import { useCallback, useRef, useState } from "react";
-import { API_URL } from "../../../config";
 import { toNum, clampMove, clampResize } from "../utils/mapMath";
+import { apiUpdateZone } from "../../../api/api";
 
 export function useZoneEditor({
   token,
@@ -14,156 +14,88 @@ export function useZoneEditor({
   const [activeZoneId, setActiveZoneId] = useState(null);
   const dragRef = useRef(null);
 
-  const patchZone = useCallback(
-    async (zoneId, payload) => {
-      if (!token) return null;
+  const onZonePointerDown = useCallback((e, z, mode) => {
+    if (!isEditing || !isMjInThisCampaign) return;
 
-      const res = await fetch(`${API_URL}/zones/${zoneId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+    e.preventDefault();
+    e.stopPropagation();
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || `HTTP ${res.status}`);
-      }
+    setActiveZoneId(z.id);
 
-      return res.json().catch(() => null);
-    },
-    [token],
-  );
+    const container = e.currentTarget.closest(".map-container");
+    if (!container) return;
 
-  const onZonePointerDown = useCallback(
-    (e, z, mode) => {
-      if (!isEditing) return;
-      if (!isMjInThisCampaign) return;
+    dragRef.current = {
+      id: z.id,
+      mode,
+      rect: container.getBoundingClientRect(),
+      startX: e.clientX,
+      startY: e.clientY,
+      startTop: toNum(z.topPercent ?? z.top_percent),
+      startLeft: toNum(z.leftPercent ?? z.left_percent),
+      startWidth: toNum(z.widthPercent ?? z.width_percent),
+      startHeight: toNum(z.heightPercent ?? z.height_percent),
+    };
 
-      e.preventDefault();
-      e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }, [isEditing, isMjInThisCampaign]);
 
-      setActiveZoneId(z.id);
-
-      const container = e.currentTarget.closest(".map-container");
-      if (!container) return;
-
-      const rect = container.getBoundingClientRect();
-      const startX = e.clientX;
-      const startY = e.clientY;
-
-      const startTop = toNum(z.topPercent ?? z.top_percent);
-      const startLeft = toNum(z.leftPercent ?? z.left_percent);
-      const startWidth = toNum(z.widthPercent ?? z.width_percent);
-      const startHeight = toNum(z.heightPercent ?? z.height_percent);
-
-      dragRef.current = {
-        id: z.id,
-        mode,
-        rect,
-        startX,
-        startY,
-        startTop,
-        startLeft,
-        startWidth,
-        startHeight,
-      };
-
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    },
-    [isEditing, isMjInThisCampaign],
-  );
-
-  const onZonePointerMove = useCallback(
-    (e) => {
-      if (!isEditing) return;
-      if (!isMjInThisCampaign) return;
-
-      const d = dragRef.current;
-      if (!d) return;
-
-      const dxPx = e.clientX - d.startX;
-      const dyPx = e.clientY - d.startY;
-
-      const dxPct = (dxPx / d.rect.width) * 100;
-      const dyPct = (dyPx / d.rect.height) * 100;
-
-      setZones((prev) =>
-        prev.map((zz) => {
-          if (zz.id !== d.id) return zz;
-
-          const top = toNum(zz.topPercent ?? zz.top_percent);
-          const left = toNum(zz.leftPercent ?? zz.left_percent);
-          const width = toNum(zz.widthPercent ?? zz.width_percent);
-          const height = toNum(zz.heightPercent ?? zz.height_percent);
-
-          if (![top, left, width, height].every((n) => Number.isFinite(n)))
-            return zz;
-
-          if (d.mode === "move") {
-            const ntRaw = d.startTop + dyPct;
-            const nlRaw = d.startLeft + dxPct;
-            const { top: nt, left: nl } = clampMove(
-              ntRaw,
-              nlRaw,
-              width,
-              height,
-            );
-            return { ...zz, topPercent: nt, leftPercent: nl };
-          }
-
-          if (d.mode === "se") {
-            const nwRaw = d.startWidth + dxPct;
-            const nhRaw = d.startHeight + dyPct;
-            const { width: nw, height: nh } = clampResize(
-              top,
-              left,
-              nwRaw,
-              nhRaw,
-            );
-            return { ...zz, widthPercent: nw, heightPercent: nh };
-          }
-
-          return zz;
-        }),
-      );
-    },
-    [isEditing, isMjInThisCampaign, setZones],
-  );
-
-  const onZonePointerUp = useCallback(async () => {
-    if (!isEditing) return;
-    if (!isMjInThisCampaign) return;
+  const onZonePointerMove = useCallback((e) => {
+    if (!isEditing || !isMjInThisCampaign) return;
 
     const d = dragRef.current;
     if (!d) return;
 
+    const dxPct = ((e.clientX - d.startX) / d.rect.width) * 100;
+    const dyPct = ((e.clientY - d.startY) / d.rect.height) * 100;
+
+    setZones((prev) =>
+      prev.map((zz) => {
+        if (zz.id !== d.id) return zz;
+
+        const top = toNum(zz.topPercent ?? zz.top_percent);
+        const left = toNum(zz.leftPercent ?? zz.left_percent);
+        const width = toNum(zz.widthPercent ?? zz.width_percent);
+        const height = toNum(zz.heightPercent ?? zz.height_percent);
+
+        if (![top, left, width, height].every((n) => Number.isFinite(n))) return zz;
+
+        if (d.mode === "move") {
+          const { top: nt, left: nl } = clampMove(d.startTop + dyPct, d.startLeft + dxPct, width, height);
+          return { ...zz, topPercent: nt, leftPercent: nl };
+        }
+
+        if (d.mode === "se") {
+          const { width: nw, height: nh } = clampResize(top, left, d.startWidth + dxPct, d.startHeight + dyPct);
+          return { ...zz, widthPercent: nw, heightPercent: nh };
+        }
+
+        return zz;
+      })
+    );
+  }, [isEditing, isMjInThisCampaign, setZones]);
+
+  const onZonePointerUp = useCallback(async () => {
+    if (!isEditing || !isMjInThisCampaign) return;
+
+    const d = dragRef.current;
+    if (!d) return;
     dragRef.current = null;
 
     const z = zones.find((x) => x.id === d.id);
     if (!z) return;
 
-    const payload = {
-      topPercent: toNum(z.topPercent ?? z.top_percent),
-      leftPercent: toNum(z.leftPercent ?? z.left_percent),
-      widthPercent: toNum(z.widthPercent ?? z.width_percent),
-      heightPercent: toNum(z.heightPercent ?? z.height_percent),
-    };
-
     try {
-      await patchZone(d.id, payload);
+      await apiUpdateZone(token, d.id, {
+        topPercent: toNum(z.topPercent ?? z.top_percent),
+        leftPercent: toNum(z.leftPercent ?? z.left_percent),
+        widthPercent: toNum(z.widthPercent ?? z.width_percent),
+        heightPercent: toNum(z.heightPercent ?? z.height_percent),
+      });
     } catch (err) {
       setError?.(err?.message || "Erreur update zone");
     }
-  }, [isEditing, isMjInThisCampaign, zones, patchZone, setError]);
+  }, [isEditing, isMjInThisCampaign, zones, token, setError]);
 
-  return {
-    activeZoneId,
-    onZonePointerDown,
-    onZonePointerMove,
-    onZonePointerUp,
-  };
+  return { activeZoneId, onZonePointerDown, onZonePointerMove, onZonePointerUp };
 }

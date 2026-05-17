@@ -1,3 +1,4 @@
+// src/pages/characters/components/CharacterRelationsPanel.jsx
 import RelationMiniCard from "./RelationMiniCard";
 
 function CharacterRelationsPanel({
@@ -12,20 +13,15 @@ function CharacterRelationsPanel({
     <div className="relationship-panel inside" onClick={(e) => e.stopPropagation()}>
       <div className="relationship-panel-header">
         <div className="relationship-panel-title">Relations</div>
-
-        <button
-          type="button"
-          className="relationship-add-button"
-          onClick={onAddKnown}
-        >
+        <button type="button" className="relationship-add-button" onClick={onAddKnown}>
           Ajouter un connu
         </button>
       </div>
 
       {!Array.isArray(relations) ? (
-        <p style={{ margin: 0, opacity: 0.8 }}>Chargement...</p>
+        <p className="relationship-hint">Chargement...</p>
       ) : relations.length === 0 ? (
-        <p style={{ margin: 0, opacity: 0.8 }}>Aucun personnage connu pour l’instant.</p>
+        <p className="relationship-hint">Aucun personnage connu pour l'instant.</p>
       ) : (
         <div className="relationship-mini-grid">
           {relations.map((rel) => (

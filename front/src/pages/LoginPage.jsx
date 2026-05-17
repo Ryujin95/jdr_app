@@ -1,6 +1,7 @@
 // src/pages/LoginPage.jsx
 import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 import "../CSS/Login.css";
@@ -9,6 +10,7 @@ function LoginPage() {
   const { login } = useContext(AuthContext);
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,13 +23,13 @@ function LoginPage() {
 
     try {
       await login(email, password);
-      addNotification({ type: "success", message: "Connexion réussie, bienvenue !" });
+      addNotification({ type: "success", message: t("login.success") });
       navigate("/dashboard");
     } catch (err) {
       const raw = err?.message || "";
       const msg = raw.includes("Invalid credentials")
-        ? "Email ou mot de passe incorrect."
-        : raw || "Erreur de connexion";
+        ? t("login.invalidCredentials")
+        : raw || t("login.error");
 
       setError(msg);
       addNotification({ type: "error", message: msg });
@@ -36,13 +38,13 @@ function LoginPage() {
 
   return (
     <main className="login-container">
-      <h2 className="login-title">Se connecter</h2>
+      <h2 className="login-title">{t("login.title")}</h2>
 
       <form className="login-form" onSubmit={handleLogin}>
         <input
           className="login-input"
           type="email"
-          placeholder="Email"
+          placeholder={t("login.email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -53,7 +55,7 @@ function LoginPage() {
           <input
             className="login-input"
             type={showPassword ? "text" : "password"}
-            placeholder="Mot de passe"
+            placeholder={t("login.password")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -71,8 +73,8 @@ function LoginPage() {
                 setShowPassword((v) => !v);
               }
             }}
-            title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-            aria-label="Afficher ou masquer le mot de passe"
+            title={showPassword ? t("login.hidePassword") : t("login.showPassword")}
+            aria-label={t("login.showPassword")}
           >
             {showPassword ? "⚫" : "👁"}
           </span>
@@ -82,17 +84,17 @@ function LoginPage() {
 
         <div className="login-actions">
           <Link className="forgot-link" to="/forgot-password">
-            Mot de passe oublié ?
+            {t("login.forgotPassword")}
           </Link>
         </div>
 
         <button className="login-button" type="submit">
-          Connexion
+          {t("login.submit")}
         </button>
       </form>
 
       <p className="login-link">
-        Pas de compte ? <Link to="/register">Créer un compte</Link>
+        {t("login.noAccount")} <Link to="/register">{t("login.createAccount")}</Link>
       </p>
     </main>
   );

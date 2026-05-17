@@ -1,5 +1,7 @@
 // src/App.jsx
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import "./CSS/App.css";
 
 import Layout from "./components/Layout.jsx";
 import HomePage from "./pages/HomePage.jsx";
@@ -24,6 +26,11 @@ import CampaignCreateMapPage from "./pages/CampaignCreateMapPage.jsx";
 import FriendProfilePage from "./pages/FriendProfilePage.jsx";
 
 function App() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("appTheme") || "dark-fantasy";
+    document.body.dataset.theme = savedTheme;
+  }, []);
+
   return (
     <Layout>
       <NotificationBox />
@@ -41,6 +48,7 @@ function App() {
         <Route path="/characters/:id/edit" element={<CharacterEditPage />} />
         <Route path="/campaigns/create" element={<CreateCampaignPage />} />
         <Route path="/friends/:userId" element={<FriendProfilePage />} />
+
         <Route path="/campaigns/:id" element={<CampaignPage />}>
           <Route index element={<Navigate to="wall" replace />} />
           <Route path="wall" element={<CampaignWallPage />} />
@@ -49,6 +57,7 @@ function App() {
           <Route path="editor" element={<CampaignEditorPage />} />
           <Route path="createMap" element={<CampaignCreateMapPage />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
