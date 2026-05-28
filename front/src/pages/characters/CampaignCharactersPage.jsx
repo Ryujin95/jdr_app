@@ -1,6 +1,7 @@
 // src/pages/characters/CampaignCharactersPage.jsx
 import { useEffect, useContext, useMemo, useState } from "react";
 import { useNavigate, useParams, useOutletContext } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AuthContext } from "../../context/AuthContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useCharacters } from "./hooks/useCharacters";
@@ -17,6 +18,7 @@ import "../../CSS/Characters.css";
 function CampaignCharactersPage() {
   const { token, user } = useContext(AuthContext);
   const { addNotification } = useNotification();
+  const { t } = useTranslation();
 
   const navigate = useNavigate();
   const { id: campaignIdParam } = useParams();
@@ -77,12 +79,12 @@ function CampaignCharactersPage() {
     if (!showAddFor || !selectedCandidateId) return;
     try {
       await handleAddKnown(showAddFor, Number(selectedCandidateId), normalizeTypeForApi(selectedRelationType));
-      addNotification({ type: "success", message: "Relation ajoutée." });
+      addNotification({ type: "success", message: t("characters.relations.added") });
       setShowAddFor(null);
       setSelectedCandidateId("");
       setSelectedRelationType("neutral");
     } catch (e) {
-      addNotification({ type: "error", message: e?.message || "Erreur relation." });
+      addNotification({ type: "error", message: e?.message || t("characters.relations.error") });
     }
   };
 
@@ -121,23 +123,23 @@ function CampaignCharactersPage() {
     return map;
   }, [knownMap, myPlayerCharacterId]);
 
-  if (!token) return <p>Connecte-toi.</p>;
-  if (loading) return <p>Chargement...</p>;
-  if (loadError) return <p>Erreur : {loadError}</p>;
+  if (!token) return <p>{t("characters.notLoggedIn")}</p>;
+  if (loading) return <p>{t("characters.loading")}</p>;
+  if (loadError) return <p>{t("characters.error")} : {loadError}</p>;
 
   return (
     <div className="characters-page">
       <div className="characters-page-header">
-        <h1 className="characters-page-title">Personnages</h1>
+        <h1 className="characters-page-title">{t("characters.title")}</h1>
 
         {isAdminOrOwner && (
           <button
             type="button"
             className="relationship-add-button"
             onClick={() => setCreateOpen(true)}
-            title="Créer un personnage"
+            title={t("characters.create")}
           >
-            + Créer
+            {t("characters.create")}
           </button>
         )}
       </div>
@@ -165,7 +167,7 @@ function CampaignCharactersPage() {
                   onDoubleClick={() => navigate(`/transition-video/${char.id}`)}
                   onEdit={() => navigate(`/characters/${char.id}/edit`)}
                   onTrash={async () => {
-                    if (!window.confirm("Envoyer ce personnage dans la corbeille ?")) return;
+                    if (!window.confirm(t("characters.trashConfirm"))) return;
                     await sendToTrash(char.id);
                   }}
                   onUpdateStars={(toId, stars) => handleUpdateStars(char.id, toId, stars)}

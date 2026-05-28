@@ -1,6 +1,7 @@
 // src/pages/map/CampaignMapPage.jsx
 import { useOutletContext } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { API_URL } from "../../config";
 import { AuthContext } from "../../context/AuthContext";
 import "../../CSS/MapPage.css";
@@ -13,10 +14,10 @@ import { makeResolveUrl } from "./utils/resolveUrl";
 import { useCampaignMapData } from "./hooks/useCampaignMapData";
 import { useZoneEditor } from "./hooks/useZoneEditor";
 
-function MapPageWrapper({ children }) {
+function MapPageWrapper({ children, title }) {
   return (
     <div className="map-page">
-      <h1 className="map-title">Carte</h1>
+      <h1 className="map-title">{title}</h1>
       {children}
     </div>
   );
@@ -26,6 +27,7 @@ export default function CampaignMapPage() {
   const outlet = useOutletContext() || {};
   const campaignId = outlet?.campaignId ? String(outlet.campaignId) : null;
   const isMjInThisCampaign = !!outlet?.isMjInThisCampaign;
+  const { t } = useTranslation();
 
   const { token } = useContext(AuthContext);
 
@@ -91,22 +93,22 @@ export default function CampaignMapPage() {
     try {
       await moveCharacterToZone(draggedCharacter.id, targetZone);
     } catch (e) {
-      setError(e?.message || "Impossible de déplacer le personnage.");
+      setError(e?.message || t("common.error"));
     } finally {
       setDraggedCharacter(null);
     }
-  }, [draggedCharacter, moveCharacterToZone, setError]);
+  }, [draggedCharacter, moveCharacterToZone, setError, t]);
 
-  if (!campaignId) return <MapPageWrapper><div className="map-empty">Aucune campagne active.</div></MapPageWrapper>;
-  if (loadingMap) return <MapPageWrapper><div className="map-empty">Chargement…</div></MapPageWrapper>;
-  if (error) return <MapPageWrapper><div className="map-empty">{error}</div></MapPageWrapper>;
-  if (!selectedMap) return <MapPageWrapper><div className="map-empty">Aucune map pour cette campagne.</div></MapPageWrapper>;
+  if (!campaignId) return <MapPageWrapper title={t("map.title")}><div className="map-empty">{t("map.noCampaign")}</div></MapPageWrapper>;
+  if (loadingMap) return <MapPageWrapper title={t("map.title")}><div className="map-empty">{t("map.loading")}</div></MapPageWrapper>;
+  if (error) return <MapPageWrapper title={t("map.title")}><div className="map-empty">{error}</div></MapPageWrapper>;
+  if (!selectedMap) return <MapPageWrapper title={t("map.title")}><div className="map-empty">{t("map.noMap")}</div></MapPageWrapper>;
 
   return (
     <div className="map-page">
       <div className="map-header">
         <h1 className="map-title">
-          {selectedMap?.name ? `Carte : ${selectedMap.name}` : "Carte"}
+          {selectedMap?.name ? `${t("map.title")} : ${selectedMap.name}` : t("map.title")}
         </h1>
 
         {Array.isArray(maps) && maps.length > 0 && (
@@ -131,7 +133,7 @@ export default function CampaignMapPage() {
               className="map-edit-btn"
               onClick={() => setPanel((p) => (p === "create" ? null : "create"))}
             >
-              Créer un lieu
+              {t("map.createLocation")}
             </button>
 
             <button
@@ -140,7 +142,7 @@ export default function CampaignMapPage() {
               onClick={() => setPanel((p) => (p === "delete" ? null : "delete"))}
               disabled={loadingLocations}
             >
-              Supprimer
+              {t("map.delete")}
             </button>
 
             <button
@@ -148,9 +150,9 @@ export default function CampaignMapPage() {
               className={`map-edit-btn ${isEditing ? "active" : ""}`}
               onClick={() => setIsEditing((v) => !v)}
               disabled={!img}
-              title={!img ? "Ajoute une image à la map d'abord" : undefined}
+              title={!img ? t("map.noImage") : undefined}
             >
-              {isEditing ? "Quitter l'édition" : "Éditer"}
+              {isEditing ? t("map.exitEdit") : t("map.edit")}
             </button>
           </div>
         )}
@@ -166,8 +168,8 @@ export default function CampaignMapPage() {
               (l) => String(l?.name || "").trim().toLowerCase().replace(/\s+/g, " ") === clean
             );
 
-            if (!clean) { setError("Le nom du lieu est obligatoire."); return; }
-            if (exists) { setError("Ce lieu existe déjà. Choisis un autre nom."); return; }
+            if (!clean) { setError(t("map.locationName") + " " + t("common.error")); return; }
+            if (exists) { setError(t("map.locationExists")); return; }
 
             await createLocation({ name, description });
             await refreshLocations();
@@ -200,7 +202,7 @@ export default function CampaignMapPage() {
       )}
 
       {!img ? (
-        <div className="map-empty">Map sans image.</div>
+        <div className="map-empty">{t("map.noImage")}</div>
       ) : (
         <MapCanvas
           img={img}

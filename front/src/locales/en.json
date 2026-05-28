@@ -268,7 +268,22 @@
       "loading": "Loading…",
       "noPlayers": "No players found in /members.",
       "close": "Close"
-    }
+    },
+    "visibilityError": "Visibility error.",
+    "visibilityToggleError": "Toggle visibility error.",
+    "loadError": "Error loading character.",
+    "saveError": "Error saving changes.",
+    "loginRequired": "Log in to edit a character.",
+    "playerCharacter": "Player character",
+    "assignPlayer": "Assign to a player",
+    "choosePlayer": "Choose a player",
+    "avatarPreview": "Avatar preview",
+    "imageFormats": "jpg, png, webp",
+    "transitionVideo": "Transition video",
+    "videoFormats": "mp4 (recommended), webm",
+    "none": "None",
+    "close": "Close",
+    "noPlayers": "No players found in /members."
   },
   "map": {
     "title": "Map",
@@ -307,7 +322,8 @@
     "deleteLocation": "Location to delete",
     "sendToTrash": "Send to trash",
     "locationTrashed": "Location sent to trash.",
-    "noLocation": "No location"
+    "noLocation": "No location",
+    "locationExists": "This location already exists. Choose another name."
   },
   "trash": {
     "title": "Trash",

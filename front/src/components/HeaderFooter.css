@@ -18,18 +18,26 @@
 }
 
 .header-center {
-  flex: 1;
+  height: 220px;
+  overflow: hidden;
+
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  transform: translateY(-110px);
 }
 
 .header-logo {
-  height: 30rem;
-  width: auto;  
+  height: 480px;
+  width: auto;
   object-fit: contain;
-  cursor: pointer;
-  margin-top: -150px;
+
+  transform: translateY(-90px);
+}
+
+.logo-link {
+  display: inline-block;
+  height: 120px;
 }
 
 .site-title {

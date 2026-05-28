@@ -1,3 +1,5 @@
+// src/pages/characters/components/CharacterCard.jsx
+import { useTranslation } from "react-i18next";
 import CharacterRelationsPanel from "./CharacterRelationsPanel";
 
 function scoreToStars(score) {
@@ -12,15 +14,11 @@ function scoreToStars(score) {
 
 function StarsRow({ stars }) {
   if (stars == null) return null;
-
   const n = Math.max(0, Math.min(5, Number(stars) || 0));
-
   return (
     <div className="character-affinity-stars" aria-label={`Affinité: ${n} sur 5`}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={i < n ? "star on" : "star off"}>
-          ★
-        </span>
+        <span key={i} className={i < n ? "star on" : "star off"}>★</span>
       ))}
     </div>
   );
@@ -43,6 +41,7 @@ function CharacterCard({
   onRemoveRelation,
   onAddKnown,
 }) {
+  const { t } = useTranslation();
   const avatarSrc = resolveAvatarUrl(character.avatarUrl);
 
   const ownerLabel =
@@ -72,26 +71,21 @@ function CharacterCard({
               {character.nickname?.charAt(0) || character.firstname?.charAt(0) || "?"}
             </div>
           )}
-
           <StarsRow stars={stars} />
           {relationLabel && <div className="character-affinity-type">{relationLabel}</div>}
         </div>
 
         <div className="character-info">
           <h3 className="character-nickname">{character.nickname}</h3>
-
-          <p className="character-name">
-            {character.firstname} {character.lastname}
-          </p>
-
-          <p className="character-age">{character.age} ans</p>
+          <p className="character-name">{character.firstname} {character.lastname}</p>
+          <p className="character-age">{character.age} {t("characterDetail.age")}</p>
 
           {character.isPlayer ? (
             <span className="character-badge player-badge">
-              Joueur{ownerLabel ? ` · ${ownerLabel}` : ""}
+              {t("characters.player")}{ownerLabel ? ` · ${ownerLabel}` : ""}
             </span>
           ) : (
-            <span className="character-badge npc-badge">PNJ</span>
+            <span className="character-badge npc-badge">{t("characters.npc")}</span>
           )}
 
           {isAdminOrOwner && (
@@ -99,23 +93,16 @@ function CharacterCard({
               <button
                 type="button"
                 className="character-edit-button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit?.();
-                }}
+                onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
               >
-                Modifier
+                {t("characters.edit")}
               </button>
-
               <button
                 type="button"
                 className="character-trash-button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTrash?.();
-                }}
+                onClick={(e) => { e.stopPropagation(); onTrash?.(); }}
               >
-                Supprimer
+                {t("characters.delete")}
               </button>
             </div>
           )}

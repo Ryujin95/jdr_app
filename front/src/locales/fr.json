@@ -269,7 +269,22 @@
       "loading": "Chargement…",
       "noPlayers": "Aucun joueur trouvé dans /members.",
       "close": "Fermer"
-    }
+    },
+    "visibilityError": "Erreur visibilité.",
+    "visibilityToggleError": "Erreur toggle visibilité.",
+    "loadError": "Erreur lors du chargement.",
+    "saveError": "Erreur lors de l'enregistrement.",
+    "loginRequired": "Connecte-toi pour modifier un personnage.",
+    "playerCharacter": "Personnage joueur",
+    "assignPlayer": "Attribuer à un joueur",
+    "choosePlayer": "Choisir un joueur",
+    "avatarPreview": "Aperçu avatar",
+    "imageFormats": "jpg, png, webp",
+    "transitionVideo": "Vidéo de transition",
+    "videoFormats": "mp4 (recommandé), webm",
+    "none": "Aucune",
+    "close": "Fermer",
+    "noPlayers": "Aucun joueur trouvé dans /members."
   },
   "map": {
     "title": "Carte",
@@ -308,7 +323,8 @@
     "deleteLocation": "Lieu à supprimer",
     "sendToTrash": "Envoyer à la corbeille",
     "locationTrashed": "Lieu envoyé à la corbeille.",
-    "noLocation": "Aucun lieu"
+    "noLocation": "Aucun lieu",
+    "locationExists": "Ce lieu existe déjà. Choisis un autre nom."
   },
   "trash": {
     "title": "Corbeille",
