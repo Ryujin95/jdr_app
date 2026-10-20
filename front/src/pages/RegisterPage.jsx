@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useNotification } from "../context/NotificationContext";
+import { useNotification } from "../context/useNotification";
 import "../CSS/Register.css";
 import { API_URL } from "../config";
 
@@ -30,7 +30,7 @@ function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        addNotification({ type: "error", message: data.error || t("register.error") });
+        addNotification({ type: "error", message: data.message || data.error || t("register.error") });
         return;
       }
 

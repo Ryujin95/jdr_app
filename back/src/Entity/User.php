@@ -31,27 +31,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private array $roles = [];
 
     #[ORM\Column]
-    #[Assert\NotBlank(message: "Le mot de passe est obligatoire.")]
-    #[Assert\Length(
-        min: 8,
-        minMessage: "Le mot de passe doit contenir au minimum 8 caractères."
-    )]
-    #[Assert\Regex(
-        pattern: "/[A-Z]/",
-        message: "Le mot de passe doit contenir au moins une majuscule."
-    )]
-    #[Assert\Regex(
-        pattern: "/[a-z]/",
-        message: "Le mot de passe doit contenir au moins une minuscule."
-    )]
-    #[Assert\Regex(
-        pattern: "/\d/",
-        message: "Le mot de passe doit contenir au moins un chiffre."
-    )]
-    #[Assert\Regex(
-        pattern: "/[^A-Za-z0-9]/",
-        message: "Le mot de passe doit contenir au moins un caractère spécial."
-    )]
     private ?string $password = null;
 
     #[ORM\Column(length: 255, unique: true)]

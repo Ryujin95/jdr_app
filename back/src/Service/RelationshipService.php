@@ -5,8 +5,6 @@ namespace App\Service;
 
 use App\Entity\CharacterRelationship;
 use App\Entity\User;
-use App\Repository\Campaign\CampaignMemberRepository;
-use App\Repository\Campaign\CampaignRepository;
 use App\Repository\Character\CharacterRelationshipRepository;
 use App\Repository\Character\CharacterRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,8 +18,7 @@ final class RelationshipService
         private EntityManagerInterface $em,
         private CharacterRepository $characterRepository,
         private CharacterRelationshipRepository $relationshipRepository,
-        private CampaignRepository $campaignRepository,
-        private CampaignMemberRepository $campaignMemberRepository,
+        private CampaignAuthorization $campaignAuthorization,
     ) {}
 
     private function getUserOrDeny(): User
@@ -41,31 +38,7 @@ final class RelationshipService
 
     private function assertCampaignMjOrAdmin(int $campaignId): void
     {
-        $user = $this->getUserOrDeny();
-
-        if ($this->security->isGranted('ROLE_ADMIN')) {
-            return;
-        }
-
-        $campaign = $this->campaignRepository->find($campaignId);
-        if (!$campaign) {
-            throw new \InvalidArgumentException('Campaign not found');
-        }
-
-        $member = $this->campaignMemberRepository->findOneBy([
-            'campaign' => $campaign,
-            'user' => $user,
-        ]);
-
-        if (!$member) {
-            throw new AccessDeniedException('Not a campaign member');
-        }
-
-        $role = method_exists($member, 'getRole') ? $member->getRole() : null;
-
-        if ($role !== 'MJ') {
-            throw new AccessDeniedException('MJ only');
-        }
+        $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ']);
     }
 
     private function assertCharacterInCampaign(int $campaignId, int $characterId): void
@@ -75,10 +48,7 @@ final class RelationshipService
             throw new \InvalidArgumentException('Character not found');
         }
 
-        $cCampaign = $c->getCampaign();
-        if (!$cCampaign || (int) $cCampaign->getId() !== (int) $campaignId) {
-            throw new AccessDeniedException('Character not in campaign');
-        }
+        $this->campaignAuthorization->assertResourceBelongsToCampaign($c, $campaignId);
     }
 
     private function assertBothCharactersInSameCampaign(int $campaignId, int $fromId, int $toId): void
@@ -308,17 +278,13 @@ final class RelationshipService
 
     public function getKnownMiniCardsForViewer(int $campaignId, int $fromCharacterId): array
     {
-        // Admin => OK
-        if ($this->security->isGranted('ROLE_ADMIN')) {
-            return $this->getKnownMiniCardsForCharacter($campaignId, $fromCharacterId);
-        }
+        // Every viewer must be a member of this campaign, even if their character
+        // still points to it after membership was removed.
+        $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ', 'Player']);
 
-        // MJ => OK (on essaye la règle MJ existante)
-        try {
-            $this->assertCampaignMjOrAdmin($campaignId);
+        // MJ/admin => all campaign characters
+        if ($this->campaignAuthorization->hasCampaignRole($campaignId, ['MJ'])) {
             return $this->getKnownMiniCardsForCharacter($campaignId, $fromCharacterId);
-        } catch (\Throwable $e) {
-            // pas MJ => on tente la règle joueur
         }
 
         // Joueur => uniquement son perso (owner = user connecté)

@@ -9,6 +9,7 @@ import {
   apiUpdateRelationshipStars,
 } from "./api";
 import { API_URL } from "../config";
+import { apiErrorFromResponse } from "./requestContracts";
 
 export const fetchCharacters = (token, campaignId) =>
   apiListCharacters(token, campaignId);
@@ -43,8 +44,7 @@ export async function moveCharacterToTrash(token, id, campaignId) {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Erreur HTTP ${res.status}`);
+    throw await apiErrorFromResponse(res, `Erreur HTTP ${res.status}`);
   }
 
   return res.json().catch(() => null);
@@ -58,8 +58,7 @@ export async function createCharacter(token, formData) {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Erreur création (HTTP ${res.status})`);
+    throw await apiErrorFromResponse(res, `Erreur création (HTTP ${res.status})`);
   }
 
   return res.json().catch(() => null);
@@ -72,8 +71,7 @@ export async function fetchKnownViewer(token, fromId, campaignId) {
   );
 
   if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(txt || `HTTP ${res.status}`);
+    throw await apiErrorFromResponse(res, `HTTP ${res.status}`);
   }
 
   return res.json().catch(() => []);

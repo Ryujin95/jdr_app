@@ -8,6 +8,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 
 class CampaignController extends AbstractController
@@ -74,9 +76,11 @@ class CampaignController extends AbstractController
                 'title' => $campaign->getTitle(),
                 'theme' => $campaign->getTheme(),
                 'joinCode' => $campaign->getJoinCode(),
-                'role' => 'Player',
+                'role' => $this->campaignService->getMemberRole($user, $campaign),
                 'updatedAt' => $campaign->getUpdatedAt()->format(\DateTimeInterface::ATOM),
             ], 200);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
         } catch (\RuntimeException $e) {
@@ -112,6 +116,12 @@ class CampaignController extends AbstractController
         try {
             $this->campaignService->deleteCampaign($user, $id);
             return $this->json(['message' => 'Campagne supprimée'], 200);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        } catch (\Symfony\Component\HttpKernel\Exception\ConflictHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 409);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
@@ -122,14 +132,19 @@ class CampaignController extends AbstractController
 #[Route('/api/campaigns/{id}/leave', name: 'api_campaign_leave', methods: ['DELETE'])]
     public function leave(int $id): JsonResponse
     {
-        /** @var \App\Entity\User $user */
         $user = $this->getUser();
 
-        if (!$user) {
+        if (!$user instanceof User) {
             return $this->json(['message' => 'Unauthorized'], 401);
         }
 
-        $this->campaignService->leaveCampaign($user, $id);
+        try {
+            $this->campaignService->leaveCampaign($user, $id);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        }
 
         return $this->json(['message' => 'Tu as quitté la campagne.'], 200);
     }
@@ -142,11 +157,24 @@ public function transferMj(int $id, Request $request): JsonResponse
     }
 
     $data = json_decode($request->getContent(), true);
-    $newMjUserId = (int)($data['userId'] ?? 0);
+    if (!is_array($data)) {
+        return $this->json(['message' => 'Corps JSON invalide.'], 400);
+    }
+
+    $newMjUserId = filter_var($data['userId'] ?? null, FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1],
+    ]);
+    if ($newMjUserId === false) {
+        return $this->json(['message' => 'Utilisateur cible invalide.'], 400);
+    }
 
     try {
         $this->campaignService->transferMj($user, $id, $newMjUserId);
         return $this->json(['message' => 'MJ transféré'], 200);
+    } catch (AccessDeniedHttpException $e) {
+        return $this->json(['message' => $e->getMessage()], 403);
+    } catch (NotFoundHttpException $e) {
+        return $this->json(['message' => $e->getMessage()], 404);
     } catch (\InvalidArgumentException $e) {
         return $this->json(['message' => $e->getMessage()], 400);
     }

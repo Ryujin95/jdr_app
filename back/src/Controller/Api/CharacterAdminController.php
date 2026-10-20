@@ -6,12 +6,14 @@ use App\Entity\User;
 use App\Repository\Campaign\CampaignMemberRepository;
 use App\Repository\Character\CharacterRepository;
 use App\Repository\UserRepository;
+use App\Service\CampaignAuthorization;
 use App\Service\CharacterService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 #[Route('/api/admin')]
 class CharacterAdminController extends AbstractController
@@ -21,37 +23,36 @@ class CharacterAdminController extends AbstractController
         private CharacterRepository $characterRepository,
         private UserRepository $userRepository,
         private CampaignMemberRepository $campaignMemberRepository,
+        private CampaignAuthorization $campaignAuthorization,
     ) {}
 
-    private function assertAdminOrMj(): void
+    private function assertAdminOrCampaignMj(int $campaignId): void
     {
-        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_MJ')) {
-            throw new AccessDeniedException('Permission denied');
+        $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ']);
+    }
+
+    private function authorizationError(\Closure $check): ?JsonResponse
+    {
+        try {
+            $check();
+            return null;
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
         }
     }
-
-   private function assertAdminOrCampaignMj(int $campaignId): void
-{
-    if ($this->isGranted('ROLE_ADMIN')) {
-        return;
-    }
-
-    $user = $this->getUser();
-    $userId = ($user instanceof \App\Entity\User) ? (int) $user->getId() : 0;
-
-    if ($userId <= 0) {
-        throw new AccessDeniedException('Permission denied');
-    }
-
-    if (!$this->campaignMemberRepository->isUserMjInCampaign($campaignId, $userId)) {
-        throw new AccessDeniedException('MJ only');
-    }
-}
 
     #[Route('/characters', name: 'api_admin_characters_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $this->assertAdminOrMj();
+        $campaignId = $this->requestCampaignId($request);
+        if ($campaignId === null || $campaignId <= 0) {
+            return $this->json(['message' => 'campaignId requis'], 400);
+        }
+
+        $error = $this->authorizationError(fn() => $this->assertAdminOrCampaignMj($campaignId));
+        if ($error) return $error;
 
         try {
             $character = $this->characterService->createFromRequest($request);
@@ -60,6 +61,8 @@ class CharacterAdminController extends AbstractController
             return $this->json($view, 201);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\Throwable) {
             return $this->json(['message' => 'Server error'], 500);
         }
@@ -68,12 +71,13 @@ class CharacterAdminController extends AbstractController
     #[Route('/characters/{id}', name: 'api_admin_characters_update', methods: ['PUT', 'PATCH'])]
     public function update(int $id, Request $request): JsonResponse
     {
-        $this->assertAdminOrMj();
-
         $character = $this->characterRepository->find($id);
         if (!$character) {
             return $this->json(['message' => 'Character not found'], 404);
         }
+
+        $error = $this->authorizationError(fn() => $this->campaignAuthorization->assertResourceRole($character, ['MJ']));
+        if ($error) return $error;
 
         try {
             $character = $this->characterService->updateFromRequest($character, $request);
@@ -82,6 +86,8 @@ class CharacterAdminController extends AbstractController
             return $this->json($view, 200);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\Throwable) {
             return $this->json(['message' => 'Server error'], 500);
         }
@@ -90,7 +96,8 @@ class CharacterAdminController extends AbstractController
     #[Route('/campaigns/{campaignId}/available-players', name: 'api_admin_campaign_available_players', methods: ['GET'])]
     public function availablePlayers(int $campaignId): JsonResponse
     {
-        $this->assertAdminOrCampaignMj($campaignId);
+        $error = $this->authorizationError(fn() => $this->assertAdminOrCampaignMj($campaignId));
+        if ($error) return $error;
 
         try {
             $rows = $this->campaignMemberRepository->findAvailablePlayersWithoutCharacter($campaignId);
@@ -113,12 +120,12 @@ class CharacterAdminController extends AbstractController
     #[Route('/characters/{id}/owner', name: 'api_admin_characters_assign_owner', methods: ['PATCH'])]
     public function assignOwner(int $id, Request $request): JsonResponse
     {
-        $this->assertAdminOrMj();
-
         $character = $this->characterRepository->find($id);
         if (!$character) {
             return $this->json(['message' => 'Character not found'], 404);
         }
+        $error = $this->authorizationError(fn() => $this->campaignAuthorization->assertResourceRole($character, ['MJ']));
+        if ($error) return $error;
 
         $data = json_decode($request->getContent() ?: '', true) ?? [];
         $userIdRaw = $data['userId'] ?? null;
@@ -146,7 +153,7 @@ class CharacterAdminController extends AbstractController
     #[Route('/users', name: 'api_admin_users_index', methods: ['GET'])]
     public function users(): JsonResponse
     {
-        $this->assertAdminOrMj();
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
         $users = $this->userRepository->findAll();
 
@@ -157,8 +164,6 @@ class CharacterAdminController extends AbstractController
             $out[] = [
                 'id' => $u->getId(),
                 'username' => method_exists($u, 'getUsername') ? $u->getUsername() : null,
-                'email' => method_exists($u, 'getEmail') ? $u->getEmail() : null,
-                'roles' => $u->getRoles(),
             ];
         }
 
@@ -173,12 +178,8 @@ public function show(int $id, Request $request): JsonResponse
         return $this->json(['message' => 'Character not found'], 404);
     }
 
-    $campaign = $character->getCampaign();
-    if (!$campaign) {
-        return $this->json(['message' => 'Character has no campaign'], 400);
-    }
-
-    $this->assertAdminOrCampaignMj((int) $campaign->getId());
+    $error = $this->authorizationError(fn() => $this->campaignAuthorization->assertResourceRole($character, ['MJ']));
+    if ($error) return $error;
 
     $campaignId = $request->query->get('campaignId');
     $campaignId = is_numeric($campaignId) ? (int) $campaignId : null;
@@ -187,4 +188,18 @@ public function show(int $id, Request $request): JsonResponse
 
     return $this->json($data, 200);
 }
+
+    private function requestCampaignId(Request $request): ?int
+    {
+        $raw = $request->request->get('campaignId', $request->request->get('campaign_id'));
+        if ($raw === null) {
+            $raw = $request->query->get('campaignId');
+        }
+        if ($raw === null && str_contains((string) $request->headers->get('Content-Type'), 'application/json')) {
+            $payload = json_decode($request->getContent() ?: '', true);
+            $raw = is_array($payload) ? ($payload['campaignId'] ?? $payload['campaign_id'] ?? null) : null;
+        }
+
+        return is_numeric($raw) ? (int) $raw : null;
+    }
 }

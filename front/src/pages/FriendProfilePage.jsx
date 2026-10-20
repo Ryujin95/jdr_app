@@ -1,7 +1,7 @@
 // src/pages/FriendProfilePage.jsx
 import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { apiGetFriendProfile, apiRemoveFriend } from "../api/api";
 import "../CSS/FriendProfilePage.css";
 
@@ -47,8 +47,7 @@ export default function FriendProfilePage() {
         if (!alive) return;
         setErr(e?.message || "Erreur lors du chargement du profil.");
       } finally {
-        if (!alive) return;
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     }
 

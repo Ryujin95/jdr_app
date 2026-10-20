@@ -1,13 +1,27 @@
 // src/context/AuthContext.jsx
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_URL } from "../config";
 import { apiListFriends, apiListFriendRequests } from "../api/api";
+import { AuthContext } from "./AuthContextObject";
 
-export const AuthContext = createContext(null);
+function readStoredAuth() {
+  const raw = localStorage.getItem("auth");
+  if (!raw) return { token: null, user: null };
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.token
+      ? { token: parsed.token, user: parsed.user || null }
+      : { token: null, user: null };
+  } catch (error) {
+    console.error("Auth parse error:", error);
+    return { token: null, user: null };
+  }
+}
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const [storedAuth] = useState(readStoredAuth);
+  const [token, setToken] = useState(storedAuth.token);
+  const [user, setUser] = useState(storedAuth.user);
   const [meSyncedOnce, setMeSyncedOnce] = useState(false);
 
   const fetchMe = useCallback(async (jwt) => {
@@ -66,22 +80,6 @@ export function AuthProvider({ children }) {
       return next;
     });
   }, [token]);
-
-  useEffect(() => {
-    const raw = localStorage.getItem("auth");
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed?.token) {
-        setToken(parsed.token);
-        setUser(parsed.user || null);
-        setMeSyncedOnce(!!parsed.user);
-        prefetchFriends(parsed.token);
-      }
-    } catch (e) {
-      console.error("Auth parse error:", e);
-    }
-  }, []);
 
   useEffect(() => {
     if (!token || meSyncedOnce) return;

@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import "../CSS/DashboardPage.css";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { apiListCampaigns, apiJoinCampaign, apiLeaveCampaign } from "../api/api";
 
 export default function DashboardPage() {
@@ -99,6 +99,10 @@ export default function DashboardPage() {
     try {
       await apiLeaveCampaign(token, campaignId);
       setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+      if (String(localStorage.getItem("activeCampaignId")) === String(campaignId)) {
+        localStorage.removeItem("activeCampaignId");
+        localStorage.removeItem("activeCampaignRole");
+      }
     } catch (err) {
       alert(String(err?.message || t("dashboard.leaveError")));
     }

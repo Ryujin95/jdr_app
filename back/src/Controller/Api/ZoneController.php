@@ -24,7 +24,15 @@ class ZoneController extends AbstractController
             return $this->json(['message' => 'mapId requis'], 400);
         }
 
-        return $this->json($this->zoneService->listByMap((int) $mapId), 200);
+        try {
+            return $this->json($this->zoneService->listByMap((int) $mapId), 200);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\RuntimeException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            return $this->json(['message' => 'Server error'], 500);
+        }
     }
 
     #[Route('', name: 'api_zones_create', methods: ['POST'])]
@@ -40,6 +48,8 @@ class ZoneController extends AbstractController
             return $this->json($this->zoneService->create($data), 201);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
             return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
@@ -60,6 +70,8 @@ class ZoneController extends AbstractController
             return $this->json($this->zoneService->update($id, $data), 200);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
             return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
@@ -90,6 +102,8 @@ class ZoneController extends AbstractController
             );
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
             return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
@@ -105,6 +119,8 @@ class ZoneController extends AbstractController
 
     try {
         return $this->json($this->zoneService->listCharacterPositions($zoneId), 200);
+    } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+        return $this->json(['message' => $e->getMessage()], 403);
     } catch (\RuntimeException $e) {
         return $this->json(['message' => $e->getMessage()], 404);
     } catch (\Throwable $e) {

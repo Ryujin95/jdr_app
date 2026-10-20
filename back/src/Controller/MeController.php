@@ -10,7 +10,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 
 #[Route('/api')]
 class MeController extends AbstractController
@@ -18,7 +21,8 @@ class MeController extends AbstractController
     public function __construct(
         private MeService $meService,
         private CampaignRepository $campaignRepository,
-        private EntityManagerInterface $em
+        private EntityManagerInterface $em,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -27,36 +31,33 @@ class MeController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            return $this->json(['message' => 'Unauthorized'], 401);
+            return $this->json(['message' => 'Unauthorized', 'code' => 'unauthorized'], 401);
         }
 
-        $this->meService->touchPresence($user);
+        try {
+            $this->meService->touchPresence($user);
+            $rows = $this->campaignRepository->findForUser($user);
 
-        $rows = $this->campaignRepository->findForUser($user);
-
-        $campaignRoles = [];
-        foreach ($rows as $r) {
-            if (isset($r['id'], $r['role'])) {
-                $campaignRoles[(string) $r['id']] = (string) $r['role'];
+            $campaignRoles = [];
+            foreach ($rows as $r) {
+                if (isset($r['id'], $r['role'])) {
+                    $campaignRoles[(string) $r['id']] = (string) $r['role'];
+                }
             }
-        }
 
-        return $this->json([
-            'id' => $user->getId(),
-            'username' => $user->getUsername(),
-            'email' => $user->getEmail(),
-            'roles' => $user->getRoles(),
-            'disableTransitions' => method_exists($user, 'isDisableTransitions')
-                ? (bool) $user->isDisableTransitions()
-                : false,
-            'profileCampaignVisibility' => method_exists($user, 'getProfileCampaignVisibility')
-                ? (string) $user->getProfileCampaignVisibility()
-                : 'COMMON_ONLY',
-            'avatarUrl' => method_exists($user, 'getAvatarUrl')
-                ? $user->getAvatarUrl()
-                : null,
-            'campaignRoles' => $campaignRoles,
-        ], 200);
+            return $this->json([
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'email' => $user->getEmail(),
+                'roles' => $user->getRoles(),
+                'disableTransitions' => $user->isDisableTransitions(),
+                'profileCampaignVisibility' => $user->getProfileCampaignVisibility(),
+                'avatarUrl' => $user->getAvatarUrl(),
+                'campaignRoles' => $campaignRoles,
+            ], 200);
+        } catch (\Throwable $exception) {
+            return $this->serverError($exception, 'me.show');
+        }
     }
 
     #[Route('/me', name: 'api_me_update', methods: ['PUT', 'POST'])]
@@ -68,24 +69,6 @@ class MeController extends AbstractController
         }
 
         try {
-            if ($request->request->has('profileCampaignVisibility') && method_exists($user, 'setProfileCampaignVisibility')) {
-                try {
-                    $user->setProfileCampaignVisibility((string) $request->request->get('profileCampaignVisibility'));
-                } catch (\InvalidArgumentException $e) {
-                    return $this->json(['message' => 'Invalid profileCampaignVisibility'], 422);
-                }
-            } else {
-                $jsonData = json_decode($request->getContent() ?: '', true) ?? [];
-
-                if (array_key_exists('profileCampaignVisibility', $jsonData) && method_exists($user, 'setProfileCampaignVisibility')) {
-                    try {
-                        $user->setProfileCampaignVisibility((string) $jsonData['profileCampaignVisibility']);
-                    } catch (\InvalidArgumentException $e) {
-                        return $this->json(['message' => 'Invalid profileCampaignVisibility'], 422);
-                    }
-                }
-            }
-
             $user = $this->meService->updateFromRequest($user, $request);
 
             $rows = $this->campaignRepository->findForUser($user);
@@ -99,6 +82,7 @@ class MeController extends AbstractController
 
             return $this->json([
                 'message' => 'Profil mis à jour',
+                'reauthenticate' => $this->meService->requiresReauthentication(),
                 'id' => $user->getId(),
                 'username' => $user->getUsername(),
                 'email' => $user->getEmail(),
@@ -114,10 +98,24 @@ class MeController extends AbstractController
                     : null,
                 'campaignRoles' => $campaignRoles,
             ], 200);
-        } catch (\InvalidArgumentException $e) {
-            return $this->json(['message' => $e->getMessage()], 400);
+        } catch (ConflictHttpException $e) {
+            return $this->json(['message' => $e->getMessage(), 'code' => 'conflict'], 409);
+        } catch (HttpExceptionInterface $e) {
+            if ($e->getStatusCode() >= 500) return $this->serverError($e, 'me.update');
+            return $this->json([
+                'message' => $e->getMessage(),
+                'code' => match ($e->getStatusCode()) {
+                    400 => 'invalid_request',
+                    401 => 'unauthorized',
+                    403 => 'forbidden',
+                    404 => 'not_found',
+                    409 => 'conflict',
+                    422 => 'validation_error',
+                    default => 'request_error',
+                },
+            ], $e->getStatusCode());
         } catch (\Throwable $e) {
-            return $this->json(['message' => 'Server error'], 500);
+            return $this->serverError($e, 'me.update');
         }
     }
 
@@ -129,8 +127,28 @@ class MeController extends AbstractController
             return $this->json(['message' => 'Unauthorized'], 401);
         }
 
-        $this->meService->delete($user);
+        try {
+            $this->meService->delete($user);
+        } catch (ConflictHttpException $exception) {
+            return $this->json(['message' => $exception->getMessage(), 'code' => 'conflict'], 409);
+        } catch (\Throwable $exception) {
+            return $this->serverError($exception, 'me.delete');
+        }
 
         return new JsonResponse(null, 204);
+    }
+
+    private function serverError(\Throwable $exception, string $operation): JsonResponse
+    {
+        $errorId = bin2hex(random_bytes(8));
+        $this->logger->error('Unexpected account API failure.', [
+            'operation' => $operation,
+            'error_id' => $errorId,
+            'exception_class' => $exception::class,
+            'exception_file' => $exception->getFile(),
+            'exception_line' => $exception->getLine(),
+        ]);
+
+        return $this->json(['message' => 'Erreur serveur.', 'code' => 'server_error', 'errorId' => $errorId], 500);
     }
 }

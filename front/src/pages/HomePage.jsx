@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
 import { useTranslation } from "react-i18next";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import "../CSS/HomePage.css";
 
 export default function HomePage() {

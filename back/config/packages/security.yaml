@@ -5,9 +5,7 @@ security:
 
   providers:
     app_user_provider:
-      entity:
-        class: App\Entity\User
-        property: email
+      id: App\Security\AppUserProvider
 
   firewalls:
     dev:
@@ -18,6 +16,7 @@ security:
       pattern: ^/api
       stateless: true
       provider: app_user_provider
+      user_checker: App\Security\ActiveUserChecker
 
       json_login:
         check_path: /api/login_check
@@ -39,9 +38,11 @@ security:
     - { path: ^/api/auth/reset-password$, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/forgot-password$, roles: PUBLIC_ACCESS }
 
-    # Si tu veux protéger /api/users, mets IS_AUTHENTICATED_FULLY au lieu de PUBLIC_ACCESS
-    # - { path: ^/api/users, roles: IS_AUTHENTICATED_FULLY }
-    - { path: ^/api/users, roles: PUBLIC_ACCESS }
+    # Seule l'inscription est publique. Les autres routes /api/users sont
+    # couvertes par les règles authentifiées ci-dessous.
+    - { path: ^/api/users$, roles: PUBLIC_ACCESS, methods: [POST] }
+    - { path: ^/api/users$, roles: ROLE_ADMIN, methods: [GET] }
+    - { path: ^/api/users/\d+$, roles: IS_AUTHENTICATED_FULLY, methods: [GET, PUT] }
 
     # Optionnel mais clair: la corbeille nécessite juste d'être connecté
     - { path: ^/api/trash, roles: IS_AUTHENTICATED_FULLY }

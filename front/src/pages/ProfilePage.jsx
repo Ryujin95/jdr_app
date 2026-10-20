@@ -2,8 +2,8 @@
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AuthContext } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { AuthContext } from "../context/AuthContextObject";
+import { useNotification } from "../context/useNotification";
 import { API_URL } from "../config";
 import { apiUpdateMe, apiDeleteMe, apiUploadMeAvatar } from "../api/api";
 import "../CSS/Profile.css";
@@ -102,6 +102,8 @@ export default function ProfilePage() {
     try {
       await callUpdateApi({ password: newPassword }, t("profile.passwordUpdated"));
       setNewPassword("");
+      logout();
+      navigate("/login");
     } catch (err) {
       addNotification({ type: "error", message: err.message });
     }

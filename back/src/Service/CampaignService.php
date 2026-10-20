@@ -9,10 +9,12 @@ use App\Entity\User;
 use App\Repository\Campaign\CampaignRepository;
 use App\Repository\Campaign\CampaignMemberRepository;
 use App\Repository\Map\MapRepository;
+use App\Repository\Map\ZoneRepository;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class CampaignService
 {
@@ -21,7 +23,11 @@ class CampaignService
         private CampaignRepository $campaignRepo,
         private CampaignMemberRepository $campaignMemberRepo,
         private MapRepository $mapRepo,
+        private ZoneRepository $zoneRepo,
         private string $projectDir,
+        private CampaignAuthorization $campaignAuthorization,
+        private CampaignRolePolicy $campaignRolePolicy,
+        private ManagedMediaCleanupService $mediaCleanup,
     ) {}
 
     /** @return array<int, array<string, mixed>> */
@@ -47,14 +53,65 @@ class CampaignService
 
     public function deleteCampaign(User $user, int $campaignId): void
     {
-        $campaign = $this->getForUser($user, $campaignId);
+        $campaign = $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ']);
+        $maps = $this->mapRepo->findBy(['campaign' => $campaign]);
+        $imagePaths = array_map(static fn(Map $map): string => $map->getImagePath(), $maps);
 
-        if (!$campaign) {
-            throw new \RuntimeException('Campagne introuvable.');
+        try {
+            $this->em->wrapInTransaction(function (EntityManagerInterface $em) use ($campaign, $maps): void {
+                foreach ($maps as $map) {
+                    // Remove zone positions and zones explicitly so behavior does not
+                    // depend on whether the deployed schema has the expected FK cascades.
+                    foreach ($this->zoneRepo->findBy(['map' => $map]) as $zone) {
+                        if (
+                            $zone->getLocation() !== null
+                            && $zone->getLocation()?->getCampaign()?->getId() !== $campaign->getId()
+                        ) {
+                            throw new ConflictHttpException(
+                                'La campagne contient une carte liée à un lieu d’une autre campagne.',
+                            );
+                        }
+
+                        $em->createQuery('DELETE FROM App\\Entity\\Map\\CharacterZonePosition p WHERE p.zone = :zone')
+                            ->setParameter('zone', $zone)
+                            ->execute();
+                        $em->remove($zone);
+                    }
+
+                    foreach ($em->getRepository(Campaign::class)->findBy(['map' => $map]) as $attachedCampaign) {
+                        if ($attachedCampaign->getId() !== $campaign->getId()) {
+                            throw new ConflictHttpException('Une autre campagne utilise une carte de cette campagne.');
+                        }
+                    }
+                    if ($campaign->getMap()?->getId() === $map->getId()) {
+                        $campaign->setMap(null);
+                    }
+                    $em->remove($map);
+                }
+
+                // Existing nullable links declare these as retained game content.
+                $em->createQuery('UPDATE App\\Entity\\Character c SET c.campaign = NULL WHERE c.campaign = :campaign')
+                    ->setParameter('campaign', $campaign)
+                    ->execute();
+                $em->createQuery('UPDATE App\\Entity\\Location l SET l.campaign = NULL WHERE l.campaign = :campaign')
+                    ->setParameter('campaign', $campaign)
+                    ->execute();
+
+                $em->createQuery('DELETE FROM App\\Entity\\CampaignMember m WHERE m.campaign = :campaign')
+                    ->setParameter('campaign', $campaign)
+                    ->execute();
+                $em->remove($campaign);
+            });
+        } catch (ForeignKeyConstraintViolationException $exception) {
+            throw new ConflictHttpException(
+                'La campagne possède encore des ressources liées qui empêchent sa suppression.',
+                $exception,
+            );
         }
 
-        $this->em->remove($campaign);
-        $this->em->flush();
+        foreach ($imagePaths as $imagePath) {
+            $this->mediaCleanup->cleanupMapImageAfterDeletion($imagePath);
+        }
     }
 
    public function createCampaign(User $creator, string $title, ?string $theme): Campaign
@@ -137,10 +194,8 @@ class CampaignService
             throw new \RuntimeException('Campagne introuvable.');
         }
 
-        foreach ($campaign->getMembers() as $m) {
-            if ($m->getUser() && $m->getUser()->getId() === $user->getId()) {
-                return $campaign;
-            }
+        if ($this->campaignMemberRepo->findOneByCampaignAndUser($campaign, $user)) {
+            return $campaign;
         }
 
         $member = new CampaignMember();
@@ -153,6 +208,16 @@ class CampaignService
         $this->em->flush();
 
         return $campaign;
+    }
+
+    public function getMemberRole(User $user, Campaign $campaign): string
+    {
+        $member = $this->campaignMemberRepo->findOneByCampaignAndUser($campaign, $user);
+        if (!$member) {
+            throw new AccessDeniedHttpException('Tu n’es pas membre de cette campagne.');
+        }
+
+        return $member->getRole();
     }
 
     private function generateUniqueJoinCode(int $length = 6): string
@@ -213,61 +278,47 @@ public function getForUserData(User $user, int $campaignId): array
 
 public function leaveCampaign(User $user, int $campaignId): void
     {
-        // 1) campagne existe ?
-        $campaign = $this->campaignRepo->find($campaignId);
-        if (!$campaign) {
-            throw new NotFoundHttpException('Campagne introuvable.');
-        }
+        $campaign = $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ', 'Player']);
 
-        // 2) récupérer le membership (relation user<->campaign)
-        $member = $this->campaignMemberRepo->findOneBy([
-            'campaign' => $campaign,
-            'user' => $user,
-        ]);
+        $member = $this->campaignMemberRepo->findOneByCampaignAndUser($campaign, $user);
 
         if (!$member) {
-            throw new AccessDeniedHttpException("Tu n'es pas membre de cette campagne.");
+            throw new AccessDeniedHttpException('Tu n’es pas membre de cette campagne.');
         }
 
-        // 3) MJ interdit
-        if ($member->getRole() === 'MJ') {
+        if (!$this->campaignRolePolicy->canLeaveCampaign($member->getRole())) {
             throw new AccessDeniedHttpException("Un MJ doit transférer son rôle avant de quitter la campagne.");
         }
 
-        // 4) supprimer l'appartenance
         $this->em->remove($member);
         $this->em->flush();
     }
 
 public function transferMj(User $currentUser, int $campaignId, int $newMjUserId): void
 {
-    $campaign = $this->getForUser($currentUser, $campaignId);
-
-    $members = $campaign->getMembers();
-
-    $currentMember = null;
-    $newMember = null;
-
-    foreach ($members as $member) {
-        if ($member->getUser()->getId() === $currentUser->getId()) {
-            $currentMember = $member;
-        }
-
-        if ($member->getUser()->getId() === $newMjUserId) {
-            $newMember = $member;
-        }
+    if ($newMjUserId <= 0) {
+        throw new \InvalidArgumentException('Utilisateur cible invalide.');
     }
 
-    if (!$currentMember || $currentMember->getRole() !== 'MJ') {
-        throw new \InvalidArgumentException("Seul le MJ peut transférer le rôle.");
+    $campaign = $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ']);
+    $currentMember = $this->campaignMemberRepo->findOneByCampaignAndUser($campaign, $currentUser);
+    if (!$currentMember) {
+        throw new AccessDeniedHttpException('Seul le MJ actuel de cette campagne peut transférer ce rôle.');
+    }
+    if ($currentMember->getRole() !== 'MJ') {
+        throw new AccessDeniedHttpException('Seul le MJ actuel de cette campagne peut transférer ce rôle.');
     }
 
+    $targetUser = $this->em->getReference(User::class, $newMjUserId);
+    $newMember = $targetUser instanceof User
+        ? $this->campaignMemberRepo->findOneByCampaignAndUser($campaign, $targetUser)
+        : null;
     if (!$newMember) {
-        throw new \InvalidArgumentException("Utilisateur non membre de la campagne.");
+        throw new AccessDeniedHttpException('La cible doit être membre de cette campagne.');
     }
 
-    if ($newMember->getRole() === 'MJ') {
-        throw new \InvalidArgumentException("Cet utilisateur est déjà MJ.");
+    if (!$this->campaignRolePolicy->canTransferMj($currentMember->getRole(), $newMember->getRole(), true)) {
+        throw new AccessDeniedHttpException('La cible doit être un joueur de cette campagne.');
     }
 
     $currentMember->setRole('Player');

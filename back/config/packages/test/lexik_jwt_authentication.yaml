@@ -1,0 +1,6 @@
+lexik_jwt_authentication:
+  secret_key: '%kernel.project_dir%/tests/Fixtures/jwt/private.pem'
+  public_key: '%kernel.project_dir%/tests/Fixtures/jwt/public.pem'
+  pass_phrase: ''
+  token_ttl: 300
+  user_id_claim: id

@@ -29,6 +29,23 @@ class ZoneRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Includes editable and disabled zones, but hides zones whose location is in trash. */
+    public function findForMapEditor(Map $map): array
+    {
+        return $this->createQueryBuilder('z')
+            ->leftJoin('z.map', 'map')->addSelect('map')
+            ->leftJoin('map.campaign', 'mapCampaign')->addSelect('mapCampaign')
+            ->leftJoin('z.location', 'l')->addSelect('l')
+            ->leftJoin('l.campaign', 'locationCampaign')->addSelect('locationCampaign')
+            ->andWhere('z.map = :map')
+            ->andWhere('(z.location IS NULL OR l.deleted = :deleted)')
+            ->setParameter('map', $map)
+            ->setParameter('deleted', false)
+            ->orderBy('z.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /** @return Zone[] */
     public function findByLocationId(int $locationId): array
     {

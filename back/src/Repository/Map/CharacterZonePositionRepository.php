@@ -25,27 +25,50 @@ class CharacterZonePositionRepository extends ServiceEntityRepository
         ->getOneOrNullResult();
 }
 
-    public function findByZoneIndexed(int $zoneId): array
+    /** @param list<int> $zoneIds
+     *  @return array<int, array<int, array{xPercent: float, yPercent: float}>>
+     */
+    public function findIndexedByZoneIds(array $zoneIds): array
     {
+        $zoneIds = array_values(array_unique(array_filter(
+            array_map('intval', $zoneIds),
+            static fn (int $id): bool => $id > 0,
+        )));
+        if ($zoneIds === []) {
+            return [];
+        }
+
         $rows = $this->createQueryBuilder('p')
-            ->leftJoin('p.character', 'c')->addSelect('c')
-            ->andWhere('p.zone = :z')->setParameter('z', $zoneId)
+            ->select('IDENTITY(p.zone) AS zoneId')
+            ->addSelect('IDENTITY(p.character) AS characterId')
+            ->addSelect('p.xPercent AS xPercent, p.yPercent AS yPercent')
+            ->andWhere('IDENTITY(p.zone) IN (:zoneIds)')
+            ->setParameter('zoneIds', $zoneIds)
             ->getQuery()
-            ->getResult();
+            ->getArrayResult();
 
         $out = [];
-        foreach ($rows as $p) {
-            $cid = $p->getCharacter()?->getId();
-            if ($cid) $out[(int)$cid] = $p;
+        foreach ($rows as $row) {
+            $zoneId = (int) $row['zoneId'];
+            $characterId = (int) $row['characterId'];
+            $out[$zoneId][$characterId] = [
+                'xPercent' => (float) $row['xPercent'],
+                'yPercent' => (float) $row['yPercent'],
+            ];
         }
+
         return $out;
     }
 
     public function findByZoneId(int $zoneId): array
 {
     return $this->createQueryBuilder('p')
+        ->leftJoin('p.zone', 'z')->addSelect('z')
         ->addSelect('c')
         ->join('p.character', 'c')
+        ->leftJoin('c.campaign', 'campaign')->addSelect('campaign')
+        ->leftJoin('c.location', 'location')->addSelect('location')
+        ->leftJoin('location.campaign', 'locationCampaign')->addSelect('locationCampaign')
         ->andWhere('p.zone = :z')->setParameter('z', $zoneId)
         ->getQuery()
         ->getResult();

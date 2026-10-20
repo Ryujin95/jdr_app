@@ -1,5 +1,5 @@
 // front/src/components/NotificationBox.jsx
-import { useNotification } from "../context/NotificationContext";
+import { useNotification } from "../context/useNotification";
 import "../CSS/NotificationBox.css";
 
 function NotificationBox() {

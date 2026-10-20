@@ -2,8 +2,8 @@
 import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AuthContext } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { AuthContext } from "../context/AuthContextObject";
+import { useNotification } from "../context/useNotification";
 import "../CSS/Login.css";
 
 function LoginPage() {

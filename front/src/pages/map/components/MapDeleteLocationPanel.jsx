@@ -1,6 +1,6 @@
 // src/pages/map/components/MapDeleteLocationPanel.jsx
 import { useState } from "react";
-import { useNotification } from "../../../context/NotificationContext";
+import { useNotification } from "../../../context/useNotification";
 
 export default function MapDeleteLocationPanel({
   locations,

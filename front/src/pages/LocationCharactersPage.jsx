@@ -2,7 +2,7 @@
 import { useEffect, useState, useContext, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { API_URL } from "../config";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import "../CSS/LocationCharacters.css";
 
 function LocationCharactersPage() {

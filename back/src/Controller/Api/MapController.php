@@ -25,8 +25,11 @@ class MapController extends AbstractController
 
         try {
             return $this->json($this->mapService->listForUser($user, $campaignId), 200);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
-            $code = $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException ? 403 : 500;
+            $code = $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException
+                || $e instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException ? 403 : 500;
             return $this->json(['message' => $e->getMessage()], $code);
         }
     }
@@ -40,10 +43,13 @@ class MapController extends AbstractController
         try {
             $map = $this->mapService->get($user, $id);
             return $this->json($this->mapService->toArray($map), 200);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
             return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
-            $code = $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException ? 403 : 500;
+            $code = $e instanceof \Symfony\Component\Security\Core\Exception\AccessDeniedException
+                || $e instanceof \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException ? 403 : 500;
             return $this->json(['message' => $e->getMessage()], $code);
         }
     }
@@ -61,6 +67,12 @@ public function create(Request $request): JsonResponse
     try {
         $map = $this->mapService->createFromRequest($user, $request);
         return $this->json($this->mapService->toArray($map), 201);
+    } catch (\InvalidArgumentException $e) {
+        return $this->json(['message' => $e->getMessage()], 400);
+    } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+        return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
     } catch (\Throwable $e) {
         return $this->json(['message' => $e->getMessage()], 500);
     }
@@ -83,6 +95,8 @@ public function create(Request $request): JsonResponse
             return $this->json($this->mapService->toArray($map), 200);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
             return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
@@ -100,6 +114,10 @@ public function create(Request $request): JsonResponse
         try {
             $this->mapService->delete($user, $id);
             return $this->json(null, 204);
+        } catch (\Symfony\Component\HttpKernel\Exception\ConflictHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 409);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\RuntimeException $e) {
             return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {

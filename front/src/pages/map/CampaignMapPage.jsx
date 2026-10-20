@@ -3,7 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { API_URL } from "../../config";
-import { AuthContext } from "../../context/AuthContext";
+import { AuthContext } from "../../context/AuthContextObject";
 import "../../CSS/MapPage.css";
 
 import ZoneZoomOverlay from "../../components/ZoneZoomOverlay";

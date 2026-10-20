@@ -3,7 +3,7 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { API_URL } from "../config";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { apiGetCharacter } from "../api/api";
 import "../CSS/CharacterDetail.css";
 
@@ -41,7 +41,7 @@ function CharacterDetailPage() {
 
     fetchCharacter();
     return () => { cancelled = true; };
-  }, [id, token]);
+  }, [id, token, t]);
 
   const buildBackgroundUrl = (avatarUrl) => {
     if (!avatarUrl) return null;

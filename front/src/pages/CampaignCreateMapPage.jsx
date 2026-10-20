@@ -1,7 +1,7 @@
 // src/pages/CampaignCreateMapPage.jsx
 import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { apiCreateMap, apiDeleteMap, apiListMaps } from "../api/api";
 import "../CSS/CampaignCreateMap.css";
 

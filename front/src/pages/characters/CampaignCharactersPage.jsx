@@ -2,8 +2,8 @@
 import { useEffect, useContext, useMemo, useState } from "react";
 import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AuthContext } from "../../context/AuthContext";
-import { useNotification } from "../../context/NotificationContext";
+import { AuthContext } from "../../context/AuthContextObject";
+import { useNotification } from "../../context/useNotification";
 import { useCharacters } from "./hooks/useCharacters";
 import { useCharacterRelations } from "./hooks/useCharacterRelations";
 import CharacterCard from "./components/CharacterCard";

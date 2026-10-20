@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import "../CSS/TransitionVideo.css";
 import CharacterDetailPage from "./CharacterDetailPage";
 import { API_URL } from "../config";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { apiGetCharacter } from "../api/api";
 
 function TransitionVideo() {

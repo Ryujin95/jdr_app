@@ -11,6 +11,7 @@ use App\Repository\Map\CharacterZonePositionRepository;
 use App\Repository\Map\MapRepository;
 use App\Repository\Map\ZoneRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class ZoneService
 {
@@ -20,6 +21,7 @@ class ZoneService
         private MapRepository $mapRepo,
         private CharacterRepository $characterRepo,
         private CharacterZonePositionRepository $posRepo,
+        private CampaignAuthorization $campaignAuthorization,
     ) {}
 
     public function listByMap(int $mapId): array
@@ -28,9 +30,33 @@ class ZoneService
         if (!$map instanceof Map) {
             throw new \RuntimeException('Map not found');
         }
+        $this->campaignAuthorization->assertResourceRole($map, ['MJ', 'Player']);
 
-        $zones = $this->zoneRepo->findBy(['map' => $map], ['id' => 'DESC']);
-        return array_map(fn(Zone $z) => $this->toArray($z), $zones);
+        $zones = $this->zoneRepo->findForMapEditor($map);
+        $zoneIds = array_map(static fn (Zone $zone): int => (int) $zone->getId(), $zones);
+        $locationIds = array_values(array_unique(array_filter(
+            array_map(static fn (Zone $zone): int => (int) $zone->getLocationId(), $zones),
+            static fn (int $id): bool => $id > 0,
+        )));
+
+        $charactersByLocationId = [];
+        foreach ($this->characterRepo->findActiveByLocationIds($locationIds) as $character) {
+            $locationId = (int) $character->getLocation()?->getId();
+            if ($locationId > 0) {
+                $charactersByLocationId[$locationId][] = $character;
+            }
+        }
+
+        $positionsByZoneId = $this->posRepo->findIndexedByZoneIds($zoneIds);
+
+        return array_map(
+            fn (Zone $zone): array => $this->toArray(
+                $zone,
+                $charactersByLocationId[(int) $zone->getLocationId()] ?? [],
+                $positionsByZoneId[(int) $zone->getId()] ?? [],
+            ),
+            $zones,
+        );
     }
 
     public function create(array $data): array
@@ -44,6 +70,7 @@ class ZoneService
         if (!$map instanceof Map) {
             throw new \RuntimeException('Map not found');
         }
+        $this->campaignAuthorization->assertResourceRole($map, ['MJ']);
 
         $top = $this->num($data['topPercent'] ?? null, 'topPercent');
         $left = $this->num($data['leftPercent'] ?? null, 'leftPercent');
@@ -82,6 +109,7 @@ class ZoneService
         if (!$zone instanceof Zone) {
             throw new \RuntimeException('Zone not found');
         }
+        $this->campaignAuthorization->assertResourceRole($zone, ['MJ']);
 
         $top = $this->optNum($data, ['topPercent', 'top_percent']);
         $left = $this->optNum($data, ['leftPercent', 'left_percent']);
@@ -128,11 +156,15 @@ class ZoneService
         if (!$zone instanceof Zone) {
             throw new \RuntimeException('Zone not found');
         }
+        $campaign = $this->campaignAuthorization->assertResourceRole($zone, ['MJ', 'Player']);
 
         $character = $this->characterRepo->find($characterId);
         if (!$character instanceof Character) {
             throw new \RuntimeException('Character not found');
         }
+
+        $this->campaignAuthorization->assertResourceBelongsToCampaign($character, (int) $campaign->getId());
+        $this->campaignAuthorization->assertCharacterEditor($character);
 
         $zoneLoc = $zone->getLocation();
         $charLoc = $character->getLocation();
@@ -172,8 +204,22 @@ class ZoneService
         if (!$zone instanceof Zone) {
             throw new \RuntimeException('Zone not found');
         }
+        $campaign = $this->campaignAuthorization->assertResourceRole($zone, ['MJ', 'Player']);
 
         $rows = $this->posRepo->findByZoneId($zoneId);
+        $zoneLocation = $zone->getLocation();
+        foreach ($rows as $position) {
+            $character = $position->getCharacter();
+            if (!$character instanceof Character) {
+                throw new AccessDeniedHttpException('Position liée à un personnage indisponible.');
+            }
+
+            $this->campaignAuthorization->assertResourceBelongsToCampaign($character, (int) $campaign->getId());
+            $characterLocation = $character->getLocation();
+            if (!$zoneLocation || !$characterLocation || $zoneLocation->getId() !== $characterLocation->getId()) {
+                throw new AccessDeniedHttpException('La position ne correspond pas au lieu de la zone.');
+            }
+        }
 
         return array_map(static function (CharacterZonePosition $p) {
             return [
@@ -214,27 +260,42 @@ class ZoneService
         return null;
     }
 
-    private function toArray(Zone $z): array
+    /** @param list<Character>|null $zoneCharacters
+     *  @param array<int, array{xPercent: float, yPercent: float}>|null $positionsByCharacterId
+     */
+    private function toArray(Zone $z, ?array $zoneCharacters = null, ?array $positionsByCharacterId = null): array
     {
+        $campaign = $this->campaignAuthorization->resolveCampaignForResource($z);
         $characters = [];
         $zoneId = (int) $z->getId();
 
-        $posByCharId = $zoneId > 0 ? $this->posRepo->findByZoneIndexed($zoneId) : [];
+        $positionsByCharacterId ??= $zoneId > 0
+            ? ($this->posRepo->findIndexedByZoneIds([$zoneId])[$zoneId] ?? [])
+            : [];
 
         $loc = $z->getLocation();
-        if ($loc) {
-            foreach ($loc->getCharacters() as $c) {
-                $cid = (int) ($c->getId() ?? 0);
-                $pos = $cid > 0 ? ($posByCharId[$cid] ?? null) : null;
+        if ($zoneCharacters === null) {
+            $zoneCharacters = $loc
+                ? array_values(array_filter(
+                    $loc->getCharacters()->toArray(),
+                    static fn (Character $character): bool => !$character->isDeleted(),
+                ))
+                : [];
+        }
 
-                $characters[] = [
-                    'id' => $c->getId(),
-                    'nickname' => $c->getNickname(),
-                    'avatarUrl' => $c->getAvatarUrl(),
-                    'xPercent' => $pos ? $pos->getXPercent() : 50.0,
-                    'yPercent' => $pos ? $pos->getYPercent() : 50.0,
-                ];
-            }
+        foreach ($zoneCharacters as $character) {
+            $this->campaignAuthorization->assertResourceBelongsToCampaign($character, (int) $campaign->getId());
+
+            $characterId = (int) ($character->getId() ?? 0);
+            $position = $characterId > 0 ? ($positionsByCharacterId[$characterId] ?? null) : null;
+
+            $characters[] = [
+                'id' => $character->getId(),
+                'nickname' => $character->getNickname(),
+                'avatarUrl' => $character->getAvatarUrl(),
+                'xPercent' => $position['xPercent'] ?? 50.0,
+                'yPercent' => $position['yPercent'] ?? 50.0,
+            ];
         }
 
         return [

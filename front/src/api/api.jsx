@@ -1,5 +1,11 @@
 // src/api/api.jsx
 import { API_URL } from "../config";
+import {
+  apiErrorFromResponse,
+  buildRelationshipStarsPayload,
+  createApiFetchRequest,
+  prepareMapCreateFormData,
+} from "./requestContracts";
 
 const meCacheByToken = new Map();
 const mePromiseByToken = new Map();
@@ -11,44 +17,17 @@ async function apiFetch(
   path,
   { token, method = "GET", body, signal, headers: extraHeaders } = {}
 ) {
-  const isFormData =
-    typeof FormData !== "undefined" && body instanceof FormData;
-
-  const headers = {
-    Accept: "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(extraHeaders || {}),
-    ...(isFormData || body === undefined
-      ? {}
-      : { "Content-Type": "application/json" }),
-  };
-
-  const res = await fetch(`${API_URL}${path}`, {
+  const { url, init } = createApiFetchRequest(API_URL, path, {
+    token,
     method,
+    body,
     signal,
-    headers,
-    body:
-      body === undefined
-        ? undefined
-        : isFormData
-        ? body
-        : JSON.stringify(body),
+    headers: extraHeaders,
   });
+  const res = await fetch(url, init);
 
   if (!res.ok) {
-    const ct = res.headers.get("content-type") || "";
-
-    if (ct.includes("application/json")) {
-      const errJson = await res.json().catch(() => null);
-      const msg =
-        errJson && typeof errJson === "object"
-          ? errJson.message || JSON.stringify(errJson)
-          : null;
-      throw new Error(msg || `HTTP ${res.status}`);
-    }
-
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP ${res.status}`);
+    throw await apiErrorFromResponse(res, `HTTP ${res.status}`);
   }
 
   if (res.status === 204) return null;
@@ -274,7 +253,7 @@ export const apiUpdateRelationshipStars = (
   apiFetch(`/mj/relationships?campaignId=${encodeURIComponent(String(campaignId))}`, {
     token,
     method: "PATCH",
-    body: { fromCharacterId, toCharacterId, stars },
+    body: buildRelationshipStarsPayload(fromCharacterId, toCharacterId, stars),
   });
 
 /* MAPS */
@@ -289,10 +268,7 @@ export const apiCreateMap = (token, campaignId, data, options = {}) =>
   apiFetch(`/maps`, {
     token,
     method: "POST",
-    body: {
-      campaignId: Number(campaignId),
-      ...data,
-    },
+    body: prepareMapCreateFormData(campaignId, data),
     ...options,
   });
 

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useNotification } from "../context/NotificationContext";
+import { useNotification } from "../context/useNotification";
 import { API_URL } from "../config";
 import "../CSS/Login.css";
 

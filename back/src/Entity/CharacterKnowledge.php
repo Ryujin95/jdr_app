@@ -14,7 +14,7 @@ class CharacterKnowledge
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(inversedBy: 'characterKnowledge')]
+    #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $viewer = null;
 

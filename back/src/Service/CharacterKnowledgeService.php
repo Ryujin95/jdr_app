@@ -22,14 +22,18 @@ class CharacterKnowledgeService
         private UserRepository $userRepository,
         private CharacterRepository $characterRepository,
         private Security $security,
+        private CampaignAuthorization $campaignAuthorization,
+        private CharacterKnowledgeVisibilityPolicy $visibilityPolicy,
     ) {}
 
     public function grantFromIds(int $viewerId, int $characterId, string $field, ?string $notes = null): CharacterKnowledge
     {
-        $viewer = $this->mustFindViewer($viewerId);
         $target = $this->mustFindCharacter($characterId);
-
+        $campaign = $this->campaignAuthorization->assertResourceRole($target, ['MJ']);
         $field = $this->normalizeField($field);
+
+        $viewer = $this->mustFindViewer($viewerId);
+        $this->campaignAuthorization->assertUserCampaignRole($viewer, (int) $campaign->getId(), ['MJ', 'Player']);
 
         $knowledge = $this->knowledgeRepository->findOneBy([
             'viewer' => $viewer,
@@ -60,9 +64,12 @@ class CharacterKnowledgeService
 
     public function revokeFromIds(int $viewerId, int $characterId, string $field): void
     {
-        $viewer = $this->mustFindViewer($viewerId);
         $target = $this->mustFindCharacter($characterId);
+        $campaign = $this->campaignAuthorization->assertResourceRole($target, ['MJ']);
         $field = $this->normalizeField($field);
+
+        $viewer = $this->mustFindViewer($viewerId);
+        $this->campaignAuthorization->assertUserCampaignRole($viewer, (int) $campaign->getId(), ['MJ', 'Player']);
 
         $knowledge = $this->knowledgeRepository->findOneBy([
             'viewer' => $viewer,
@@ -79,6 +86,7 @@ class CharacterKnowledgeService
     public function getAllowedViewerIdsForField(int $characterId, string $field): array
     {
         $target = $this->mustFindCharacter($characterId);
+        $campaign = $this->campaignAuthorization->assertResourceRole($target, ['MJ']);
         $field = $this->normalizeField($field);
 
         $knowledgeList = $this->knowledgeRepository->findBy([
@@ -89,7 +97,15 @@ class CharacterKnowledgeService
         $ids = [];
         foreach ($knowledgeList as $k) {
             $v = $k->getViewer();
-            if ($v instanceof User) $ids[] = $v->getId();
+            if (!$v instanceof User) {
+                continue;
+            }
+            try {
+                $this->campaignAuthorization->assertUserCampaignRole($v, (int) $campaign->getId(), ['MJ', 'Player']);
+                $ids[] = $v->getId();
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                // Ignore stale grants for users who no longer belong to the campaign.
+            }
         }
         return $ids;
     }
@@ -98,24 +114,51 @@ class CharacterKnowledgeService
     {
         $field = $this->normalizeField($field);
 
-        if ($this->security->isGranted('ROLE_ADMIN') || $this->security->isGranted('ROLE_MJ')) {
-            return true;
+        try {
+            $campaign = $this->campaignAuthorization->resolveCampaignForResource($target);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+            return false;
+        }
+
+        $isGlobalAdmin = $this->security->isGranted('ROLE_ADMIN');
+        if ($isGlobalAdmin) {
+            return $this->visibilityPolicy->allows(true, true, false, false, false, false);
+        }
+
+        try {
+            $this->campaignAuthorization->assertUserCampaignRole($viewer, (int) $campaign->getId(), ['MJ', 'Player']);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+            return $this->visibilityPolicy->allows(true, false, false, false, false, false);
+        }
+
+        $isCampaignMj = false;
+        try {
+            $isCampaignMj = $this->campaignAuthorization->hasCampaignRole((int) $campaign->getId(), ['MJ']);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+            return $this->visibilityPolicy->allows(true, false, true, false, false, false);
         }
 
         $owner = method_exists($target, 'getOwner') ? $target->getOwner() : null;
         $isPlayer = method_exists($target, 'isPlayer') ? (bool) $target->isPlayer() : false;
-
-        if ($isPlayer && $owner instanceof User && (int)$owner->getId() === (int)$viewer->getId()) {
-            return true;
+        $ownsPlayerCharacter = $isPlayer && $owner instanceof User
+            && (int) $owner->getId() === (int) $viewer->getId();
+        $hasExplicitGrant = false;
+        if (!$isCampaignMj && !$ownsPlayerCharacter) {
+            $hasExplicitGrant = $this->knowledgeRepository->findOneBy([
+                'viewer' => $viewer,
+                'target' => $target,
+                'field'  => $field,
+            ]) !== null;
         }
 
-        $knowledge = $this->knowledgeRepository->findOneBy([
-            'viewer' => $viewer,
-            'target' => $target,
-            'field'  => $field,
-        ]);
-
-        return (bool) $knowledge;
+        return $this->visibilityPolicy->allows(
+            true,
+            false,
+            true,
+            $isCampaignMj,
+            $ownsPlayerCharacter,
+            $hasExplicitGrant,
+        );
     }
 
     public function filterCharacterPayloadForViewer(User $viewer, Character $target, array $payload): array

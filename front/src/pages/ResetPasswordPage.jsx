@@ -1,15 +1,17 @@
 // src/pages/ResetPasswordPage.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { API_URL } from "../config";
-import { useNotification } from "../context/NotificationContext";
+import { AuthContext } from "../context/AuthContextObject";
+import { useNotification } from "../context/useNotification";
 import "../CSS/Login.css";
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { addNotification } = useNotification();
+  const { logout } = useContext(AuthContext);
   const { t } = useTranslation();
 
   const token = useMemo(() => params.get("token") || "", [params]);
@@ -45,7 +47,7 @@ export default function ResetPasswordPage() {
   const submit = async (e) => {
     e.preventDefault();
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       addNotification({ type: "error", message: t("resetPassword.tooShort") });
       return;
     }
@@ -65,6 +67,7 @@ export default function ResetPasswordPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || t("common.error"));
 
+      logout();
       addNotification({ type: "success", message: t("resetPassword.success") });
       setTimeout(() => navigate("/login"), 600);
     } catch (e) {

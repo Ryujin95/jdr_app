@@ -3,11 +3,14 @@
 
 namespace App\Service;
 
-use App\Entity\Campaign;
 use App\Entity\Map\Map;
+use App\Entity\Campaign;
 use App\Entity\User;
-use App\Repository\Campaign\CampaignRepository;
 use App\Repository\Map\MapRepository;
+use App\Repository\Map\ZoneRepository;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,23 +20,21 @@ class MapService
     public function __construct(
         private EntityManagerInterface $em,
         private MapRepository $mapRepo,
-        private CampaignRepository $campaignRepo,
+        private ZoneRepository $zoneRepo,
+        private CampaignAuthorization $campaignAuthorization,
         private string $projectDir,
+        private ManagedMediaCleanupService $mediaCleanup,
     ) {}
 
     /** @return array<int, array<string, mixed>> */
     public function listForUser(User $user, ?int $campaignId = null): array
     {
-        // On filtre par campagne si fourni (important)
-        if ($campaignId !== null) {
-            $campaign = $this->campaignRepo->find($campaignId);
-            if (!$campaign instanceof Campaign) {
-                throw new \RuntimeException('Campaign not found');
-            }
-            $maps = $this->mapRepo->findBy(['campaign' => $campaign], ['id' => 'DESC']);
-        } else {
-            $maps = $this->mapRepo->findBy([], ['id' => 'DESC']);
+        if ($campaignId === null || $campaignId <= 0) {
+            throw new AccessDeniedHttpException('campaignId requis.');
         }
+
+        $campaign = $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ', 'Player']);
+        $maps = $this->mapRepo->findBy(['campaign' => $campaign], ['id' => 'DESC']);
 
         $out = [];
         foreach ($maps as $m) {
@@ -46,8 +47,9 @@ class MapService
     {
         $map = $this->mapRepo->find($id);
         if (!$map) {
-            throw new \RuntimeException('Map not found');
+            throw new NotFoundHttpException('Carte introuvable.');
         }
+        $this->campaignAuthorization->assertResourceRole($map, ['MJ', 'Player']);
         return $map;
     }
 
@@ -59,10 +61,7 @@ class MapService
         throw new \InvalidArgumentException('campaignId requis');
     }
 
-    $campaign = $this->campaignRepo->find((int) $campaignId);
-    if (!$campaign instanceof Campaign) {
-        throw new \RuntimeException('Campaign not found');
-    }
+    $campaign = $this->campaignAuthorization->assertCampaignRole((int) $campaignId, ['MJ']);
 
     $name = trim((string) $request->request->get('name', ''));
     if ($name === '') {
@@ -113,8 +112,9 @@ class MapService
     {
         $map = $this->mapRepo->find($id);
         if (!$map) {
-            throw new \RuntimeException('Map not found');
+            throw new NotFoundHttpException('Carte introuvable.');
         }
+        $this->campaignAuthorization->assertResourceRole($map, ['MJ']);
 
         if (array_key_exists('name', $data)) {
             $name = trim((string) $data['name']);
@@ -139,20 +139,41 @@ class MapService
     {
         $map = $this->mapRepo->find($id);
         if (!$map) {
-            throw new \RuntimeException('Map not found');
+            throw new NotFoundHttpException('Carte introuvable.');
         }
+        $this->campaignAuthorization->assertResourceRole($map, ['MJ']);
 
-        // Optionnel: supprimer le fichier image sur le disque
-        $imagePath = (string) $map->getImagePath();
-        if ($imagePath !== '' && str_starts_with($imagePath, '/uploads/maps/')) {
-            $full = $this->projectDir . '/public' . $imagePath;
-            if (is_file($full)) {
-                @unlink($full);
+        $imagePath = $map->getImagePath();
+        $this->em->wrapInTransaction(function (EntityManagerInterface $em) use ($map): void {
+            foreach ($this->zoneRepo->findBy(['map' => $map]) as $zone) {
+                if (
+                    $zone->getLocation() !== null
+                    && $zone->getLocation()?->getCampaign()?->getId() !== $map->getCampaign()?->getId()
+                ) {
+                    throw new ConflictHttpException('La carte contient une zone liée à un lieu d’une autre campagne.');
+                }
+
+                $em->createQuery('DELETE FROM App\\Entity\\Map\\CharacterZonePosition p WHERE p.zone = :zone')
+                    ->setParameter('zone', $zone)
+                    ->execute();
+                $em->remove($zone);
             }
-        }
 
-        $this->em->remove($map);
-        $this->em->flush();
+            $campaign = $map->getCampaign();
+            foreach ($em->getRepository(Campaign::class)->findBy(['map' => $map]) as $attachedCampaign) {
+                if ($attachedCampaign->getId() !== $campaign?->getId()) {
+                    throw new ConflictHttpException('La carte est utilisée par une autre campagne.');
+                }
+            }
+            if ($campaign?->getMap()?->getId() === $map->getId()) {
+                $campaign->setMap(null);
+            }
+            $em->remove($map);
+        });
+
+        // Filesystem changes cannot join the SQL transaction. Delete the managed
+        // upload only after the map and its dependent zones have committed.
+        $this->mediaCleanup->cleanupMapImageAfterDeletion($imagePath);
     }
 
     /** @return array<string, mixed> */

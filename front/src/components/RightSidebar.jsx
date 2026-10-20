@@ -1,8 +1,8 @@
 // src/components/RightSidebar.jsx
 import { useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
-import { NotificationContext } from "../context/NotificationContext";
+import { AuthContext } from "../context/AuthContextObject";
+import { NotificationContext } from "../context/NotificationContextObject";
 import "../CSS/RightSidebar.css";
 import {
   apiSearchUsers,
@@ -69,7 +69,7 @@ export default function RightSidebar({ open, setOpen }) {
     })();
 
     return () => { cancelled = true; };
-  }, [open, token, addNotification]);
+  }, [open, token, addNotification, friends.length, requests?.incoming?.length, requests?.outgoing?.length]);
 
   const onlineUsers = useMemo(() => friends.filter((f) => !!f.isOnline), [friends]);
   const offlineUsers = useMemo(() => friends.filter((f) => !f.isOnline), [friends]);

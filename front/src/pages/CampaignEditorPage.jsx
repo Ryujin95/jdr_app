@@ -1,7 +1,7 @@
 // src/pages/CampaignEditorPage.jsx
 import { useContext, useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { createCharacter } from "../api/charactersApi";
 import "../CSS/Editor.css";
 

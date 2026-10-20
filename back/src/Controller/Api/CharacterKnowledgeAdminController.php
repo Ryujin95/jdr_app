@@ -43,6 +43,10 @@ class CharacterKnowledgeAdminController extends AbstractController
             ], 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 404);
         } catch (\RuntimeException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
@@ -69,6 +73,10 @@ class CharacterKnowledgeAdminController extends AbstractController
             return new JsonResponse(['message' => 'ok'], 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 404);
         } catch (\RuntimeException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
@@ -96,6 +104,10 @@ class CharacterKnowledgeAdminController extends AbstractController
             ], 200);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 404);
         } catch (\RuntimeException $e) {
             return new JsonResponse(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {

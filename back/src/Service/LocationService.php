@@ -2,7 +2,6 @@
 
 namespace App\Service;
 
-use App\Entity\Campaign;
 use App\Entity\Location;
 use App\Entity\Map\Map;
 use App\Entity\Map\Zone;
@@ -10,7 +9,6 @@ use App\Entity\User;
 use App\Repository\LocationRepository;
 use App\Repository\Map\MapRepository;
 use App\Repository\Character\CharacterRepository;
-use App\Repository\Campaign\CampaignMemberRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -22,21 +20,23 @@ class LocationService
         private EntityManagerInterface $em,
         private Security $security,
         private MapRepository $mapRepository,
-        private CampaignMemberRepository $campaignMemberRepository,
         private CharacterRepository $characterRepository,
+        private CampaignAuthorization $campaignAuthorization,
     ) {}
 
     public function getLocationsForCurrentUser(?int $campaignId): array
     {
         /** @var User|null $user */
         $user = $this->security->getUser();
-        if (!$user) {
-            return [];
+        if (!$user instanceof User) {
+            throw new AccessDeniedHttpException('Authentification requise.');
         }
 
         if (!$campaignId) {
             throw new \InvalidArgumentException('campaignId requis');
         }
+
+        $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ', 'Player']);
 
         $locations = $this->locationRepository->findActiveByCampaignId($campaignId);
 
@@ -70,10 +70,7 @@ class LocationService
             throw new \InvalidArgumentException('campaignId est obligatoire.');
         }
 
-        $campaign = $this->em->getRepository(Campaign::class)->find($campaignId);
-        if (!$campaign instanceof Campaign) {
-            throw new \InvalidArgumentException('Campagne introuvable.');
-        }
+        $campaign = $this->campaignAuthorization->assertCampaignRole($campaignId, ['MJ']);
 
         $location = new Location();
         $location->setName($name);
@@ -142,27 +139,7 @@ class LocationService
             throw new \InvalidArgumentException("Personnage introuvable.");
         }
 
-        $campaign = method_exists($character, 'getCampaign') ? $character->getCampaign() : null;
-        if (!$campaign) {
-            throw new \InvalidArgumentException("Ce personnage n'est rattaché à aucune campagne.");
-        }
-
-        $campaignId = method_exists($campaign, 'getId') ? $campaign->getId() : null;
-        if (!$campaignId) {
-            throw new \InvalidArgumentException("Campagne invalide.");
-        }
-
-        $isAdmin = method_exists($user, 'getRoles') && in_array('ROLE_ADMIN', $user->getRoles(), true);
-
-        // ✅ check membership (adapte le nom du repo si besoin)
-        $isMember = (bool) $this->campaignMemberRepository->findOneBy([
-            'campaign' => $campaign,
-            'user' => $user,
-        ]);
-
-        if (!$isAdmin && !$isMember) {
-            throw new AccessDeniedHttpException("Accès refusé.");
-        }
+        $campaign = $this->campaignAuthorization->assertResourceRole($character, ['MJ', 'Player']);
 
         // ✅ récupère les lieux de la campagne (adapte la méthode si ton repo diffère)
         // Option A: tu as déjà findBy(['campaign' => $campaign])

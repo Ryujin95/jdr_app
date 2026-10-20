@@ -32,6 +32,10 @@ class LocationController extends AbstractController
             return $this->json($locations, 200);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
             return $this->json(['message' => $e->getMessage()], 500);
         }
@@ -53,6 +57,8 @@ class LocationController extends AbstractController
             return $this->json(['message' => $e->getMessage()], 400);
         } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
             return $this->json(['message' => $e->getMessage()], 403);
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
             return $this->json(['message' => $e->getMessage()], 500);
         }
@@ -70,10 +76,12 @@ class LocationController extends AbstractController
         if (!is_array($payload)) $payload = [];
 
         try {
-            $created = $this->locationService->createLocation($payload, $user);
+            $created = $this->locationService->createLocation($payload);
             return $this->json($created, 201);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['message' => $e->getMessage()], 400);
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->json(['message' => $e->getMessage()], 403);
         } catch (\Throwable $e) {
             return $this->json(['message' => $e->getMessage()], 500);
         }

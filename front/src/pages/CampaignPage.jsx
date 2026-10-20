@@ -3,8 +3,8 @@ import { NavLink, Outlet, useParams, useLocation, useNavigate } from "react-rout
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import "../CSS/CampaignPage.css";
-import { AuthContext } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { AuthContext } from "../context/AuthContextObject";
+import { useNotification } from "../context/useNotification";
 import TrashPanel from "../components/TrashPanel";
 import { apiGetCampaign, apiDeleteCampaign, apiGetCampaignMembers, apiTransferCampaignMj } from "../api/api";
 import Dice3D from "../components/Dice3D.jsx";
@@ -43,7 +43,7 @@ export default function CampaignPage() {
         setCampaign((prev) => ({
           ...(prev || {}),
           ...fromShow,
-          role: prev?.role ?? fromShow?.role ?? null,
+          role: fromShow?.role ?? null,
         }));
       } catch (e) {
         if (e?.name === "AbortError") return;
@@ -144,7 +144,7 @@ export default function CampaignPage() {
     } finally {
       setTransferLoading(false);
     }
-  }, [token, id, isMjInThisCampaign, selectedUserId, members, transferLoading, t]);
+  }, [token, id, isMjInThisCampaign, selectedUserId, members, transferLoading, t, addNotification]);
 
   return (
     <main className="campaign">

@@ -1,10 +1,11 @@
 // src/pages/CharacterEditPage.jsx
-import { useEffect, useMemo, useState, useContext } from "react";
+import { useCallback, useEffect, useMemo, useState, useContext } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { API_URL } from "../config";
-import { AuthContext } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { AuthContext } from "../context/AuthContextObject";
+import { useNotification } from "../context/useNotification";
+import { buildCharacterUpdateFields } from "../characterUpdatePayload";
 import {
   apiGetAdminCharacter,
   apiUpdateCharacter,
@@ -24,12 +25,12 @@ function CharacterEditPage() {
 
   const assetBase = useMemo(() => API_URL.replace(/\/api\/?$/, ""), []);
 
-  const buildAssetUrl = (path) => {
+  const buildAssetUrl = useCallback((path) => {
     if (!path) return null;
     if (path.startsWith("http")) return path;
     if (path.startsWith("/")) return `${assetBase}${path}`;
     return `${assetBase}/${path}`;
-  };
+  }, [assetBase]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -239,7 +240,7 @@ function CharacterEditPage() {
     fetchCharacter();
 
     return () => controller.abort();
-  }, [id, token]);
+  }, [id, token, addNotification, buildAssetUrl, t]);
 
   useEffect(() => {
     if (!token || !campaignId) {
@@ -334,41 +335,8 @@ function CharacterEditPage() {
       }
 
       const fd = new FormData();
-
-      fd.append(
-        "nickname",
-        String(form.nickname).trim()
-      );
-
-      fd.append("firstname", form.firstname ?? "");
-      fd.append("lastname", form.lastname ?? "");
-      fd.append("age", String(form.age ?? ""));
-      fd.append("biography", form.biography ?? "");
-      fd.append("strengths", form.strengths ?? "");
-      fd.append("weaknesses", form.weaknesses ?? "");
-      fd.append("secret", form.secret ?? "");
-      fd.append("clan", form.clan ?? "");
-
-      fd.append(
-        "isPlayer",
-        form.isPlayer ? "true" : "false"
-      );
-
-      if (!form.isPlayer) {
-        fd.append("ownerUserId", "");
-      } else {
-        const current = String(form.ownerUserId || "");
-        const initial = String(initialOwnerUserId || "");
-
-        fd.append(
-          "ownerUserId",
-          !current
-            ? ""
-            : current !== initial
-            ? current
-            : ""
-        );
-      }
+      Object.entries(buildCharacterUpdateFields(form, initialOwnerUserId))
+        .forEach(([field, value]) => fd.append(field, value));
 
       if (avatarFile) {
         fd.append("avatar", avatarFile);
@@ -388,11 +356,12 @@ function CharacterEditPage() {
       );
 
       if (updated && typeof updated === "object") {
-        const newOwnerId = updated?.owner?.id
+        const hasOwnerResponse = Object.prototype.hasOwnProperty.call(updated, "owner");
+        const newOwnerId = updated?.owner?.id != null
           ? String(updated.owner.id)
           : "";
 
-        setInitialOwnerUserId(newOwnerId);
+        if (hasOwnerResponse) setInitialOwnerUserId(newOwnerId);
 
         setForm((p) => ({
           ...p,
@@ -412,8 +381,7 @@ function CharacterEditPage() {
             typeof updated?.isPlayer === "boolean"
               ? updated.isPlayer
               : p.isPlayer,
-          ownerUserId:
-            newOwnerId || p.ownerUserId,
+          ownerUserId: hasOwnerResponse ? newOwnerId : p.ownerUserId,
         }));
 
         setAvatarPreview(

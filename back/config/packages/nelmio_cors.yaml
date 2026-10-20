@@ -2,8 +2,8 @@ nelmio_cors:
   defaults:
     allow_credentials: false
     allow_origin:
-      - 'http://localhost:5173'
-      - 'http://127.0.0.1:5173'
+      - '%env(CORS_ALLOW_ORIGIN_REGEX)%'
+    origin_regex: true
     allow_headers:
       - 'Content-Type'
       - 'Authorization'
@@ -19,8 +19,8 @@ nelmio_cors:
   paths:
     '^/':
       allow_origin:
-        - 'http://localhost:5173'
-        - 'http://127.0.0.1:5173'
+        - '%env(CORS_ALLOW_ORIGIN_REGEX)%'
+      origin_regex: true
       allow_headers:
         - 'Content-Type'
         - 'Authorization'

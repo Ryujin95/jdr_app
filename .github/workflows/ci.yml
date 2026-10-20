@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          extensions: ctype, iconv, intl, mbstring, pdo_sqlite
+          coverage: none
+
+      - name: Validate Composer manifests
+        run: composer validate --no-check-publish
+
+      - name: Install locked PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate per-run application secret
+        shell: bash
+        run: echo "APP_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Verify test isolation
+        run: php tests/verify-isolation.php
+
+      - name: Lint Symfony test container
+        run: php bin/console lint:container --env=test
+
+      - name: Run PHPUnit
+        run: php vendor/bin/phpunit --configuration phpunit.dist.xml
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: node --test tests/*.test.js
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build

@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { saveRelationshipStars } from "../../../api/requestContracts";
 import {
   fetchKnown,          // MJ
   fetchKnownViewer,    // JOUEUR
@@ -12,6 +13,7 @@ export function useCharacterRelations(token, campaignId, isAdminOrOwner) {
   const [knownMap, setKnownMap] = useState({});
   const [candidateMap, setCandidateMap] = useState({});
   const [openPanelId, setOpenPanelId] = useState(null);
+  const pendingStars = useRef(new Set());
 
   const loadKnown = useCallback(
     async (fromId) => {
@@ -59,13 +61,19 @@ export function useCharacterRelations(token, campaignId, isAdminOrOwner) {
   const handleUpdateStars = useCallback(
     async (fromId, toId, stars) => {
       if (!isAdminOrOwner) return;
-      setKnownMap((prev) => ({
-        ...prev,
-        [fromId]: (prev[fromId] || []).map((k) =>
-          k.id === toId ? { ...k, relationshipStars: stars } : k
-        ),
-      }));
-      await updateRelationship(token, fromId, toId, stars, campaignId);
+      const key = `${fromId}:${toId}`;
+      if (pendingStars.current.has(key)) return;
+      pendingStars.current.add(key);
+      try {
+        await saveRelationshipStars({
+          send: () => updateRelationship(token, fromId, toId, stars, campaignId),
+          setKnownMap,
+          fromId,
+          toId,
+        });
+      } finally {
+        pendingStars.current.delete(key);
+      }
     },
     [token, campaignId, isAdminOrOwner]
   );

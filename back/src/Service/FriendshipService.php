@@ -28,17 +28,18 @@ class FriendshipService
 
     private function assertShareCampaign(User $a, User $b): void
     {
-        $count = $this->campaignMemberRepo->createQueryBuilder('m1')
-            ->select('COUNT(m1.id)')
+        $sharedMembership = $this->campaignMemberRepo->createQueryBuilder('m1')
+            ->select('m1.id')
             ->innerJoin('App\Entity\CampaignMember', 'm2', 'WITH', 'm1.campaign = m2.campaign')
             ->andWhere('m1.user = :a')
             ->andWhere('m2.user = :b')
             ->setParameter('a', $a)
             ->setParameter('b', $b)
+            ->setMaxResults(1)
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getOneOrNullResult();
 
-        if ((int) $count <= 0) {
+        if ($sharedMembership === null) {
             throw new AccessDeniedHttpException("Tu peux ajouter en ami seulement quelqu'un qui est dans au moins un même JDR.");
         }
     }
@@ -274,23 +275,17 @@ class FriendshipService
             ->addSelect('c.title AS name')
             ->addSelect('c.theme AS theme')
             ->addSelect('mF.role AS friendRole')
-            ->addSelect('COUNT(DISTINCT mAll.id) AS membersCount')
-            ->addSelect('COUNT(DISTINCT ch.id) AS charactersCount')
-            ->addSelect('COUNT(DISTINCT loc.id) AS locationsCount')
+            ->addSelect('(SELECT COUNT(DISTINCT mAll.id) FROM App\\Entity\\CampaignMember mAll WHERE mAll.campaign = c) AS membersCount')
+            ->addSelect('(SELECT COUNT(DISTINCT ch.id) FROM App\\Entity\\Character ch WHERE ch.campaign = c) AS charactersCount')
+            ->addSelect('(SELECT COUNT(DISTINCT loc.id) FROM App\\Entity\\Location loc WHERE loc.campaign = c) AS locationsCount')
             ->innerJoin('mF.campaign', 'c')
-            ->leftJoin('App\Entity\CampaignMember', 'mAll', 'WITH', 'mAll.campaign = c')
-            ->leftJoin('App\Entity\Character', 'ch', 'WITH', 'ch.campaign = c')
-            ->leftJoin('App\Entity\Location', 'loc', 'WITH', 'loc.campaign = c')
             ->andWhere('mF.user = :friend')
             ->setParameter('friend', $friend)
             ->groupBy('c.id, c.title, c.theme, mF.role');
 
         if ($visibility !== 'ALL_FRIENDS') {
-            $qb->innerJoin(
-                'App\Entity\CampaignMember',
-                'mV',
-                'WITH',
-                'mV.campaign = c AND mV.user = :viewer'
+            $qb->andWhere(
+                'EXISTS (SELECT mV.id FROM App\\Entity\\CampaignMember mV WHERE mV.campaign = c AND mV.user = :viewer)'
             )->setParameter('viewer', $viewer);
         }
 

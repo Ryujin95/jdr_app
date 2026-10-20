@@ -46,6 +46,19 @@ class CharacterRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** Deleted characters belonging to one campaign. */
+    public function findDeletedInCampaign(int $campaignId): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.deleted = :deleted')
+            ->andWhere('IDENTITY(c.campaign) = :campaignId')
+            ->setParameter('deleted', true)
+            ->setParameter('campaignId', $campaignId)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /**
      * Persos non supprimés dans un lieu donné
      */
@@ -63,19 +76,85 @@ class CharacterRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /**
-     * Le perso joueur actif lié à un user (1 seul perso par user)
-     */
-    public function findActivePlayerCharacterByOwner(User $owner): ?Character
+    /** Non-deleted characters visible in a specific campaign. */
+    public function findActiveInCampaign(int $campaignId): array
     {
         return $this->createQueryBuilder('c')
+            ->leftJoin('c.owner', 'o')->addSelect('o')
             ->andWhere('c.deleted = :deleted')
+            ->andWhere('IDENTITY(c.campaign) = :campaignId')
             ->setParameter('deleted', false)
+            ->setParameter('campaignId', $campaignId)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Non-deleted characters in a location and its campaign. */
+    public function findByLocationAndCampaignActive(int $locationId, int $campaignId): array
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.location', 'l')
+            ->leftJoin('c.owner', 'o')->addSelect('o')
+            ->andWhere('c.deleted = :deleted')
+            ->andWhere('l.id = :locationId')
+            ->andWhere('IDENTITY(c.campaign) = :campaignId')
+            ->setParameter('deleted', false)
+            ->setParameter('locationId', $locationId)
+            ->setParameter('campaignId', $campaignId)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @param list<int> $locationIds
+     *  @return list<Character>
+     */
+    public function findActiveByLocationIds(array $locationIds): array
+    {
+        $locationIds = array_values(array_unique(array_filter(
+            array_map('intval', $locationIds),
+            static fn (int $id): bool => $id > 0,
+        )));
+        if ($locationIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.location', 'location')->addSelect('location')
+            ->leftJoin('c.campaign', 'campaign')->addSelect('campaign')
+            ->leftJoin('location.campaign', 'locationCampaign')->addSelect('locationCampaign')
+            ->andWhere('c.deleted = :deleted')
+            ->andWhere('IDENTITY(c.location) IN (:locationIds)')
+            ->setParameter('deleted', false)
+            ->setParameter('locationIds', $locationIds)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** Returns an active player character owned by this user in this campaign. */
+    public function findActivePlayerCharacterByOwnerInCampaign(
+        User $owner,
+        int $campaignId,
+        ?Character $except = null,
+    ): ?Character {
+        $query = $this->createQueryBuilder('c')
+            ->andWhere('c.deleted = :deleted')
             ->andWhere('c.isPlayer = :isPlayer')
-            ->setParameter('isPlayer', true)
             ->andWhere('c.owner = :owner')
+            ->andWhere('IDENTITY(c.campaign) = :campaignId')
+            ->setParameter('deleted', false)
+            ->setParameter('isPlayer', true)
             ->setParameter('owner', $owner)
-            ->setMaxResults(1)
+            ->setParameter('campaignId', $campaignId);
+
+        if ($except?->getId() !== null) {
+            $query->andWhere('c.id != :exceptId')
+                ->setParameter('exceptId', $except->getId());
+        }
+
+        return $query->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
     }

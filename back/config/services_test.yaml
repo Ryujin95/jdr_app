@@ -1,0 +1,2 @@
+parameters:
+  app.storage_dir: '%env(resolve:APP_STORAGE_DIR)%'

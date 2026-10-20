@@ -1,7 +1,6 @@
 // front/src/context/NotificationContext.jsx
-import { createContext, useContext, useState, useCallback } from "react";
-
-export const NotificationContext = createContext(null);
+import { useState, useCallback } from "react";
+import { NotificationContext } from "./NotificationContextObject";
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
@@ -46,14 +45,4 @@ export function NotificationProvider({ children }) {
       {children}
     </NotificationContext.Provider>
   );
-}
-
-export function useNotification() {
-  const ctx = useContext(NotificationContext);
-  if (!ctx) {
-    throw new Error(
-      "useNotification doit être utilisé dans un <NotificationProvider>"
-    );
-  }
-  return ctx;
 }

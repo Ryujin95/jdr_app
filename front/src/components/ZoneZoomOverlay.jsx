@@ -43,7 +43,23 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
   const [viewportBox, setViewportBox] = useState({ w: 0, h: 0 });
   const [positions, setPositions] = useState({});
   const draggingRef = useRef(null);
-  const [zoomFactor, setZoomFactor] = useState(() => readSavedZoomFactor(zone?.id));
+  const zoneId = zone?.id;
+  const [zoomState, setZoomState] = useState(() => ({
+    zoneId,
+    value: readSavedZoomFactor(zoneId),
+  }));
+  const zoomFactor = zoomState.zoneId === zoneId
+    ? zoomState.value
+    : readSavedZoomFactor(zoneId);
+  const setZoomFactor = useCallback((update) => {
+    setZoomState((previous) => {
+      const current = previous.zoneId === zoneId
+        ? previous.value
+        : readSavedZoomFactor(zoneId);
+      const value = typeof update === "function" ? update(current) : update;
+      return { zoneId, value };
+    });
+  }, [zoneId]);
 
   const z = useMemo(() => ({
     top: toNum(zone?.topPercent ?? zone?.top_percent),
@@ -85,10 +101,6 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
       document.documentElement.style.overflow = prevHtml;
     };
   }, []);
-
-  useEffect(() => {
-    setZoomFactor(readSavedZoomFactor(zone?.id));
-  }, [zone?.id]);
 
   const computeCrop = useCallback(() => {
     const viewport = viewportRef.current;
@@ -157,16 +169,16 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
   }, [token, zone?.id]);
 
   const savePosition = useCallback(async (characterId, xPercent, yPercent) => {
-    if (!token || !zone?.id) return;
+    if (!token || !zoneId) return;
     const cid = Number(characterId);
     if (!Number.isFinite(cid)) return;
 
     const x = clamp(Number(xPercent), 0, 100);
     const y = clamp(Number(yPercent), 0, 100);
 
-    await apiSaveZoneCharacterPosition(token, zone.id, cid, x, y);
+    await apiSaveZoneCharacterPosition(token, zoneId, cid, x, y);
     setPositions((prev) => ({ ...prev, [String(cid)]: { xPercent: x, yPercent: y } }));
-  }, [token, zone?.id]);
+  }, [token, zoneId]);
 
   const percentToViewportPx = useCallback((xPercent, yPercent) => {
     if (!imgNatural || ![z.top, z.left, z.width, z.height].every((n) => Number.isFinite(n))) return { x: 0, y: 0 };
@@ -239,10 +251,10 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
     e.stopPropagation();
     setZoomFactor((prev) => {
       const next = clamp(Number(e.deltaY > 0 ? prev * 0.9 : prev * 1.1), 0.2, 3);
-      saveZoomFactor(zone?.id, next);
+      saveZoomFactor(zoneId, next);
       return next;
     });
-  }, [zone?.id]);
+  }, [zoneId, setZoomFactor]);
 
   const onViewportPointerUp = async () => {
     const d = draggingRef.current;
@@ -265,9 +277,12 @@ export default function ZoneZoomOverlay({ img, zone, resolveUrl, token, onClose 
   }, [zone?.id, zoomFactor, onClose]);
 
   useEffect(() => {
-    computeCrop();
+    const frame = window.requestAnimationFrame(computeCrop);
     window.addEventListener("resize", computeCrop);
-    return () => window.removeEventListener("resize", computeCrop);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", computeCrop);
+    };
   }, [computeCrop]);
 
   useEffect(() => {

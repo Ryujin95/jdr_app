@@ -3,7 +3,7 @@ import { useContext, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { API_URL } from "../config";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import defaultAvatar from "../assets/kenichi.png";
 import RightSidebar from "./RightSidebar.jsx";
 import "./HeaderFooter.css";

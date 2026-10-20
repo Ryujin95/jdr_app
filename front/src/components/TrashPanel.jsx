@@ -1,15 +1,20 @@
 // src/components/TrashPanel.jsx
 import { useContext, useEffect, useState, useCallback, useMemo } from "react";
-import { AuthContext } from "../context/AuthContext";
+import { AuthContext } from "../context/AuthContextObject";
 import { API_URL } from "../config";
-import "../CSS/TrashPanel.css";
+import "../CSS/Trashpanel.css";
+
+const campaignQuery = () => {
+  const campaignId = localStorage.getItem("activeCampaignId");
+  return campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : "";
+};
 
 function TrashPanel({ open, setOpen }) {
   const { token, user } = useContext(AuthContext);
 
   const hasGlobalRights = useMemo(() => {
     const roles = Array.isArray(user?.roles) ? user.roles : [];
-    return roles.includes("ROLE_ADMIN") || roles.includes("ROLE_MJ");
+    return roles.includes("ROLE_ADMIN");
   }, [user]);
 
   const hasCampaignRights = localStorage.getItem("activeCampaignRole") === "MJ";
@@ -28,7 +33,7 @@ function TrashPanel({ open, setOpen }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/trash`, {
+      const res = await fetch(`${API_URL}/trash${campaignQuery()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Erreur lors du chargement de la corbeille");
@@ -47,7 +52,7 @@ function TrashPanel({ open, setOpen }) {
   const handleRestore = async (type, id) => {
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/trash/restore/${type}/${id}`, {
+      const res = await fetch(`${API_URL}/trash/restore/${type}/${id}${campaignQuery()}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -63,7 +68,7 @@ function TrashPanel({ open, setOpen }) {
     if (!window.confirm("Supprimer définitivement cet élément ?")) return;
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/trash/force/${type}/${id}`, {
+      const res = await fetch(`${API_URL}/trash/force/${type}/${id}${campaignQuery()}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

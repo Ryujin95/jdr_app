@@ -97,7 +97,7 @@
     "confirm": "Confirm",
     "submit": "Change password",
     "success": "Password updated. Log in!",
-    "tooShort": "Password too short.",
+    "tooShort": "Password must contain at least 8 characters.",
     "mismatch": "Passwords do not match.",
     "missingToken": "Token missing from link.",
     "invalidToken": "Invalid or expired token.",

@@ -52,6 +52,10 @@ final class CharacterRelationshipController extends AbstractController
             return $this->json($items, 200);
         } catch (\InvalidArgumentException $e) {
             return $this->notFound($e->getMessage());
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
+            return $this->notFound($e->getMessage());
+        } catch (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e) {
+            return $this->forbidden($e->getMessage());
         } catch (AccessDeniedException $e) {
             return $this->forbidden($e->getMessage());
         } catch (\Throwable $e) {

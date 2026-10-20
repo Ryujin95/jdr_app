@@ -16,6 +16,7 @@ class ResetPasswordTokenService
         private EntityManagerInterface $em,
         private MailerInterface $mailer,
         private UserPasswordHasherInterface $passwordHasher,
+        private UserInputValidator $inputValidator,
         private LoggerInterface $logger,
         private string $fromEmail,
         private string $frontBaseUrl,
@@ -30,7 +31,7 @@ class ResetPasswordTokenService
             $from = 'JDR App <akkus.maxime@gmail.com>';
         }
 
-        $email = trim(mb_strtolower($email));
+        $email = $this->inputValidator->email($email);
 
         /** @var User|null $user */
         $user = $this->em->getRepository(User::class)->findOneBy(['email' => $email]);
@@ -58,25 +59,25 @@ class ResetPasswordTokenService
             );
 
         $this->mailer->send($mail);
-        $this->logger->info('Reset password email sent', ['to' => $user->getEmail()]);
+        $this->logger->info('Reset password email sent.');
     }
 
     public function getResetInfo(string $token): array
 {
     $token = trim($token);
     if ($token === '') {
-        throw new \RuntimeException('Token manquant.');
+        throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('Token manquant.');
     }
 
     /** @var User|null $user */
     $user = $this->em->getRepository(User::class)->findOneBy(['resetPasswordToken' => $token]);
     if (!$user) {
-        throw new \RuntimeException('Token invalide.');
+        throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Token invalide ou expiré.');
     }
 
     $expiresAt = $user->getResetPasswordTokenExpiresAt();
     if (!$expiresAt || $expiresAt < new \DateTimeImmutable()) {
-        throw new \RuntimeException('Token expiré.');
+        throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Token invalide ou expiré.');
     }
 
     return [
@@ -91,20 +92,21 @@ class ResetPasswordTokenService
     {
         $token = trim($token);
         if ($token === '') {
-            throw new \RuntimeException('Token manquant.');
+            throw new \Symfony\Component\HttpKernel\Exception\BadRequestHttpException('Token manquant.');
         }
 
         /** @var User|null $user */
         $user = $this->em->getRepository(User::class)->findOneBy(['resetPasswordToken' => $token]);
         if (!$user) {
-            throw new \RuntimeException('Token invalide.');
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Token invalide.');
         }
 
         $expiresAt = $user->getResetPasswordTokenExpiresAt();
         if (!$expiresAt || $expiresAt < new \DateTimeImmutable()) {
-            throw new \RuntimeException('Token expiré.');
+            throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('Token invalide ou expiré.');
         }
 
+        $plainPassword = $this->inputValidator->password($plainPassword);
         $hashed = $this->passwordHasher->hashPassword($user, $plainPassword);
         $user->setPassword($hashed);
 
