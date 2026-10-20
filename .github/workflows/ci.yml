@@ -11,6 +11,9 @@ jobs:
   backend:
     name: Backend checks
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      APP_DEBUG: '1'
     defaults:
       run:
         working-directory: back
@@ -26,15 +29,17 @@ jobs:
           extensions: ctype, iconv, intl, mbstring, pdo_sqlite
           coverage: none
 
+      - name: Prepare ephemeral Symfony environment
+        shell: bash
+        run: |
+          : > .env
+          echo "APP_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Validate Composer manifests
         run: composer validate --no-check-publish
 
       - name: Install locked PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Generate per-run application secret
-        shell: bash
-        run: echo "APP_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
 
       - name: Verify test isolation
         run: php tests/verify-isolation.php
