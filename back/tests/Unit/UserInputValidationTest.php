@@ -11,7 +11,7 @@ use App\Service\UserService;
 use App\Service\ResetPasswordTokenService;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ObjectRepository;
+use Doctrine\ORM\EntityRepository;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -132,7 +132,7 @@ final class UserInputValidationTest extends TestCase
             ->setPassword('old-hash')
             ->setResetPasswordToken('reset-token')
             ->setResetPasswordTokenExpiresAt(new \DateTimeImmutable('+10 minutes'));
-        $repository = $this->createMock(ObjectRepository::class);
+        $repository = $this->createMock(EntityRepository::class);
         $repository->method('findOneBy')->willReturn($user);
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $entityManager->method('getRepository')->with(User::class)->willReturn($repository);

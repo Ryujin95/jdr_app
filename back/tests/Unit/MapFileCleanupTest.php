@@ -51,7 +51,7 @@ final class MapFileCleanupTest extends TestCase
             $logger->expects(self::once())
                 ->method('error')
                 ->with(
-                    'Map was deleted from the database, but its image cleanup failed.',
+                    'Entity was deleted from the database, but its public image cleanup failed.',
                     ['imagePath' => '/uploads/maps/managed.png'],
                 );
             $service = new class extends ManagedMediaCleanupService {

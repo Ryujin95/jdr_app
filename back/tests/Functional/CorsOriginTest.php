@@ -27,6 +27,6 @@ final class CorsOriginTest extends WebTestCase
             'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'POST',
         ]);
 
-        self::assertResponseHasNoHeader('Access-Control-Allow-Origin');
+        self::assertFalse($client->getResponse()->headers->has('Access-Control-Allow-Origin'));
     }
 }

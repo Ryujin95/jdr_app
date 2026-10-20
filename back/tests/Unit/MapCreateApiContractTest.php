@@ -24,8 +24,8 @@ final class MapCreateApiContractTest extends TestCase
         try {
             $image = new UploadedFile($imagePath, 'campaign.png', 'image/png', null, true);
             $request = new Request(
-                ['campaignId' => '7', 'name' => 'North map'],
                 [],
+                ['campaignId' => '7', 'name' => 'North map'],
                 [],
                 [],
                 ['image' => $image],
@@ -51,7 +51,7 @@ final class MapCreateApiContractTest extends TestCase
             $this->configureAuthenticatedController($controller);
             $response = $controller->create($request);
 
-            self::assertSame(201, $response->getStatusCode());
+            self::assertSame(201, $response->getStatusCode(), $response->getContent());
             self::assertSame(
                 ['id' => 12, 'campaignId' => 7, 'name' => 'North map'],
                 json_decode($response->getContent(), true, flags: JSON_THROW_ON_ERROR),

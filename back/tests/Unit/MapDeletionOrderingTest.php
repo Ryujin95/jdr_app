@@ -49,6 +49,12 @@ final class MapDeletionOrderingTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())
             ->method('wrapInTransaction')
+            ->willReturnCallback(static function (callable $operation) use ($em): void {
+                $operation($em);
+            });
+        $em->expects(self::once())
+            ->method('remove')
+            ->with($map)
             ->willThrowException(new \RuntimeException('simulated SQL failure'));
 
         $cleanup = $this->createMock(ManagedMediaCleanupService::class);
