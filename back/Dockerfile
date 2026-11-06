@@ -4,8 +4,7 @@ FROM php:8.3-apache-bookworm
 
 ENV APP_ENV=prod \
     APP_DEBUG=0 \
-    PORT=10000 \
-    APP_RUNTIME_OPTIONS='{"disable_dotenv":true}'
+    PORT=10000
 
 RUN set -eux; \
     apt-get update; \
@@ -65,7 +64,7 @@ COPY docker-entrypoint.sh /usr/local/bin/storyforge-entrypoint
 # These placeholders exist only during image construction. They are not persisted
 # as runtime environment variables and must never be replaced with real secrets.
 ARG APP_SECRET=build-only-placeholder
-ARG DATABASE_URL=mysql://build:build@127.0.0.1:3306/build?serverVersion=mariadb-10.4.32
+ARG DATABASE_URL=mysql://build:build@127.0.0.1:1/build?serverVersion=mariadb-10.4.32
 ARG JWT_PASSPHRASE=build-only-placeholder
 ARG MAILER_DSN=null://null
 ARG MESSENGER_TRANSPORT_DSN=sync://
@@ -74,7 +73,8 @@ ARG FRONT_BASE_URL=https://example.invalid
 ARG CORS_ALLOW_ORIGIN_REGEX=^https?://localhost(:[0-9]+)?$
 ARG DEFAULT_URI=https://example.invalid
 
-RUN chmod 0755 /usr/local/bin/storyforge-entrypoint && \
+RUN : > .env && \
+    chmod 0755 /usr/local/bin/storyforge-entrypoint && \
     mkdir -p config/jwt public/avatars public/image public/uploads/maps public/video private-media var/cache var/log
 
 # Keep each critical step in its own layer so Render reports its exact failure.
