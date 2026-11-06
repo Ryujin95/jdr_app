@@ -72,7 +72,7 @@ RUN set -eux; \
         private-media \
         var/cache \
         var/log; \
-    composer dump-autoload --no-dev --classmap-authoritative --no-scripts; \
+    composer dump-autoload --no-dev --classmap-authoritative; \
     composer check-platform-reqs --no-dev; \
     export APP_ENV=prod APP_DEBUG=0 APP_SECRET=build-only-placeholder; \
     export DATABASE_URL='mysql://build:build@127.0.0.1:3306/build?serverVersion=mariadb-10.4.32'; \
