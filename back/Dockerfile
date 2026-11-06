@@ -4,7 +4,8 @@ FROM php:8.3-apache-bookworm
 
 ENV APP_ENV=prod \
     APP_DEBUG=0 \
-    PORT=10000
+    PORT=10000 \
+    APP_RUNTIME_OPTIONS='{"disable_dotenv":true}'
 
 RUN set -eux; \
     apt-get update; \
@@ -61,29 +62,30 @@ RUN COMPOSER_ALLOW_SUPERUSER=1 composer install \
 COPY . .
 COPY docker-entrypoint.sh /usr/local/bin/storyforge-entrypoint
 
-RUN set -eux; \
-    chmod 0755 /usr/local/bin/storyforge-entrypoint; \
-    mkdir -p \
-        config/jwt \
-        public/avatars \
-        public/image \
-        public/uploads/maps \
-        public/video \
-        private-media \
-        var/cache \
-        var/log; \
-    composer dump-autoload --no-dev --classmap-authoritative; \
-    composer check-platform-reqs --no-dev; \
-    export APP_ENV=prod APP_DEBUG=0 APP_SECRET=build-only-placeholder; \
-    export DATABASE_URL='mysql://build:build@127.0.0.1:3306/build?serverVersion=mariadb-10.4.32'; \
-    export JWT_PASSPHRASE=build-only-placeholder MAILER_DSN=null://null MESSENGER_TRANSPORT_DSN=sync://; \
-    export MAIL_FROM=build@example.invalid FRONT_BASE_URL=https://example.invalid; \
-    export CORS_ALLOW_ORIGIN_REGEX='^https?://localhost(:[0-9]+)?$' DEFAULT_URI=https://example.invalid; \
-    php bin/console cache:clear --env=prod --no-debug; \
-    php bin/console assets:install public --env=prod; \
-    php bin/console importmap:install --env=prod; \
-    php bin/console asset-map:compile --env=prod; \
-    chown -R www-data:www-data var public/avatars public/image public/uploads/maps public/video private-media
+# These placeholders exist only during image construction. They are not persisted
+# as runtime environment variables and must never be replaced with real secrets.
+ARG APP_SECRET=build-only-placeholder
+ARG DATABASE_URL=mysql://build:build@127.0.0.1:3306/build?serverVersion=mariadb-10.4.32
+ARG JWT_PASSPHRASE=build-only-placeholder
+ARG MAILER_DSN=null://null
+ARG MESSENGER_TRANSPORT_DSN=sync://
+ARG MAIL_FROM=build@example.invalid
+ARG FRONT_BASE_URL=https://example.invalid
+ARG CORS_ALLOW_ORIGIN_REGEX=^https?://localhost(:[0-9]+)?$
+ARG DEFAULT_URI=https://example.invalid
+
+RUN chmod 0755 /usr/local/bin/storyforge-entrypoint && \
+    mkdir -p config/jwt public/avatars public/image public/uploads/maps public/video private-media var/cache var/log
+
+# Keep each critical step in its own layer so Render reports its exact failure.
+RUN composer dump-autoload --no-dev --classmap-authoritative
+RUN composer check-platform-reqs --no-dev
+RUN php bin/console cache:clear --env=prod --no-debug
+RUN php bin/console assets:install public --env=prod
+RUN php bin/console importmap:install --env=prod
+RUN php bin/console asset-map:compile --env=prod
+
+RUN chown -R www-data:www-data var public/avatars public/image public/uploads/maps public/video private-media
 
 EXPOSE 10000
 
