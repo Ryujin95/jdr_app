@@ -61,17 +61,9 @@ RUN COMPOSER_ALLOW_SUPERUSER=1 composer install \
 COPY . .
 COPY docker-entrypoint.sh /usr/local/bin/storyforge-entrypoint
 
-# These placeholders exist only during image construction. They are not persisted
-# as runtime environment variables and must never be replaced with real secrets.
-ARG APP_SECRET=build-only-placeholder
-ARG DATABASE_URL=mysql://build:build@127.0.0.1:1/build?serverVersion=mariadb-10.4.32
-ARG JWT_PASSPHRASE=build-only-placeholder
-ARG MAILER_DSN=null://null
-ARG MESSENGER_TRANSPORT_DSN=sync://
-ARG MAIL_FROM=build@example.invalid
-ARG FRONT_BASE_URL=https://example.invalid
-ARG CORS_ALLOW_ORIGIN_REGEX=^https?://localhost(:[0-9]+)?$
-ARG DEFAULT_URI=https://example.invalid
+# Render exposes service environment variables as Docker build args. Do not
+# declare runtime variable names as ARG; the console commands below receive
+# only build-local placeholders, including a DB URL with a fixed server version.
 
 RUN : > .env && \
     chmod 0755 /usr/local/bin/storyforge-entrypoint && \
@@ -80,10 +72,46 @@ RUN : > .env && \
 # Keep each critical step in its own layer so Render reports its exact failure.
 RUN composer dump-autoload --no-dev --classmap-authoritative
 RUN composer check-platform-reqs --no-dev
-RUN php bin/console cache:clear --env=prod --no-debug
-RUN php bin/console assets:install public --env=prod
-RUN php bin/console importmap:install --env=prod
-RUN php bin/console asset-map:compile --env=prod
+RUN APP_SECRET=build-only-placeholder \
+    DATABASE_URL='mysql://build:build@127.0.0.1:1/build?serverVersion=mariadb-10.4.32' \
+    JWT_PASSPHRASE=build-only-placeholder \
+    MAILER_DSN=null://null \
+    MESSENGER_TRANSPORT_DSN=sync:// \
+    MAIL_FROM=build@example.invalid \
+    FRONT_BASE_URL=https://example.invalid \
+    CORS_ALLOW_ORIGIN_REGEX='^https?://localhost(:[0-9]+)?$' \
+    DEFAULT_URI=https://example.invalid \
+    php bin/console cache:clear --env=prod --no-debug
+RUN APP_SECRET=build-only-placeholder \
+    DATABASE_URL='mysql://build:build@127.0.0.1:1/build?serverVersion=mariadb-10.4.32' \
+    JWT_PASSPHRASE=build-only-placeholder \
+    MAILER_DSN=null://null \
+    MESSENGER_TRANSPORT_DSN=sync:// \
+    MAIL_FROM=build@example.invalid \
+    FRONT_BASE_URL=https://example.invalid \
+    CORS_ALLOW_ORIGIN_REGEX='^https?://localhost(:[0-9]+)?$' \
+    DEFAULT_URI=https://example.invalid \
+    php bin/console assets:install public --env=prod
+RUN APP_SECRET=build-only-placeholder \
+    DATABASE_URL='mysql://build:build@127.0.0.1:1/build?serverVersion=mariadb-10.4.32' \
+    JWT_PASSPHRASE=build-only-placeholder \
+    MAILER_DSN=null://null \
+    MESSENGER_TRANSPORT_DSN=sync:// \
+    MAIL_FROM=build@example.invalid \
+    FRONT_BASE_URL=https://example.invalid \
+    CORS_ALLOW_ORIGIN_REGEX='^https?://localhost(:[0-9]+)?$' \
+    DEFAULT_URI=https://example.invalid \
+    php bin/console importmap:install --env=prod
+RUN APP_SECRET=build-only-placeholder \
+    DATABASE_URL='mysql://build:build@127.0.0.1:1/build?serverVersion=mariadb-10.4.32' \
+    JWT_PASSPHRASE=build-only-placeholder \
+    MAILER_DSN=null://null \
+    MESSENGER_TRANSPORT_DSN=sync:// \
+    MAIL_FROM=build@example.invalid \
+    FRONT_BASE_URL=https://example.invalid \
+    CORS_ALLOW_ORIGIN_REGEX='^https?://localhost(:[0-9]+)?$' \
+    DEFAULT_URI=https://example.invalid \
+    php bin/console asset-map:compile --env=prod
 
 RUN chown -R www-data:www-data var public/avatars public/image public/uploads/maps public/video private-media
 
