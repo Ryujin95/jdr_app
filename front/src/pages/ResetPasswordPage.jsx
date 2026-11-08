@@ -6,6 +6,7 @@ import { API_URL } from "../config";
 import { AuthContext } from "../context/AuthContextObject";
 import { useNotification } from "../context/useNotification";
 import "../CSS/Login.css";
+import "../CSS/ResetPassword.css";
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -19,6 +20,8 @@ export default function ResetPasswordPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,7 +81,7 @@ export default function ResetPasswordPage() {
   if (loading) return <div className="login-container">{t("resetPassword.loading")}</div>;
 
   return (
-    <main className="login-container">
+    <main className="login-container reset-password-page">
       <h2 className="login-title">{t("resetPassword.title")}</h2>
 
       <form className="login-form" onSubmit={submit}>
@@ -90,22 +93,58 @@ export default function ResetPasswordPage() {
         />
 
         <label className="login-label">{t("resetPassword.newPassword")}</label>
-        <input
-          className="login-input"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <div className="password-wrapper">
+          <input
+            className="login-input"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <span
+            role="button"
+            tabIndex={0}
+            className="password-toggle"
+            onClick={() => setShowPassword((visible) => !visible)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setShowPassword((visible) => !visible);
+              }
+            }}
+            title={showPassword ? t("login.hidePassword") : t("login.showPassword")}
+            aria-label={t("login.showPassword")}
+          >
+            {showPassword ? "⚫" : "👁"}
+          </span>
+        </div>
 
         <label className="login-label">{t("resetPassword.confirm")}</label>
-        <input
-          className="login-input"
-          type="password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-        />
+        <div className="password-wrapper">
+          <input
+            className="login-input"
+            type={showConfirm ? "text" : "password"}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+          />
+          <span
+            role="button"
+            tabIndex={0}
+            className="password-toggle"
+            onClick={() => setShowConfirm((visible) => !visible)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setShowConfirm((visible) => !visible);
+              }
+            }}
+            title={showConfirm ? t("login.hidePassword") : t("login.showPassword")}
+            aria-label={t("login.showPassword")}
+          >
+            {showConfirm ? "⚫" : "👁"}
+          </span>
+        </div>
 
         <button type="submit" className="login-button">
           {t("resetPassword.submit")}
