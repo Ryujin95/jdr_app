@@ -25,7 +25,7 @@ RUN set -eux; \
         'max_execution_time=60' \
         'memory_limit=256M' \
         > /usr/local/etc/php/conf.d/storyforge.ini; \
-    a2enmod headers; \
+    a2enmod headers setenvif; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
@@ -36,6 +36,8 @@ RUN cat > /etc/apache2/sites-available/000-default.conf <<'APACHE'
 <VirtualHost *:80>
     ServerName localhost
     DocumentRoot /var/www/html/public
+
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 
     <Directory /var/www/html/public>
         Options -Indexes +FollowSymLinks
@@ -48,6 +50,8 @@ RUN cat > /etc/apache2/sites-available/000-default.conf <<'APACHE'
     CustomLog ${APACHE_LOG_DIR}/access.log combined
 </VirtualHost>
 APACHE
+
+RUN apache2ctl configtest
 
 COPY composer.json composer.lock symfony.lock ./
 RUN COMPOSER_ALLOW_SUPERUSER=1 composer install \
