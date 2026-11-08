@@ -1,4 +1,5 @@
 parameters:
+  app.empty_string: ''
   app.mail_from: '%env(string:MAIL_FROM)%'
   app.front_base_url: '%env(string:FRONT_BASE_URL)%'
   app.storage_dir: '%kernel.project_dir%'
@@ -20,6 +21,11 @@ services:
       $fromEmail: '%app.mail_from%'
       $frontBaseUrl: '%app.front_base_url%'
       $ttlMinutes: 240
+
+  App\Service\ResetPasswordEmailSender:
+    arguments:
+      $brevoApiKey: '%env(default:app.empty_string:BREVO_API_KEY)%'
+      $environment: '%kernel.environment%'
 
   App\Service\CharacterService:
     arguments:

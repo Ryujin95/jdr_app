@@ -6,7 +6,6 @@ namespace App\Service;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -14,7 +13,7 @@ class ResetPasswordTokenService
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private MailerInterface $mailer,
+        private ResetPasswordEmailSender $emailSender,
         private UserPasswordHasherInterface $passwordHasher,
         private UserInputValidator $inputValidator,
         private LoggerInterface $logger,
@@ -58,7 +57,7 @@ class ResetPasswordTokenService
                 . "Ce lien expire dans {$this->ttlMinutes} minutes."
             );
 
-        $this->mailer->send($mail);
+        $this->emailSender->send($mail);
         $this->logger->info('Reset password email sent.');
     }
 
